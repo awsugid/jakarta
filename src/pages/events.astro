@@ -1,0 +1,25 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { EventList } from "../components/EventList";
+import { getCollection } from "astro:content";
+
+const events = await getCollection("events");
+events.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+---
+
+<Layout title="Upcoming Events - AWS User Group Jakarta">
+    <div class="py-12 bg-muted/30">
+        <div class="container px-4 md:px-6">
+            <h1 class="text-4xl font-bold mb-4 tracking-tight">
+                Upcoming Events
+            </h1>
+            <p class="text-lg text-muted-foreground">
+                Stay updated with our latest meetups, workshops, and
+                conferences.
+            </p>
+        </div>
+    </div>
+    <div class="bg-background min-h-[50vh]">
+        <EventList client:load events={events} />
+    </div>
+</Layout>

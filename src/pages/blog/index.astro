@@ -1,0 +1,90 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+import {
+    Card,
+    CardContent,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, User } from "lucide-react";
+
+const posts = await getCollection("blog");
+posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+const title = "Blog - AWS User Group Jakarta";
+const description = "Insights, tutorials, and stories from our community.";
+---
+
+<Layout title={title} description={description}>
+    <div class="py-12 md:py-20 bg-muted/30">
+        <div class="container text-center">
+            <h1 class="text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
+                Community Blog
+            </h1>
+            <p class="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Discover the latest technical deep dives, success stories, and
+                updates from AWS User Group Jakarta.
+            </p>
+        </div>
+    </div>
+
+    <div class="container py-12">
+        <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {
+                posts.map((post) => (
+                    <a href={`/blog/${post.slug}`} class="group block h-full">
+                        <Card className="h-full flex flex-col border-border/50 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20 bg-card overflow-hidden">
+                            {post.data.image && (
+                                <div class="aspect-video w-full overflow-hidden relative">
+                                    <img
+                                        src={post.data.image}
+                                        alt={post.data.title}
+                                        class="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                    <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                                </div>
+                            )}
+
+                            <CardHeader className="space-y-2">
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                    {post.data.tags?.map((tag) => (
+                                        <Badge
+                                            variant="secondary"
+                                            className="text-xs"
+                                        >
+                                            {tag}
+                                        </Badge>
+                                    ))}
+                                </div>
+                                <CardTitle className="text-xl group-hover:text-primary transition-colors line-clamp-2">
+                                    {post.data.title}
+                                </CardTitle>
+                            </CardHeader>
+
+                            <CardContent className="flex-1">
+                                <CardDescription className="line-clamp-3">
+                                    {post.data.description}
+                                </CardDescription>
+                            </CardContent>
+
+                            <CardFooter className="pt-0 text-xs text-muted-foreground flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <User className="mr-1 h-3 w-3" />
+                                    {post.data.author}
+                                </div>
+                                <div class="flex items-center">
+                                    <Calendar className="mr-1 h-3 w-3" />
+                                    {post.data.pubDate.toLocaleDateString()}
+                                </div>
+                            </CardFooter>
+                        </Card>
+                    </a>
+                ))
+            }
+        </div>
+    </div>
+</Layout>

@@ -1,0 +1,136 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar, MapPin, ArrowLeft } from "lucide-react";
+
+export async function getStaticPaths() {
+    const events = await getCollection("events");
+    return events.map((event) => ({
+        params: { slug: event.slug },
+        props: { event },
+    }));
+}
+
+const { event } = Astro.props;
+const { Content } = await event.render();
+---
+
+<Layout title={`${event.data.title} - AWS User Group Jakarta`}>
+    <div class="container py-12 md:py-20 lg:py-24">
+        <Button
+            variant="ghost"
+            className="mb-8 pl-0 hover:pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground"
+            asChild
+        >
+            <a href="/events">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Events
+            </a>
+        </Button>
+
+        <div class="grid gap-12 lg:grid-cols-[2fr_1fr]">
+            <article>
+                <Badge
+                    className="mb-4 bg-primary text-black hover:bg-primary/90"
+                    >{event.data.type}</Badge
+                >
+                <h1
+                    class="text-4xl font-extrabold tracking-tight lg:text-5xl mb-6"
+                >
+                    {event.data.title}
+                </h1>
+
+                {
+                    event.data.image && (
+                        <div class="rounded-xl overflow-hidden mb-8 border border-border/50 aspect-video relative">
+                            <img
+                                src={event.data.image}
+                                alt={event.data.title}
+                                class="object-cover w-full h-full"
+                            />
+                        </div>
+                    )
+                }
+
+                <div
+                    class="prose prose-lg dark:prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-img:rounded-xl"
+                >
+                    <Content />
+                </div>
+            </article>
+
+            <aside class="space-y-8">
+                <div
+                    class="rounded-xl border bg-card text-card-foreground shadow p-6 sticky top-24"
+                >
+                    <h3 class="font-semibold text-xl mb-6">Event Details</h3>
+
+                    <div class="space-y-6">
+                        <div class="flex items-start">
+                            <Calendar
+                                className="mr-3 h-5 w-5 text-primary mt-0.5"
+                            />
+                            <div>
+                                <p
+                                    class="font-medium text-sm text-muted-foreground"
+                                >
+                                    Date
+                                </p>
+                                <p class="font-semibold">
+                                    {
+                                        event.data.date.toLocaleDateString(
+                                            "en-US",
+                                            {
+                                                weekday: "long",
+                                                year: "numeric",
+                                                month: "long",
+                                                day: "numeric",
+                                            },
+                                        )
+                                    }
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <MapPin
+                                className="mr-3 h-5 w-5 text-primary mt-0.5"
+                            />
+                            <div>
+                                <p
+                                    class="font-medium text-sm text-muted-foreground"
+                                >
+                                    Location
+                                </p>
+                                <p class="font-semibold">
+                                    {event.data.location}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {
+                        event.data.registrationUrl && (
+                            <div class="mt-8">
+                                <Button
+                                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold"
+                                    size="lg"
+                                    asChild
+                                >
+                                    <a
+                                        href={event.data.registrationUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Register Now
+                                    </a>
+                                </Button>
+                            </div>
+                        )
+                    }
+                </div>
+            </aside>
+        </div>
+    </div>
+</Layout>

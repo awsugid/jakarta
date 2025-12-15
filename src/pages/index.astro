@@ -6,7 +6,7 @@ import Layout from "../layouts/Layout.astro";
 
 import { Hero } from "../components/Hero";
 import { EventList } from "../components/EventList";
-import { Sponsors } from "../components/Sponsors";
+import { CommunityStats } from "../components/CommunityStats";
 import { getCollection } from "astro:content";
 
 const events = await getCollection("events");
@@ -19,5 +19,5 @@ const recentEvents = events
 <Layout title="AWS User Group Jakarta - Community Portal">
     <Hero client:load />
     <EventList client:visible events={recentEvents} />
-    <Sponsors client:visible />
+    <CommunityStats client:visible />
 </Layout>

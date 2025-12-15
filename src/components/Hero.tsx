@@ -28,7 +28,7 @@ export function Hero() {
                         size="lg"
                         className="h-12 px-8 text-base bg-primary hover:bg-primary/90 text-white shadow-lg shadow-orange-500/20"
                     >
-                        <a href="https://chat.whatsapp.com/C419AmS9nVQ2H4O9oQW8P9" target="_blank" rel="noopener noreferrer">
+                        <a href="https://www.meetup.com/aws-ug-jakarta" target="_blank" rel="noopener noreferrer">
                             <Users className="mr-2 h-5 w-5" />
                             Join Community
                         </a>

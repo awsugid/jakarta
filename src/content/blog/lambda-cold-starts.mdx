@@ -1,0 +1,23 @@
+---
+title: "AWS Lambda Cold Starts: Myths and Facts"
+description: "Debunking common misconceptions about Lambda cold starts and how to mitigate them."
+pubDate: 2024-07-22
+author: "Siti Rahma"
+image: "https://images.unsplash.com/photo-1623479322729-28b25c16b011?q=80&w=2000&auto=format&fit=crop"
+tags: ["Lambda", "Serverless", "Performance"]
+slug: "lambda-cold-starts"
+---
+
+# The Cold Start Problem
+
+Cold starts happen when a new execution environment is spun up to handle a request.
+
+## Valid Strategies
+
+1. **SnapStart** for Java
+2. **Provisioned Concurrency**
+3. **Lighter Runtimes** (Node.js, Python, Rust)
+
+## What Doesn't Work
+
+Calling your function every minute is not a scalable solution.

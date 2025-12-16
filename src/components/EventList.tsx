@@ -18,26 +18,29 @@ interface Event {
 
 interface EventListProps {
     events: Event[];
+    hideHeader?: boolean;
 }
 
-export function EventList({ events }: EventListProps) {
+export function EventList({ events, hideHeader = false }: EventListProps) {
     return (
-        <section className="py-24 bg-muted/30" id="events">
-            <div className="container mx-auto px-4 md:px-6">
-                <div className="flex flex-col items-center justify-between gap-4 md:flex-row mb-12">
-                    <div className="text-center md:text-left">
-                        <h2 className="text-3xl font-bold tracking-tight lg:text-4xl text-foreground">Upcoming Events</h2>
-                        <p className="text-muted-foreground mt-2 text-lg">
-                            Check out what's happening next in our community.
-                        </p>
+        <section className={hideHeader ? "" : "py-24 bg-muted/30"} id="events">
+            <div className={hideHeader ? "container mx-auto max-w-7xl px-4 md:px-6 py-12" : "container mx-auto px-4 md:px-6"}>
+                {!hideHeader && (
+                    <div className="flex flex-col items-center justify-between gap-4 md:flex-row mb-12">
+                        <div className="text-center md:text-left">
+                            <h2 className="text-3xl font-bold tracking-tight lg:text-4xl text-foreground">Upcoming Events</h2>
+                            <p className="text-muted-foreground mt-2 text-lg">
+                                Check out what's happening next in our community.
+                            </p>
+                        </div>
+                        <Button variant="ghost" className="hidden md:inline-flex text-primary hover:text-primary/80" asChild>
+                            <a href="/events">
+                                View all events
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                            </a>
+                        </Button>
                     </div>
-                    <Button variant="ghost" className="hidden md:inline-flex text-primary hover:text-primary/80" asChild>
-                        <a href="/events">
-                            View all events
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                        </a>
-                    </Button>
-                </div>
+                )}
 
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                     {events.map((event) => (
@@ -82,13 +85,15 @@ export function EventList({ events }: EventListProps) {
                     ))}
                 </div>
 
-                <div className="mt-10 text-center md:hidden">
-                    <Button variant="link" className="text-primary" asChild>
-                        <a href="/events">
-                            View all events <ArrowRight className="ml-2 h-4 w-4" />
-                        </a>
-                    </Button>
-                </div>
+                {!hideHeader && (
+                    <div className="mt-10 text-center md:hidden">
+                        <Button variant="link" className="text-primary" asChild>
+                            <a href="/events">
+                                View all events <ArrowRight className="ml-2 h-4 w-4" />
+                            </a>
+                        </Button>
+                    </div>
+                )}
             </div>
         </section>
     );

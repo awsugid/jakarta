@@ -1,0 +1,24 @@
+---
+title: "Understanding DynamoDB Single Table Design"
+description: "A deep dive into the philosophy and patterns of single-table design in Amazon DynamoDB."
+pubDate: 2024-06-10
+author: "Budi Santoso"
+image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=2000&auto=format&fit=crop"
+tags: ["DynamoDB", "Database", "NoSQL"]
+slug: "dynamodb-single-table-design"
+---
+
+# Why Single Table Design?
+
+DynamoDB is a key-value and document database that delivers single-digit millisecond performance at any scale. But to truly leverage its power, you often need to rethink data modeling...
+
+## Access Patterns First
+
+Unlike relational databases where you model data first, in DynamoDB you model queries first.
+
+- **PK**: Partition Key
+- **SK**: Sort Key
+
+## Conclusion
+
+It's not for every use case, but when it clicks, it's powerful.

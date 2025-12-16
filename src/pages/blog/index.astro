@@ -21,7 +21,7 @@ const description = "Insights, tutorials, and stories from our community.";
 
 <Layout title={title} description={description}>
     <div class="py-12 md:py-20 bg-muted/30">
-        <div class="container text-center">
+        <div class="container mx-auto max-w-7xl text-center">
             <h1 class="text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
                 Community Blog
             </h1>
@@ -32,7 +32,7 @@ const description = "Insights, tutorials, and stories from our community.";
         </div>
     </div>
 
-    <div class="container py-12">
+    <div class="container mx-auto max-w-7xl py-12 px-4 md:px-6">
         <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {
                 posts.map((post) => (

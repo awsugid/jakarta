@@ -1,0 +1,89 @@
+---
+title: "How to Contribute to this Blog"
+pubDate: 2025-11-21
+description: "A complete guide on how to write articles using MDX and submit them via Pull Request."
+author: "Avei"
+tags: ["guide", "tutorial", "open-source"]
+slug: "how-to-contribute"
+---
+
+import DemoCounter from '../../components/blog/DemoCounter';
+
+# Contributing to the AWS User Group Jakarta Blog
+
+We welcome contributions from the community! Whether you want to share a technical tutorial, an event recap, or your experience with AWS, this blog is the place for it.
+
+This website is built with **Astro** and uses **MDX** for content. This means you can write standard Markdown but also embed interactive React components directly in your posts.
+
+## Step-by-Step Guide
+
+### 1. Fork and Clone
+First, fork the repository on GitHub [here](https://github.com/awsugid/jakarta.git) and clone it to your local machine.
+
+```bash
+git clone https://github.com/YOUR_USERNAME/jakarta.git
+cd jakarta
+```
+
+### 2. Create a Branch
+Create a new branch for your article.
+
+```bash
+git checkout -b blog/my-awesome-article
+```
+
+### 3. Create Your Post
+Create a new file in `src/content/blog/` with a `.mdx` extension. The filename will become the URL slug (e.g., `my-awesome-article.mdx` becomes `/blog/my-awesome-article`).
+
+### 4. Add Frontmatter
+Every post needs a "frontmatter" block at the top to define metadata.
+
+```yaml
+---
+title: "My Awesome Article"
+pubDate: 2025-11-21
+description: "A short summary of what this article is about."
+author: "Your Name"
+tags: ["aws", "serverless", "tutorial"]
+slug: "my-awesome-article"
+---
+```
+
+### 5. Write Content
+You can use standard Markdown syntax for headers, lists, links, and code blocks.
+
+#### Code Blocks
+```python
+def hello_world():
+    print("Hello AWS Community!")
+```
+
+#### Lists
+- Point 1
+- Point 2
+  - Sub-point
+
+### 6. Using MDX Components (Advanced)
+One of the coolest features of this blog is MDX. You can import and use React components!
+
+For example, here is a live interactive counter component embedded right here in this article:
+
+<DemoCounter client:load />
+
+To do this, simply import the component at the top of your file (after the frontmatter):
+
+```mdx
+import DemoCounter from '../../components/blog/DemoCounter';
+
+<DemoCounter client:load />
+```
+
+### 7. Submit a Pull Request
+Once you are happy with your post:
+1. Commit your changes.
+2. Push to your fork.
+3. Open a Pull Request (PR) to the main repository.
+
+Our team will review your submission, and once approved, it will be live on the site!
+
+Happy writing! 🚀

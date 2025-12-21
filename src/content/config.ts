@@ -10,6 +10,9 @@ const events = defineCollection({
         description: z.string(),
         image: z.string().optional(),
         registrationUrl: z.string().url().optional(),
+        pretixUrl: z.string().url().optional(),
+        pretixSubevent: z.string().optional(),
+        pretixListType: z.enum(['list', 'calendar', 'week']).optional(),
     }),
 });
 

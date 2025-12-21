@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 
+declare global {
+  interface Window {
+    PretixWidget?: {
+      buildWidgets: () => void;
+    };
+  }
+}
+
 // TypeScript declaration for the pretix-widget custom element
 declare module "react" {
   namespace JSX {
@@ -203,7 +211,7 @@ export function PretixWidget({
   eventUrl,
   subevent,
   listType,
-  skipSslCheck = true,
+  skipSslCheck = false,
   disableIframe = false,
   className = "",
 }: PretixWidgetProps) {
@@ -309,6 +317,16 @@ export function PretixWidget({
     };
   }, [state.resourcesLoaded, state.hasError]);
 
+  // Trigger Pretix widget initialization after resources load
+  useEffect(() => {
+    if (state.resourcesLoaded && containerRef.current) {
+      // Trigger Pretix widget initialization
+      if (window.PretixWidget) {
+        window.PretixWidget.buildWidgets();
+      }
+    }
+  }, [state.resourcesLoaded]);
+
   // Error state display with fallback link
   if (state.hasError) {
     return (
@@ -363,10 +381,10 @@ export function PretixWidget({
       {/* Pretix widget custom element with proper attributes */}
       <pretix-widget
         event={eventUrl}
-        {...(subevent && { subevent })}
-        {...(listType && { "list-type": listType })}
-        {...(skipSslCheck && { "skip-ssl-check": "true" })}
-        {...(disableIframe && { "disable-iframe": "true" })}
+        subevent={subevent || ""}
+        list-type={listType || "list"}
+        skip-ssl-check={skipSslCheck ? "true" : "false"}
+        disable-iframe={disableIframe ? "true" : "false"}
       />
 
       {/* Fallback content for browsers with JavaScript disabled */}

@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: hsl(0 0% 100%);
+    --background: #1B1827;
     --foreground: hsl(222.2 84% 4.9%);
     --card: hsl(0 0% 100%);
     --card-foreground: hsl(222.2 84% 4.9%);
@@ -34,8 +34,8 @@
   }
 
   .dark {
-    --background: hsl(213 28% 19%);
-    /* #232F3E - AWS Squid Ink background */
+    --background: #1B1827;
+    /* #1B1827 - Custom dark background */
     --foreground: hsl(210 40% 98%);
     --card: hsl(222 27% 22%);
     --card-foreground: hsl(210 40% 98%);

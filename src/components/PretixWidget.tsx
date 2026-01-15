@@ -211,8 +211,8 @@ export function PretixWidget({
   eventUrl,
   subevent,
   listType,
-  skipSslCheck = false,
-  disableIframe = false,
+  skipSslCheck = import.meta.env.DEV,
+  disableIframe = false, // disable-iframe should be false by default to allow overlay
   className = "",
 }: PretixWidgetProps) {
   // Component state management
@@ -383,8 +383,8 @@ export function PretixWidget({
         event={eventUrl}
         subevent={subevent || ""}
         list-type={listType || "list"}
-        skip-ssl-check={skipSslCheck ? "true" : "false"}
-        disable-iframe={disableIframe ? "true" : "false"}
+        skip-ssl-check={skipSslCheck ? "" : undefined}
+        disable-iframe={disableIframe ? "" : undefined}
       />
 
       {/* Fallback content for browsers with JavaScript disabled */}

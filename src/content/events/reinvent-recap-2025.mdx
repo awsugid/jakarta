@@ -7,7 +7,10 @@ description: "Join us for an exclusive recap of AWS re:Invent 2025, featuring th
 image: "/assets/events/reinvent-recap-2025/header.png"
 pretixUrl: "https://gultix.awscommunity.id/AWSUserGroupJakarta/reInvent-reCap25/"
 slug: "reinvent-recap-2025"
+eventDate: "2026-01-31"
 ---
+
+import { ScheduleTable } from '@/components/ScheduleTable';
 
 # AWS re:Invent re:Cap 2025
 
@@ -21,20 +24,33 @@ Join the AWS User Group Jakarta for an exclusive recap of AWS re:Invent 2025! Th
 
 ## Event Schedule
 
-| Start | Finish | Duration | Agenda | Speaker |
-|-------|--------|----------|--------|-------------|
-| 8:45 | 9:30 | 0:45 | Registration | |
-| 9:30 | 9:40 | 0:10 | Opening, Documentation | |
-| 9:40 | 9:45 | 0:05 | Welcoming Speech - AWS User Group Jakarta | |
-| 9:45 | 9:50 | 0:05 | Welcoming Speech - Binus |  |
-| 9:50 | 10:35 | 0:45 | re:Invent 2025 Announcements - Compute & Containers | Eryan Ariobowo, Solutions Architect at AWS |
-| 10:35 | 11:20 | 0:45 | Supercharge Infrastructure Code with Kiro Powers | Luthfi Anandra, Site Reliability Engineer at Accelbyte |
-| 11:20 | 12:05 | 0:45 | Building AI-Ready Cloud Systems with AWS: From Technology to Career Impact | Ivan Sebastian Edbert S.Kom, M.Kom., Head of Artificial Intelligence Program at BINUS University |
-| 12:05 | 13:05 | 1:00 | Break and Networking | |
-| 13:05 | 13:50 | 0:45 | Interesting re:Invent Topics for Devs! | Bervianto Leo Pratama, Software Engineer at Mitrais & AWS Community Builder |
-| 13:05 | 13:50 | 0:45 | Prompt Engineering as Code for Production Ready AI Agents | Afif Akbar Iskandar, AI/ML Enthusiast at NgodingAI |
-| 13:50 | 14:00 | 0:10 | Closing, Feedback Form | MC |
-| 14:00 | 14:45 | 0:45 | Networking | |
+<ScheduleTable 
+  eventDate="2026-01-31"
+  timezone="Asia/Jakarta"
+  showDuration={true}
+  primaryColumn="agenda"
+  columns={[
+    { key: 'start', label: 'Start' },
+    { key: 'finish', label: 'Finish' },
+    { key: 'agenda', label: 'Agenda' },
+    { key: 'speaker', label: 'Speaker' }
+  ]}
+  items={[
+    { start: "8:45", finish: "9:30", agenda: "Registration", speaker: "" },
+    { start: "9:30", finish: "9:40", agenda: "Opening, Documentation", speaker: "" },
+    { start: "9:40", finish: "9:45", agenda: "Welcoming Speech - AWS User Group Jakarta", speaker: "" },
+    { start: "9:45", finish: "9:50", agenda: "Welcoming Speech - Binus", speaker: "" },
+    { start: "9:50", finish: "10:35", agenda: "re:Invent 2025 Announcements - Compute & Containers", speaker: "[**Eryan Ariobowo**](https://www.linkedin.com/in/eryan12/), Solutions Architect at AWS" },
+    { start: "10:35", finish: "11:20", agenda: "Supercharge Infrastructure Code with Kiro Powers", speaker: "[**Luthfi Anandra**](https://www.linkedin.com/in/luthfi-anandra/), Site Reliability Engineer at Accelbyte" },
+    { start: "11:20", finish: "12:05", agenda: "Building AI-Ready Cloud Systems with AWS: From Technology to Career Impact", speaker: "[**Ivan Sebastian Edbert S.Kom, M.Kom.**](https://www.linkedin.com/in/ivan-sebastian-edbert-0846b8184/), Head of Artificial Intelligence Program at BINUS University" },
+    { start: "12:05", finish: "13:05", agenda: "Break and Networking", speaker: "" },
+    { start: "13:05", finish: "13:50", agenda: "Interesting re:Invent Topics for Devs!", speaker: "[**Bervianto Leo Pratama**](https://www.linkedin.com/in/bervianto-leo-pratama/), Software Engineer at Mitrais & AWS Community Builder" },
+    { start: "13:05", finish: "13:50", agenda: "Prompt Engineering as Code for Production Ready AI Agents", speaker: "[**Afif Akbar Iskandar**](https://www.linkedin.com/in/afifai/), AI/ML Enthusiast at NgodingAI" },
+    { start: "13:50", finish: "14:00", agenda: "Closing, Feedback Form", speaker: "" },
+    { start: "14:00", finish: "14:45", agenda: "Networking", speaker: "" }
+  ]}
+  client:load
+/>
 ## What to Expect
 
 - **Expert Insights:** Learn directly from AWS experts and community builders about the latest cloud innovations

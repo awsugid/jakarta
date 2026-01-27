@@ -1,13 +1,12 @@
 ---
 import Layout from "../layouts/Layout.astro";
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
-
 import { Hero } from "../components/Hero";
 import { EventList } from "../components/EventList";
 import { CommunityStats } from "../components/CommunityStats";
+import { StatisticsCharts } from "../components/StatisticsCharts";
 import { getCollection } from "astro:content";
+import statisticsData from "../../public/data/statistic.json";
 
 const events = await getCollection("events");
 // Get only upcoming or recent events (top 3)
@@ -19,5 +18,6 @@ const recentEvents = events
 <Layout title="AWS User Group Jakarta - Community Portal">
     <Hero client:load />
     <EventList client:visible events={recentEvents} />
+    <StatisticsCharts client:visible data={statisticsData} />
     <CommunityStats client:visible />
 </Layout>

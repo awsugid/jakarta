@@ -1,22 +1,24 @@
-import type { APIRoute } from "astro";
+interface Env {
+  BILLIONMAIL_API_URL: string;
+  BILLIONMAIL_API_KEY: string;
+  BILLIONMAIL_SPEAKERS_GROUP_ID: string;
+  BILLIONMAIL_VOLUNTEERS_GROUP_ID: string;
+}
 
-export const prerender = false;
+export const onRequestPost: PagesFunction<Env> = async (context) => {
+  const { request, env } = context;
 
-const BILLIONMAIL_API_URL =
-  import.meta.env.BILLIONMAIL_API_URL || "https://mail.awscommunity.id";
-const BILLIONMAIL_API_KEY = import.meta.env.BILLIONMAIL_API_KEY?.trim();
+  const BILLIONMAIL_API_URL =
+    env.BILLIONMAIL_API_URL || "https://mail.awscommunity.id";
+  const BILLIONMAIL_API_KEY = env.BILLIONMAIL_API_KEY?.trim();
 
-// Group IDs from BillionMail dashboard
-// Volunteer: ID 1 | Speaker: ID 2
-const GROUP_IDS: Record<string, number> = {
-  speakers: parseInt(import.meta.env.BILLIONMAIL_SPEAKERS_GROUP_ID || "2", 10),
-  volunteers: parseInt(
-    import.meta.env.BILLIONMAIL_VOLUNTEERS_GROUP_ID || "1",
-    10,
-  ),
-};
+  // Group IDs from BillionMail dashboard
+  // Volunteer: ID 1 | Speaker: ID 2
+  const GROUP_IDS: Record<string, number> = {
+    speakers: parseInt(env.BILLIONMAIL_SPEAKERS_GROUP_ID || "2", 10),
+    volunteers: parseInt(env.BILLIONMAIL_VOLUNTEERS_GROUP_ID || "1", 10),
+  };
 
-export const POST: APIRoute = async ({ request }) => {
   if (!BILLIONMAIL_API_KEY) {
     return new Response(
       JSON.stringify({
@@ -29,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { email, type } = body;
+    const { email, type } = body as { email: string; type: string };
 
     if (!email || !type) {
       return new Response(
@@ -54,11 +56,7 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    console.log("[subscribe] Request:", {
-      email,
-      type: normalizedType,
-      groupId,
-    });
+    console.log("[subscribe] Request:", { email, type: normalizedType, groupId });
     console.log(
       "[subscribe] Auth token prefix:",
       BILLIONMAIL_API_KEY?.substring(0, 30),
@@ -84,7 +82,7 @@ export const POST: APIRoute = async ({ request }) => {
       },
     );
 
-    const data = await response.json();
+    const data = await response.json() as { success: boolean; msg?: string };
     console.log("[subscribe] BillionMail response:", response.status, data);
 
     if (data.success) {

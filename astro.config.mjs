@@ -5,11 +5,11 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
 import mdx from "@astrojs/mdx";
-import node from "@astrojs/node";
+import cloudflare from "@astrojs/cloudflare";
 
 // https://astro.build/config
 export default defineConfig({
-  adapter: node({ mode: "middleware" }),
+  adapter: cloudflare(),
   integrations: [react(), mdx()],
 
   vite: {

@@ -36,7 +36,7 @@ const description = "Insights, tutorials, and stories from our community.";
         <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {
                 posts.map((post) => (
-                    <a href={`/blog/${post.slug}`} class="group block h-full">
+                    <a href={`/blog/${post.id}`} class="group block h-full">
                         <Card className="h-full flex flex-col border-border/50 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20 bg-card overflow-hidden">
                             {post.data.image && (
                                 <div class="aspect-video w-full overflow-hidden relative">

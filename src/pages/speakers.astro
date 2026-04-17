@@ -1,0 +1,12 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { SpeakerHero } from "../components/speakers/SpeakerHero";
+import { SpeakerBenefits } from "../components/speakers/SpeakerBenefits";
+import { SpeakerNotify } from "../components/speakers/CFPForm";
+---
+
+<Layout title="Call for Speakers — AWS User Group Jakarta">
+    <SpeakerHero client:load />
+    <SpeakerBenefits client:visible />
+    <SpeakerNotify client:visible />
+</Layout>

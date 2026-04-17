@@ -1,0 +1,12 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { VolunteerHero } from "../components/volunteer/VolunteerHero";
+import { VolunteerRoles } from "../components/volunteer/VolunteerRoles";
+import { VolunteerNotify } from "../components/volunteer/VolunteerNotify";
+---
+
+<Layout title="Volunteer — AWS User Group Jakarta">
+    <VolunteerHero client:load />
+    <VolunteerRoles client:visible />
+    <VolunteerNotify client:visible />
+</Layout>

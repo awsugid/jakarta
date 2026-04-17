@@ -1,0 +1,14 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { SponsorHero } from "../components/sponsor/SponsorHero";
+import { SponsorTiers } from "../components/sponsor/SponsorTiers";
+import { SponsorBenefits } from "../components/sponsor/SponsorBenefits";
+import { SponsorCTA } from "../components/sponsor/SponsorCTA";
+---
+
+<Layout title="Sponsorship & Collaboration — AWS User Group Jakarta">
+    <SponsorHero client:load />
+    <SponsorTiers client:visible />
+    <SponsorBenefits client:visible />
+    <SponsorCTA client:visible />
+</Layout>

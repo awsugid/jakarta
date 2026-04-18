@@ -44,11 +44,11 @@ export function VolunteerNotify() {
                                 <span className="text-sm font-semibold text-primary uppercase tracking-wider">Stay Updated</span>
                             </div>
                             <h3 className="text-3xl font-bold text-foreground">
-                                Get Notified When We're Hiring
+                                Subscribe to Volunteer Announcements
                             </h3>
                             <p className="text-muted-foreground text-lg leading-relaxed">
-                                Volunteer recruitment isn't open right now, but we'd love to hear from you.
-                                Register your email and we'll notify you as soon as positions become available.
+                                Join our volunteer mailing list and we'll let you know the moment
+                                applications open — including which roles and how many slots are available.
                             </p>
                         </div>
 

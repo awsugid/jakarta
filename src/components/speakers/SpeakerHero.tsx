@@ -8,8 +8,8 @@ export function SpeakerHero() {
             <div className="container mx-auto relative z-10 flex flex-col items-center text-center px-4 md:px-6">
                 <div className="animate-in fade-in slide-in-from-bottom-5 duration-700 ease-out">
                     <Badge variant="outline" className="mb-6 py-1.5 px-4 text-sm backdrop-blur-sm bg-background/50 border-muted-foreground/20">
-                        <span className="flex h-2 w-2 rounded-full bg-yellow-500 mr-2 animate-pulse"></span>
-                        Call for Speakers Currently Closed
+                        <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse"></span>
+                        Subscribe for Speaker Announcements
                     </Badge>
                 </div>
 
@@ -24,7 +24,7 @@ export function SpeakerHero() {
 
                 <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
                     <Mic className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">Register your email below to get notified when CFP opens</span>
+                    <span className="text-sm font-medium">Join our speaker subscription list to be notified the moment CFP opens</span>
                 </div>
             </div>
 

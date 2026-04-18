@@ -1,15 +1,30 @@
 import React from 'react';
-import { Presentation, Clock, Layers, Users, Video, Globe } from 'lucide-react';
+import { Presentation, Clock, Layers, Users, Video, Globe, CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const talkFormats = [
+// Customize each talk format below:
+// - `isOpen`: set to true when CFP is actively accepting submissions for this format
+// - `slotsNeeded`: number of speaker slots currently available (0 = not hiring)
+type TalkFormat = {
+    icon: React.ComponentType<{ className?: string }>;
+    name: string;
+    duration: string;
+    description: string;
+    skills: string[];
+    isOpen: boolean;
+    slotsNeeded: number;
+};
+
+const talkFormats: TalkFormat[] = [
     {
         icon: Presentation,
         name: "Standard Talk",
         duration: "30-45 minutes",
         description: "Present a topic in depth to an audience of 100-200 AWS enthusiasts. Ideal for technical deep dives, architecture reviews, or case studies.",
         skills: ["Technical Expertise", "Slide Design", "Q&A"],
+        isOpen: false,
+        slotsNeeded: 0,
     },
     {
         icon: Clock,
@@ -17,6 +32,8 @@ const talkFormats = [
         duration: "10-15 minutes",
         description: "Quick, focused presentations perfect for sharing tips, tools, lessons learned, or introducing a new AWS service.",
         skills: ["Conciseness", "Storytelling", "Impact"],
+        isOpen: false,
+        slotsNeeded: 0,
     },
     {
         icon: Layers,
@@ -24,6 +41,8 @@ const talkFormats = [
         duration: "60-90 minutes",
         description: "Interactive sessions where attendees follow along with live demos or exercises. Great for tutorials and guided labs.",
         skills: ["Preparation", "Live Demo", "Mentoring"],
+        isOpen: false,
+        slotsNeeded: 0,
     },
     {
         icon: Users,
@@ -31,6 +50,8 @@ const talkFormats = [
         duration: "45-60 minutes",
         description: "Join a panel of experts to discuss trending topics, share perspectives, and answer audience questions in a conversational format.",
         skills: ["Domain Knowledge", "Communication", "Collaboration"],
+        isOpen: false,
+        slotsNeeded: 0,
     },
     {
         icon: Video,
@@ -38,6 +59,8 @@ const talkFormats = [
         duration: "Flexible",
         description: "Can't make it in person? We regularly host hybrid and virtual meetups. Present from anywhere and reach our entire community online.",
         skills: ["Virtual Setup", "Engagement", "Adaptability"],
+        isOpen: false,
+        slotsNeeded: 0,
     },
     {
         icon: Globe,
@@ -45,6 +68,8 @@ const talkFormats = [
         duration: "30-45 minutes",
         description: "Take the main stage at our larger community day events. These are flagship sessions with broader reach and higher visibility.",
         skills: ["Stage Presence", "Thought Leadership", "Inspiration"],
+        isOpen: false,
+        slotsNeeded: 0,
     },
 ];
 
@@ -80,6 +105,24 @@ export function SpeakerBenefits() {
                                 <CardTitle className="text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors duration-200">
                                     {format.name}
                                 </CardTitle>
+                                <div className="flex flex-wrap items-center gap-2 pt-1">
+                                    {format.isOpen ? (
+                                        <Badge className="text-xs bg-green-500/10 text-green-600 border border-green-500/20 hover:bg-green-500/10">
+                                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                                            Open Now
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/20">
+                                            <XCircle className="h-3 w-3 mr-1" />
+                                            Closed
+                                        </Badge>
+                                    )}
+                                    {format.isOpen && format.slotsNeeded > 0 && (
+                                        <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                                            {format.slotsNeeded} {format.slotsNeeded === 1 ? "speaker" : "speakers"} needed
+                                        </Badge>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <CardDescription className="text-sm leading-relaxed text-muted-foreground">

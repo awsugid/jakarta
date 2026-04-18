@@ -44,11 +44,11 @@ export function SpeakerNotify() {
                                 <span className="text-sm font-semibold text-primary uppercase tracking-wider">Stay Updated</span>
                             </div>
                             <h3 className="text-3xl font-bold text-foreground">
-                                Get Notified When CFP Opens
+                                Subscribe to Speaker Announcements
                             </h3>
                             <p className="text-muted-foreground text-lg leading-relaxed">
-                                Our call for speakers isn't open right now, but we'd love to hear from you.
-                                Register your email and we'll notify you as soon as the next CFP window opens.
+                                Join our speaker mailing list and we'll let you know the moment a
+                                Call for Speakers window opens, including which roles are available.
                             </p>
                         </div>
 

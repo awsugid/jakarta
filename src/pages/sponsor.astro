@@ -7,7 +7,7 @@ import { SponsorCTA } from "../components/sponsor/SponsorCTA";
 ---
 
 <Layout title="Sponsorship & Collaboration — AWS User Group Jakarta">
-    <SponsorHero client:load />
+    <SponsorHero client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
     <SponsorTiers client:visible />
     <SponsorBenefits client:visible />
     <SponsorCTA client:visible />

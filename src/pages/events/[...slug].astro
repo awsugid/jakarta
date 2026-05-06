@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, ArrowLeft } from "lucide-react";
 import { PretixWidget } from "@/components/PretixWidget";
+import { ImmichKiosk } from "@/components/ImmichKiosk";
 
 export async function getStaticPaths() {
     const events = await getCollection("events");
@@ -87,12 +88,24 @@ const { Content } = await render(event);
 
     <div class="container max-w-4xl mx-auto px-4 md:px-6 py-12">
         {
-            event.data.image && (
+            event.data.image &&
+            !(import.meta.env.PUBLIC_IMMICH_KIOSK_URL && event.data.immichAlbumId) && (
                 <div class="rounded-2xl overflow-hidden mb-12 border border-border/50 shadow-lg aspect-video relative">
                     <img
                         src={event.data.image}
                         alt={event.data.title}
                         class="object-cover w-full h-full"
+                    />
+                </div>
+            )
+        }
+
+        {
+            import.meta.env.PUBLIC_IMMICH_KIOSK_URL && event.data.immichAlbumId && (
+                <div class="mb-12">
+                    <ImmichKiosk
+                        kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL}
+                        albumId={event.data.immichAlbumId}
                     />
                 </div>
             )

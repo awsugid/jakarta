@@ -6,7 +6,7 @@ import { VolunteerNotify } from "../components/volunteer/VolunteerNotify";
 ---
 
 <Layout title="Volunteer — AWS User Group Jakarta">
-    <VolunteerHero client:load />
+    <VolunteerHero client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
     <VolunteerRoles client:visible />
     <VolunteerNotify client:visible />
 </Layout>

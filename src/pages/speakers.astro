@@ -6,7 +6,7 @@ import { SpeakerNotify } from "../components/speakers/CFPForm";
 ---
 
 <Layout title="Call for Speakers — AWS User Group Jakarta">
-    <SpeakerHero client:load />
+    <SpeakerHero client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
     <SpeakerBenefits client:visible />
     <SpeakerNotify client:visible />
 </Layout>

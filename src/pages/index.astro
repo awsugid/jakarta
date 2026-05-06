@@ -16,7 +16,7 @@ const recentEvents = events
 ---
 
 <Layout title="AWS User Group Jakarta - Community Portal">
-    <Hero client:load />
+    <Hero client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
     <EventList client:visible events={recentEvents} />
     <StatisticsCharts client:visible data={statisticsData} />
     <CommunityStats client:visible />

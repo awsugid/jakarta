@@ -12,6 +12,7 @@
     "@astrojs/check": "^0.9.8",
     "@astrojs/mdx": "^5.0.3",
     "@astrojs/react": "^5.0.3",
+    "@astrojs/sitemap": "^3.2.1",
     "@fontsource/inter": "^5.2.8",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-aspect-ratio": "^1.1.8",

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, ArrowLeft } from "lucide-react";
 import { PretixWidget } from "@/components/PretixWidget";
 import { ImmichKiosk } from "@/components/ImmichKiosk";
+import { LumaCheckoutButton } from "@/components/LumaCheckoutButton";
+import { LumaEmbed } from "@/components/LumaEmbed";
 
 export async function getStaticPaths() {
     const events = await getCollection("events");
@@ -17,6 +19,7 @@ export async function getStaticPaths() {
 
 const { event } = Astro.props;
 const { Content } = await render(event);
+const isLumaUrl = event.data.registrationUrl?.includes('luma.com');
 ---
 
 <Layout title={`${event.data.title} - AWS User Group Jakarta`}>
@@ -64,7 +67,7 @@ const { Content } = await render(event);
                 </div>
 
                 {
-                    event.data.registrationUrl && (
+                    event.data.registrationUrl && !isLumaUrl && (
                         <div class="pt-2">
                             <Button
                                 className="bg-primary hover:bg-primary/90 text-white font-bold"
@@ -79,6 +82,17 @@ const { Content } = await render(event);
                                     Register Now
                                 </a>
                             </Button>
+                        </div>
+                    )
+                }
+                {
+                    isLumaUrl && event.data.registrationUrl && (
+                        <div class="pt-2">
+                            <LumaCheckoutButton
+                                client:load
+                                url={event.data.registrationUrl}
+                                text="Register Now"
+                            />
                         </div>
                     )
                 }
@@ -128,6 +142,21 @@ const { Content } = await render(event);
                             client:load
                             eventUrl={event.data.pretixUrl}
                             className="w-full"
+                        />
+                    </div>
+                </div>
+            )
+        }
+        {
+            isLumaUrl && event.data.registrationUrl && (
+                <div class="mt-12 pt-12 border-t border-border/50">
+                    <h2 class="text-2xl font-bold tracking-tight mb-6">
+                        Register for This Event
+                    </h2>
+                    <div class="bg-muted/30 rounded-lg p-6 md:p-8">
+                        <LumaEmbed
+                            client:load
+                            url={event.data.registrationUrl}
                         />
                     </div>
                 </div>

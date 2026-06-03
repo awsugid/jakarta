@@ -2,6 +2,7 @@
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import GoogleAnalytics from "../components/GoogleAnalytics.astro";
+import FormbricksSDK from "../components/FormbricksSDK.astro";
 import "../styles/global.css";
 
 interface Props {
@@ -22,6 +23,7 @@ const {
 		<meta name="description" content={description} />
 		<meta name="viewport" content="width=device-width" />
 		<GoogleAnalytics />
+		<FormbricksSDK />
 		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
 		<link
 			rel="icon"

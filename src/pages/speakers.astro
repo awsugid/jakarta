@@ -1,12 +1,9 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { SpeakerHero } from "../components/speakers/SpeakerHero";
-import { SpeakerBenefits } from "../components/speakers/SpeakerBenefits";
-import { SpeakerNotify } from "../components/speakers/CFPForm";
+import { SpeakerPageContent } from "../components/speakers/SpeakerPageContent";
 ---
 
 <Layout title="Call for Speakers — AWS User Group Jakarta">
-    <SpeakerHero client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
-    <SpeakerBenefits client:visible />
-    <SpeakerNotify client:visible />
+    <SpeakerPageContent client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
 </Layout>
+

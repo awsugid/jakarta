@@ -1,13 +1,16 @@
 import React from "react";
 import { Mic } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
 
 interface SpeakerHeroProps {
   kioskUrl?: string;
+  isOpen?: boolean;
+  onApply?: () => void;
 }
 
-export function SpeakerHero({ kioskUrl }: SpeakerHeroProps) {
+export function SpeakerHero({ kioskUrl, isOpen, onApply }: SpeakerHeroProps) {
   return (
     <section className="relative overflow-hidden py-24 lg:py-32 bg-background">
       <div className="container mx-auto relative z-10 flex flex-col items-center text-center px-4 md:px-6">
@@ -16,8 +19,12 @@ export function SpeakerHero({ kioskUrl }: SpeakerHeroProps) {
             variant="outline"
             className="mb-6 py-1.5 px-4 text-sm backdrop-blur-sm bg-background/50 border-muted-foreground/20"
           >
-            <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse"></span>
-            Subscribe for Speaker Announcements
+            <span
+              className={`flex h-2 w-2 rounded-full mr-2 animate-pulse ${isOpen ? "bg-green-500" : "bg-primary"}`}
+            ></span>
+            {isOpen
+              ? "CFP Now Open — Apply Today!"
+              : "Subscribe for Speaker Announcements"}
           </Badge>
         </div>
 
@@ -31,13 +38,26 @@ export function SpeakerHero({ kioskUrl }: SpeakerHeroProps) {
           monthly meetups.
         </p>
 
-        <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
-          <Mic className="h-5 w-5 text-primary" />
-          <span className="text-sm font-medium">
-            Join our speaker subscription list to be notified the moment CFP
-            opens
-          </span>
-        </div>
+        {isOpen && onApply ? (
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both">
+            <Button
+              size="lg"
+              onClick={onApply}
+              className="h-12 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-orange-500/20"
+            >
+              <Mic className="mr-2 h-5 w-5" />
+              Apply as a Speaker
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
+            <Mic className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium">
+              Join our speaker subscription list to be notified the moment CFP
+              opens
+            </span>
+          </div>
+        )}
       </div>
 
       {kioskUrl ? (

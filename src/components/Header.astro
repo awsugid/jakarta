@@ -1,6 +1,9 @@
 ---
 import { navItems } from "../lib/navigation";
 import { MobileNav } from "./MobileNav";
+import { HeaderAuth } from "./auth/HeaderAuth";
+
+const currentPath = Astro.url.pathname;
 ---
 
 <header
@@ -23,26 +26,26 @@ import { MobileNav } from "./MobileNav";
             </a>
             <nav class="hidden md:flex gap-8 text-sm font-medium">
                 {
-                    navItems.map((item) => (
-                        <a
-                            href={item.href}
-                            class="transition-colors hover:text-primary text-muted-foreground/80 hover:font-semibold"
-                        >
-                            {item.name}
-                        </a>
-                    ))
+                    navItems.map((item) => {
+                        const isActive = currentPath === item.href || currentPath === `${item.href}/` || (item.href !== '/' && currentPath.startsWith(item.href));
+                        return (
+                            <a
+                                href={item.href}
+                                class={`transition-colors hover:text-primary hover:font-semibold ${
+                                    isActive
+                                        ? "text-primary font-semibold"
+                                        : "text-muted-foreground/80"
+                                }`}
+                            >
+                                {item.name}
+                            </a>
+                        );
+                    })
                 }
             </nav>
         </div>
         <div class="flex items-center gap-4">
-            <a
-                href="https://www.meetup.com/aws-ug-jakarta"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="hidden sm:inline-flex h-9 items-center justify-center rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
-            >
-                Join Community
-            </a>
+            <HeaderAuth client:load />
             <MobileNav client:load items={navItems} />
         </div>
     </div>

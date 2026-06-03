@@ -1,13 +1,16 @@
 import React from "react";
 import { HandHeart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
 
 interface VolunteerHeroProps {
   kioskUrl?: string;
+  openCount?: number;
+  onApplyClick?: () => void;
 }
 
-export function VolunteerHero({ kioskUrl }: VolunteerHeroProps) {
+export function VolunteerHero({ kioskUrl, openCount, onApplyClick }: VolunteerHeroProps) {
   return (
     <section className="relative overflow-hidden py-24 lg:py-32 bg-background">
       <div className="container mx-auto relative z-10 flex flex-col items-center text-center px-4 md:px-6">
@@ -16,8 +19,12 @@ export function VolunteerHero({ kioskUrl }: VolunteerHeroProps) {
             variant="outline"
             className="mb-6 py-1.5 px-4 text-sm backdrop-blur-sm bg-background/50 border-muted-foreground/20"
           >
-            <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse"></span>
-            Subscribe for Volunteer Announcements
+            <span
+              className={`flex h-2 w-2 rounded-full mr-2 animate-pulse ${openCount && openCount > 0 ? "bg-green-500" : "bg-primary"}`}
+            ></span>
+            {openCount && openCount > 0
+              ? `${openCount} Division(s) Open — Apply Now!`
+              : "Subscribe for Volunteer Announcements"}
           </Badge>
         </div>
 
@@ -31,13 +38,35 @@ export function VolunteerHero({ kioskUrl }: VolunteerHeroProps) {
           career while helping others learn.
         </p>
 
-        <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
-          <HandHeart className="h-5 w-5 text-primary" />
-          <span className="text-sm font-medium">
-            Join our volunteer subscription list to be notified the moment
-            applications open
-          </span>
-        </div>
+        {openCount && openCount > 0 ? (
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              onClick={onApplyClick}
+              className="h-12 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/95 shadow-lg shadow-orange-500/20 cursor-pointer"
+            >
+              <HandHeart className="mr-2 h-5 w-5" />
+              Apply to Volunteer
+            </Button>
+            <a href="#volunteer-roles">
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 px-8 text-base font-medium rounded-md border-border/80 hover:bg-muted cursor-pointer"
+              >
+                Browse Divisions
+              </Button>
+            </a>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
+            <HandHeart className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium">
+              Join our volunteer subscription list to be notified the moment
+              applications open
+            </span>
+          </div>
+        )}
       </div>
 
       {kioskUrl ? (

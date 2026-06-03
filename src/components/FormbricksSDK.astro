@@ -1,0 +1,48 @@
+---
+const workspaceId = import.meta.env.PUBLIC_FORMBRICKS_WORKSPACE_ID;
+const apiHost = import.meta.env.PUBLIC_FORMBRICKS_API_HOST;
+---
+
+{workspaceId && apiHost && (
+  <script is:inline define:vars={{ workspaceId, apiHost }}>
+    (function() {
+      var t = document.createElement("script");
+      t.type = "text/javascript";
+      t.async = true;
+      t.src = apiHost.replace(/\/+$/, "") + "/js/formbricks.umd.cjs";
+      t.onload = function() {
+        if (window.formbricks) {
+          window.formbricks.setup({
+            workspaceId: workspaceId,
+            appUrl: apiHost.replace(/\/+$/, ""),
+            debug: true // Enable debug mode to make it easy to see triggers in browser logs
+          });
+          
+          // Prefill active user identity if stored
+          try {
+            var token = localStorage.getItem("g_id_token");
+            if (token) {
+              var parts = token.split(".");
+              if (parts.length === 3) {
+                var payload = JSON.parse(atob(parts[1]));
+                if (payload && payload.email) {
+                  window.formbricks.setUserId(payload.email);
+                  window.formbricks.setAttribute("email", payload.email);
+                  if (payload.name) window.formbricks.setAttribute("name", payload.name);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[FormbricksSDK] Failed to auto-sync user from token", e);
+          }
+        }
+      };
+      var e = document.getElementsByTagName("script")[0];
+      if (e && e.parentNode) {
+        e.parentNode.insertBefore(t, e);
+      } else {
+        document.head.appendChild(t);
+      }
+    })();
+  </script>
+)}

@@ -1,0 +1,13 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { UserApplicationsDashboard } from "../components/auth/UserApplicationsDashboard";
+---
+
+<Layout
+	title="My Applications — AWS User Group Jakarta"
+	description="View and manage your AWS User Group Jakarta speaker and volunteer applications."
+>
+	<main class="min-h-[calc(100vh-16rem)] bg-background">
+		<UserApplicationsDashboard client:load />
+	</main>
+</Layout>

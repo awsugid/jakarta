@@ -44,10 +44,10 @@ export function GoogleSignInButton({
           container.innerHTML = "";
           (window.google.accounts.id as any).renderButton(container, {
             type: compact ? "icon" : "standard",
-            theme: "filled_blue",
+            theme: "outline",
             size: "medium",
-            shape: compact ? "circle" : "rectangular",
-            text: "signin",
+            shape: compact ? "circle" : "pill",
+            text: text === "Login" ? "signin" : "signin_with",
           });
 
           if (onSignIn) {
@@ -58,7 +58,35 @@ export function GoogleSignInButton({
         }
       }
     }
-  }, [ready, buttonId, compact, onSignIn]);
+  }, [ready, buttonId, compact, onSignIn, text]);
+
+  if (mounted && ready) {
+    const cleanClassName = className
+      ? className
+          .split(" ")
+          .filter((c) => {
+            const lower = c.toLowerCase();
+            return (
+              !lower.includes("border") &&
+              !lower.startsWith("px-") &&
+              !lower.startsWith("py-") &&
+              !lower.startsWith("p-") &&
+              !lower.startsWith("bg-") &&
+              !lower.startsWith("hover:") &&
+              !lower.includes("text-") &&
+              !lower.includes("font-")
+            );
+          })
+          .join(" ")
+      : "";
+
+    return (
+      <div 
+        id={buttonId} 
+        className={cn("inline-flex items-center justify-center", compact ? "h-9 w-9" : "h-9", cleanClassName)}
+      />
+    );
+  }
 
   return (
     <div 
@@ -71,18 +99,6 @@ export function GoogleSignInButton({
       {/* 1. Icon and optional text */}
       {!hideIcon && <GoogleIcon className="h-4 w-4 shrink-0" />}
       {!compact && <span className={cn(!hideIcon && "ml-2", "text-sm")}>{text}</span>}
-
-      {/* 2. Transparent native Google Sign-in iframe overlay */}
-      {mounted && (
-        <div
-          id={buttonId}
-          className="absolute inset-0 opacity-0 z-10 cursor-pointer [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:cursor-pointer [&_iframe]:absolute [&_iframe]:top-0 [&_iframe]:left-0"
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -180,7 +180,7 @@ export function ApplySpeakerDialog({
               email to match your application and prevent duplicates.
             </DialogDescription>
             <div className="flex justify-center">
-              <GoogleSignInButton onSignIn={handleSignInComplete} />
+              <GoogleSignInButton onSignIn={handleSignInComplete} useDialog={false} />
             </div>
           </div>
         );

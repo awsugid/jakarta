@@ -147,12 +147,3 @@
     overflow-x: hidden;
   }
 }
-
-/* Force Google Sign-In iframe and its intermediate containers to stretch and cover the custom button area exactly */
-[id^="g-btn-"] * {
-  width: 100% !important;
-  height: 100% !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-}

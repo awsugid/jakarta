@@ -129,7 +129,7 @@ function UserApplicationsDashboardInner() {
             submitted volunteer or speaker applications.
           </p>
           <div className="flex justify-center">
-            <GoogleSignInButton text="Sign In with Google" />
+            <GoogleSignInButton text="Sign In with Google" useDialog={false} />
           </div>
         </div>
       </div>

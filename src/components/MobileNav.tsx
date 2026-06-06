@@ -175,7 +175,8 @@ function MobileNavInner({ items }: MobileNavProps) {
                   <div className="pt-6 border-t border-border/40 mt-6">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 px-1 mb-3">Join Us</p>
                     <GoogleSignInButton
-                      text="Login with Google"
+                      text="Login"
+                      hideIcon={true}
                       className="w-full justify-center h-10 border border-primary/20 hover:bg-primary/10 transition-colors"
                     />
                   </div>

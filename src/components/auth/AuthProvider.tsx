@@ -31,7 +31,7 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 const TOKEN_KEY = "g_id_token";
-const GIS_SCRIPT = "https://accounts.google.com/gsi/client";
+const GIS_SCRIPT = "https://accounts.google.com/gsi/client?hl=en";
 
 function getClientId(): string {
   const raw: string | undefined = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID;

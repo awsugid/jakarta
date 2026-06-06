@@ -135,6 +135,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const handleGsiCredential = (e: Event) => {
+      const credential = (e as CustomEvent).detail;
+      if (credential) {
+        handleCredential(credential);
+      }
+    };
+    window.addEventListener("gsi-credential-received", handleGsiCredential);
+    return () => {
+      window.removeEventListener("gsi-credential-received", handleGsiCredential);
+    };
+  }, [handleCredential]);
+
+  useEffect(() => {
     const clientId = getClientId();
     if (!clientId) {
       setGisError(
@@ -152,17 +165,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if ((window as any).__gsiInitialized) {
+        setGisReady(true);
+        setGisError(null);
+        return;
+      }
+
       try {
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response: { credential?: string }) => {
             if (response.credential) {
-              handleCredential(response.credential);
+              window.dispatchEvent(
+                new CustomEvent("gsi-credential-received", {
+                  detail: response.credential,
+                })
+              );
             }
           },
           auto_select: false,
           cancel_on_tap_outside: true,
         });
+        (window as any).__gsiInitialized = true;
         setGisReady(true);
         setGisError(null);
       } catch {

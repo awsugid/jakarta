@@ -110,9 +110,8 @@ export function GoogleSignInButton({
     if (window.google?.accounts?.id) {
       try {
         window.google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed()) {
-            const reason = notification.getNotDisplayedReason?.() || "unknown";
-            console.warn(`[GoogleSignIn] One Tap not displayed: ${reason}`);
+          if (notification.isNotDisplayed?.()) {
+            console.debug("[GoogleSignIn] One Tap natively blocked or closed");
           }
         });
       } catch (err) {

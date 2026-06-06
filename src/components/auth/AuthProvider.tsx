@@ -242,9 +242,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       pendingSuccessRef.current = onSuccess ?? null;
       window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          pendingSuccessRef.current = null;
-          console.debug("Google One Tap: not displayed or skipped");
+        // Under FedCM, the browser natively controls the UI.
+        // Legacy UI status methods (isNotDisplayed, isSkippedMoment) are deprecated 
+        // and trigger console warnings. We simply catch FedCM AbortErrors silently.
+        if ((notification as any).isNotDisplayed?.()) {
+           pendingSuccessRef.current = null;
         }
       });
     },

@@ -61,44 +61,24 @@ export function GoogleSignInButton({
   }, [ready, buttonId, compact, onSignIn, text]);
 
   if (mounted && ready) {
-    const cleanClassName = className
-      ? className
-          .split(" ")
-          .filter((c) => {
-            const lower = c.toLowerCase();
-            return (
-              !lower.includes("border") &&
-              !lower.startsWith("px-") &&
-              !lower.startsWith("py-") &&
-              !lower.startsWith("p-") &&
-              !lower.startsWith("bg-") &&
-              !lower.startsWith("hover:") &&
-              !lower.includes("text-") &&
-              !lower.includes("font-")
-            );
-          })
-          .join(" ")
-      : "";
-
     return (
-      <div className={cn("relative inline-flex items-center justify-center overflow-hidden rounded-full", compact ? "h-9 w-9" : "h-9", cleanClassName)}>
-        {/* Custom styled Login button matching theme */}
-        <button
-          type="button"
-          className={cn(
-            "relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 border border-border/40 h-full w-full",
-            compact ? "p-0" : "px-4 py-2 text-sm",
-            className
-          )}
-        >
+      <div 
+        className={cn(
+          "relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 border border-border/40 cursor-pointer select-none",
+          compact ? "h-9 w-9 p-0" : "h-9 px-4 py-2 text-sm",
+          className
+        )}
+      >
+        {/* Visible custom styled elements */}
+        <div className="flex items-center justify-center w-full h-full pointer-events-none">
           {!hideIcon && <GoogleIcon className="h-4 w-4 shrink-0" />}
           {!compact && <span className={cn(!hideIcon && "ml-2", "text-sm")}>{text}</span>}
-        </button>
+        </div>
 
         {/* Invisible Google-branded button overlaid exactly on top */}
         <div
           id={buttonId}
-          className="absolute inset-0 opacity-0 z-10 cursor-pointer flex items-center justify-center [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:absolute [&_iframe]:inset-0"
+          className="absolute inset-0 opacity-0 z-10 cursor-pointer flex items-center justify-center [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:absolute [&_iframe]:inset-0 [&>div]:w-full [&>div]:h-full"
           style={{ width: '100%', height: '100%' }}
         />
       </div>

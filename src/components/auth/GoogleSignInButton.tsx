@@ -46,7 +46,8 @@ export function GoogleSignInButton({
           (window.google.accounts.id as any).renderButton(container, {
             type: compact ? "icon" : "standard",
             theme: "outline",
-            size: "medium",
+            size: "large",
+            width: compact ? undefined : 300,
             shape: compact ? "circle" : "pill",
             text: text === "Login" ? "signin" : "signin_with",
           });
@@ -59,6 +60,11 @@ export function GoogleSignInButton({
           setTimeout(() => {
             const btn = container.querySelector('[role="button"]');
             const iframe = container.querySelector('iframe');
+            if (iframe) {
+              // Scale the iframe up to ensure the internal button completely covers our custom wrapper
+              iframe.style.transform = 'scale(2)';
+              iframe.style.transformOrigin = 'center center';
+            }
             if (!btn && !iframe) {
               console.warn("[GoogleSignIn] renderButton produced no clickable element — enabling fallback");
               gsiErrorRef.current = true;

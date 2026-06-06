@@ -19,7 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { User, LogOut, FileText, Bug } from "lucide-react";
+import { User, LogOut, FileText, Bug, ChevronDown } from "lucide-react";
 
 export function UserMenu() {
   const { user, signOut } = useAuth();
@@ -45,17 +45,18 @@ export function UserMenu() {
       <div className="hidden md:block">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="relative h-9 w-9 rounded-full ring-2 ring-transparent hover:ring-primary/40 focus:outline-none transition-all cursor-pointer overflow-hidden border-0 p-0 bg-transparent">
-              <Avatar className="h-9 w-9">
+            <button className="flex items-center gap-1.5 h-9 rounded-full px-2.5 py-0 border border-border/40 hover:bg-primary/10 transition-all cursor-pointer focus:outline-none bg-transparent select-none">
+              <Avatar className="h-7 w-7">
                 <AvatarImage
                   src={user.picture}
                   alt={user.name}
                   referrerPolicy="no-referrer"
                 />
-                <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -122,17 +123,18 @@ export function UserMenu() {
       <div className="md:hidden">
         <Sheet>
           <SheetTrigger asChild>
-            <button className="relative h-9 w-9 rounded-full ring-2 ring-transparent hover:ring-primary/40 focus:outline-none transition-all cursor-pointer overflow-hidden border-0 p-0 bg-transparent">
-              <Avatar className="h-9 w-9">
+            <button className="flex items-center gap-1.5 h-9 rounded-full px-2.5 py-0 border border-border/40 hover:bg-primary/10 transition-all cursor-pointer focus:outline-none bg-transparent">
+              <Avatar className="h-7 w-7">
                 <AvatarImage
                   src={user.picture}
                   alt={user.name}
                   referrerPolicy="no-referrer"
                 />
-                <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
           </SheetTrigger>
           <SheetContent

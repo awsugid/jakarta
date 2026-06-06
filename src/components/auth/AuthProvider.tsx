@@ -185,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           auto_select: false,
           cancel_on_tap_outside: true,
+          use_fedcm_for_prompt: true,
         });
         (window as any).__gsiInitialized = true;
         setGisReady(true);

@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface GoogleSignInButtonProps {
   onSignIn?: (user: AuthUser | null) => void;
@@ -23,7 +31,7 @@ export function GoogleSignInButton({
   const [buttonId] = useState(() => `g-btn-${Math.random().toString(36).substring(2, 11)}`);
   const [ready, setReady] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const gsiErrorRef = useRef(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -37,144 +45,82 @@ export function GoogleSignInButton({
     return () => window.clearInterval(interval);
   }, []);
 
+  // When the modal opens and GIS is ready, render the button
   useEffect(() => {
-    if (ready && window.google?.accounts?.id) {
-      const container = document.getElementById(buttonId);
-      if (container) {
-        try {
-          container.innerHTML = "";
-          (window.google.accounts.id as any).renderButton(container, {
-            type: compact ? "icon" : "standard",
-            theme: "outline",
-            size: "large",
-            width: compact ? undefined : 300,
-            shape: compact ? "circle" : "pill",
-            text: text === "Login" ? "signin" : "signin_with",
-          });
+    if (open && ready && window.google?.accounts?.id) {
+      // Small timeout to ensure DialogContent is mounted in the DOM
+      const renderTimer = setTimeout(() => {
+        const container = document.getElementById(buttonId);
+        if (container) {
+          try {
+            container.innerHTML = "";
+            (window as any).google.accounts.id.renderButton(container, {
+              type: "standard",
+              theme: "filled_black",
+              size: "large",
+              shape: "pill",
+              text: "continue_with",
+              logo_alignment: "center",
+              width: 280, // Match a nice modal width
+            });
 
-          if (onSignIn) {
-            (window as any).__gsiOnSuccess = onSignIn;
+            if (onSignIn) {
+              (window as any).__gsiOnSuccess = (user: AuthUser | null) => {
+                setOpen(false); // Close modal on success
+                onSignIn(user);
+              };
+            } else {
+              (window as any).__gsiOnSuccess = () => {
+                setOpen(false);
+              };
+            }
+          } catch (err) {
+            console.error("Google renderButton failed:", err);
           }
-
-          // Check if the Google button actually rendered correctly after a short delay
-          setTimeout(() => {
-            const btn = container.querySelector('[role="button"]');
-            const iframe = container.querySelector('iframe');
-            if (iframe) {
-              // Scale the iframe up to ensure the internal button completely covers our custom wrapper
-              iframe.style.transform = 'scale(2)';
-              iframe.style.transformOrigin = 'center center';
-            }
-            if (!btn && !iframe) {
-              console.warn("[GoogleSignIn] renderButton produced no clickable element — enabling fallback");
-              gsiErrorRef.current = true;
-            }
-          }, 1000);
-        } catch (err) {
-          console.error("Google renderButton failed:", err);
-          gsiErrorRef.current = true;
         }
-      }
+      }, 50);
+      return () => clearTimeout(renderTimer);
     }
-  }, [ready, buttonId, compact, onSignIn, text]);
+  }, [open, ready, buttonId, onSignIn]);
 
-  // Listen for GSI errors logged to console
-  useEffect(() => {
-    const origError = console.error;
-    const origWarn = console.warn;
-    const handler = (...args: any[]) => {
-      const msg = args.map(String).join(" ");
-      if (msg.includes("GSI_LOGGER") && msg.includes("not allowed")) {
-        gsiErrorRef.current = true;
-      }
-    };
-    console.error = (...args: any[]) => { handler(...args); origError.apply(console, args); };
-    console.warn = (...args: any[]) => { handler(...args); origWarn.apply(console, args); };
-    return () => {
-      console.error = origError;
-      console.warn = origWarn;
-    };
-  }, []);
-
-  /**
-   * Fallback click handler — fires when the Google iframe overlay didn't capture the click.
-   * This happens when:
-   *  - GIS failed to load or initialize (script blocked, origin error)
-   *  - The iframe rendered at 0×0 due to a GIS error
-   *  - An ad blocker blocked the Google script
-   *
-   * Uses google.accounts.id.prompt() (One Tap) as an alternative to the renderButton iframe.
-   */
-  const handleFallbackClick = useCallback(() => {
-    // Try the globally-exposed signIn from AuthProvider first (uses prompt())
-    if ((window as any).__gsiSignIn) {
-      (window as any).__gsiSignIn();
-      return;
-    }
-
-    // Direct prompt() fallback
-    if (window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed?.()) {
-            console.debug("[GoogleSignIn] One Tap natively blocked or closed");
-          }
-        });
-      } catch (err) {
-        console.error("[GoogleSignIn] prompt() failed:", err);
-      }
-      return;
-    }
-
-    // GIS not loaded at all
-    console.warn("[GoogleSignIn] Google Identity Services not available");
-  }, []);
-
-  if (mounted && ready) {
-    return (
-      <div 
-        className={cn(
-          "relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 border border-border/40 cursor-pointer select-none",
-          compact ? "h-9 w-9 p-0" : "h-9 px-4 py-2 text-sm",
-          className
-        )}
-        onClick={handleFallbackClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleFallbackClick(); }}
-      >
-        {/* Visible custom styled elements */}
-        <div className="flex items-center justify-center w-full h-full pointer-events-none">
-          {!hideIcon && <GoogleIcon className="h-4 w-4 shrink-0" />}
-          {!compact && <span className={cn(!hideIcon && "ml-2", "text-sm")}>{text}</span>}
-        </div>
-
-        {/* Invisible Google-branded button overlaid exactly on top */}
-        <div
-          id={buttonId}
-          className="absolute inset-0 opacity-0 z-10 cursor-pointer flex items-center justify-center [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:absolute [&_iframe]:inset-0 [&>div]:w-full [&>div]:h-full"
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
-    );
+  if (!mounted) {
+    return <div className={cn("h-9 w-20", className)} />;
   }
 
   return (
-    <div 
-      className={cn(
-        "relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer",
-        compact ? "h-9 w-9 p-0" : "h-9 px-4 py-2 border border-border/40",
-        className
-      )}
-      onClick={handleFallbackClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleFallbackClick(); }}
-    >
-      {/* 1. Icon and optional text */}
-      {!hideIcon && <GoogleIcon className="h-4 w-4 shrink-0" />}
-      {!compact && <span className={cn(!hideIcon && "ml-2", "text-sm")}>{text}</span>}
-    </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          className={cn(
+            "relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer border border-border/40",
+            compact ? "h-9 w-9 p-0" : "h-9 px-4 py-2 text-sm",
+            className
+          )}
+        >
+          {!hideIcon && <GoogleIcon className="h-4 w-4 shrink-0" />}
+          {!compact && <span className={cn(!hideIcon && "ml-2", "text-sm")}>{text}</span>}
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] flex flex-col items-center py-10">
+        <DialogHeader className="w-full flex flex-col items-center text-center space-y-4 mb-6">
+          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
+            <GoogleIcon className="h-6 w-6 text-primary" />
+          </div>
+          <DialogTitle className="text-2xl font-bold">Welcome Back</DialogTitle>
+          <DialogDescription className="text-base">
+            Sign in to your AWS Community Jakarta account to continue.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="flex flex-col items-center justify-center w-full min-h-[50px]">
+          {ready ? (
+            <div id={buttonId} className="flex items-center justify-center transition-opacity opacity-100" />
+          ) : (
+            <div className="w-[280px] h-[40px] bg-muted animate-pulse rounded-full" />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

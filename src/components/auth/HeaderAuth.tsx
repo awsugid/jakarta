@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth, AuthProvider } from "@/components/auth/AuthProvider";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { UserMenu } from "@/components/auth/UserMenu";
@@ -20,13 +20,6 @@ function HeaderAuthInner() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  console.log("HeaderAuthInner rendering:", {
-    mounted,
-    isSignedIn,
-    user: !!user,
-    email: user?.email,
-  });
 
   if (!mounted) {
     // Render a safe, clean structural placeholder that matches the login button's size to prevent layout shift during SSR/SSG

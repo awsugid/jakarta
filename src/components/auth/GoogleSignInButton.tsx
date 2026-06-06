@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/types";
 
@@ -23,6 +23,7 @@ export function GoogleSignInButton({
   const [buttonId] = useState(() => `g-btn-${Math.random().toString(36).substring(2, 11)}`);
   const [ready, setReady] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const gsiErrorRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -53,12 +54,76 @@ export function GoogleSignInButton({
           if (onSignIn) {
             (window as any).__gsiOnSuccess = onSignIn;
           }
+
+          // Check if the Google button actually rendered correctly after a short delay
+          setTimeout(() => {
+            const btn = container.querySelector('[role="button"]');
+            const iframe = container.querySelector('iframe');
+            if (!btn && !iframe) {
+              console.warn("[GoogleSignIn] renderButton produced no clickable element — enabling fallback");
+              gsiErrorRef.current = true;
+            }
+          }, 1000);
         } catch (err) {
           console.error("Google renderButton failed:", err);
+          gsiErrorRef.current = true;
         }
       }
     }
   }, [ready, buttonId, compact, onSignIn, text]);
+
+  // Listen for GSI errors logged to console
+  useEffect(() => {
+    const origError = console.error;
+    const origWarn = console.warn;
+    const handler = (...args: any[]) => {
+      const msg = args.map(String).join(" ");
+      if (msg.includes("GSI_LOGGER") && msg.includes("not allowed")) {
+        gsiErrorRef.current = true;
+      }
+    };
+    console.error = (...args: any[]) => { handler(...args); origError.apply(console, args); };
+    console.warn = (...args: any[]) => { handler(...args); origWarn.apply(console, args); };
+    return () => {
+      console.error = origError;
+      console.warn = origWarn;
+    };
+  }, []);
+
+  /**
+   * Fallback click handler — fires when the Google iframe overlay didn't capture the click.
+   * This happens when:
+   *  - GIS failed to load or initialize (script blocked, origin error)
+   *  - The iframe rendered at 0×0 due to a GIS error
+   *  - An ad blocker blocked the Google script
+   *
+   * Uses google.accounts.id.prompt() (One Tap) as an alternative to the renderButton iframe.
+   */
+  const handleFallbackClick = useCallback(() => {
+    // Try the globally-exposed signIn from AuthProvider first (uses prompt())
+    if ((window as any).__gsiSignIn) {
+      (window as any).__gsiSignIn();
+      return;
+    }
+
+    // Direct prompt() fallback
+    if (window.google?.accounts?.id) {
+      try {
+        window.google.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed()) {
+            const reason = notification.getNotDisplayedReason?.() || "unknown";
+            console.warn(`[GoogleSignIn] One Tap not displayed: ${reason}`);
+          }
+        });
+      } catch (err) {
+        console.error("[GoogleSignIn] prompt() failed:", err);
+      }
+      return;
+    }
+
+    // GIS not loaded at all
+    console.warn("[GoogleSignIn] Google Identity Services not available");
+  }, []);
 
   if (mounted && ready) {
     return (
@@ -68,6 +133,10 @@ export function GoogleSignInButton({
           compact ? "h-9 w-9 p-0" : "h-9 px-4 py-2 text-sm",
           className
         )}
+        onClick={handleFallbackClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleFallbackClick(); }}
       >
         {/* Visible custom styled elements */}
         <div className="flex items-center justify-center w-full h-full pointer-events-none">
@@ -92,6 +161,10 @@ export function GoogleSignInButton({
         compact ? "h-9 w-9 p-0" : "h-9 px-4 py-2 border border-border/40",
         className
       )}
+      onClick={handleFallbackClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleFallbackClick(); }}
     >
       {/* 1. Icon and optional text */}
       {!hideIcon && <GoogleIcon className="h-4 w-4 shrink-0" />}

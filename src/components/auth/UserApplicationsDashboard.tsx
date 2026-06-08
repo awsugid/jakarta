@@ -482,7 +482,13 @@ function EditAppDialog({
 
       fetchFormLink(app.kind, app.slug, "edit")
         .then((data) => {
-          setFormLinkUrl(data.url);
+          let url = data.url;
+          if (url.includes("skipPrefilled=true")) {
+            url = url.replace("skipPrefilled=true", "skipPrefilled=false");
+          } else if (!url.includes("skipPrefilled=")) {
+            url += (url.includes("?") ? "&" : "?") + "skipPrefilled=false";
+          }
+          setFormLinkUrl(url);
         })
         .catch((err) => {
           setError(err?.message || "Failed to load prefilled form link.");
@@ -560,7 +566,7 @@ function EditAppDialog({
             </Button>
           </div>
         ) : formLinkUrl ? (
-          <div className="flex-grow w-full h-full bg-muted/5 relative overflow-hidden flex items-center justify-center">
+          <div className="flex-grow w-full h-full bg-muted/5 relative overflow-y-auto flex flex-col">
             {iframeLoading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 gap-3 z-10">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -571,7 +577,7 @@ function EditAppDialog({
             )}
             <iframe
               src={formLinkUrl}
-              className="w-full h-full border-0 absolute inset-0 bg-transparent"
+              className="w-full flex-grow min-h-[650px] border-0 bg-transparent"
               title={`Edit application for ${app.title}`}
               onLoad={() => setIframeLoading(false)}
             />

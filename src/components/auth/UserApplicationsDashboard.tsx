@@ -64,7 +64,7 @@ export function UserApplicationsDashboard() {
 }
 
 function UserApplicationsDashboardInner() {
-  const { user, isSignedIn } = useAuth();
+  const { user, isSignedIn, signOut } = useAuth();
   const [applications, setApplications] = useState<UserApplicationSummary[]>(
     [],
   );
@@ -91,6 +91,10 @@ function UserApplicationsDashboardInner() {
       const data = await fetchApplicationsSummary();
       setApplications(data);
     } catch (err: any) {
+      if (err?.status === 401 || err?.message?.includes("Invalid Google ID token")) {
+        signOut();
+        return;
+      }
       setError(
         err?.message ||
           "Failed to fetch applications. Make sure you are signed in.",

@@ -13,6 +13,11 @@ export interface FAQItem {
 
 const volunteerFaqs: FAQItem[] = [
   {
+    question: "When will I be called to volunteer, and is this application for a specific event?",
+    answer:
+      "As long as your data is submitted, if there is a great match and we need a volunteer, we will call you—no matter what event that is.",
+  },
+  {
     question: "Do I need technical skills to volunteer?",
     answer:
       "Not necessarily! While some divisions like Tech Support require technical knowledge, we have many roles in Marketing, Community Management, Operations, and more that don't require coding skills.",

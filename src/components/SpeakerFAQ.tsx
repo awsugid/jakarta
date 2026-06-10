@@ -22,6 +22,11 @@ const speakerFaqs: FAQItem[] = [
   //     "<strong>Workshops (90-120 minutes):</strong> Hands-on learning experiences",
   // },
   {
+    question: "When will I be called to speak, and is this application for a specific event?",
+    answer:
+      "As long as your data is submitted, if there is a great match and we need a speaker, we will call you—no matter what event that is.",
+  },
+  {
     question: "Do I need to be an AWS expert?",
     answer:
       "No! We welcome speakers at all levels. Whether you're sharing your first AWS project or your cloud architecture at scale, your unique perspective adds value to our community.",

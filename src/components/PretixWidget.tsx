@@ -223,8 +223,24 @@ export function PretixWidget({
     resourcesLoaded: false,
   });
 
+  const [showTimeoutHelper, setShowTimeoutHelper] = useState(false);
+
   // Ref for viewport detection
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Handle loading timeout for stuck iFrames / loading spinner
+  useEffect(() => {
+    if (!state.isLoading) {
+      setShowTimeoutHelper(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowTimeoutHelper(true);
+    }, 7000);
+
+    return () => clearTimeout(timer);
+  }, [state.isLoading]);
 
   // URL validation and resource loading
   useEffect(() => {
@@ -368,6 +384,32 @@ export function PretixWidget({
         <p className="text-muted-foreground text-sm sm:text-base">
           Loading ticket information...
         </p>
+        {showTimeoutHelper && (
+          <div className="mt-4 text-xs sm:text-sm text-muted-foreground animate-in fade-in duration-500">
+            Taking too long?{" "}
+            <a
+              href={eventUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline font-semibold"
+            >
+              Open registration page directly
+            </a>{" "}
+            or{" "}
+            <button
+              onClick={() => {
+                if ((window as any).formbricks) {
+                  (window as any).formbricks.track("submit-bug");
+                } else {
+                  console.warn("[PretixWidget] Formbricks SDK not loaded yet.");
+                }
+              }}
+              className="text-primary hover:underline bg-transparent border-none p-0 cursor-pointer inline font-semibold focus:outline-none"
+            >
+              Report a bug
+            </button>
+          </div>
+        )}
       </div>
     );
   }

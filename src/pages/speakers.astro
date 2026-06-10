@@ -1,9 +1,19 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { SpeakerPageContent } from "../components/speakers/SpeakerPageContent";
+import { SpeakerFAQ } from "../components/SpeakerFAQ";
 ---
 
 <Layout title="Call for Speakers — AWS User Group Jakarta">
     <SpeakerPageContent client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
+    
+    <section class="py-16 md:py-24 border-t border-border/40">
+        <div class="container max-w-4xl mx-auto px-4 md:px-6">
+            <h2 class="text-3xl font-extrabold tracking-tight md:text-4xl text-center mb-10 text-foreground">
+                Frequently Asked Questions
+            </h2>
+            <SpeakerFAQ client:load />
+        </div>
+    </section>
 </Layout>
 

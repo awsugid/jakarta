@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { fetchDiscovery, fetchFormLink } from "@/lib/api";
+import { fetchFormLink } from "@/lib/api";
 import { Loader2, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -94,56 +94,15 @@ export function ApplySpeakerDialog({
     setStep("checking");
     setError(null);
     try {
-      const discovery = await fetchDiscovery(kind, slug);
-      if (discovery.exists) {
-        setExistingInfo({
-          submittedEmail: discovery.submitted_email || "",
-          editable: discovery.editable,
-        });
-        if (discovery.editable) {
-          // Get the form link to edit
-          try {
-            const link = await fetchFormLink(kind, slug, "edit");
-            let url = link.url;
-            if (url.includes("skipPrefilled=true")) {
-              url = url.replace("skipPrefilled=true", "skipPrefilled=false");
-            } else if (!url.includes("skipPrefilled=")) {
-              url += (url.includes("?") ? "&" : "?") + "skipPrefilled=false";
-            }
-            setFormLink(url);
-          } catch (e: any) {
-            if (e?.status === 401) {
-              signOut();
-              setStep("auth");
-              return;
-            }
-          }
-          setStep("existing");
-        } else {
-          setStep("submitted");
-        }
-      } else {
-        // Get FormBricks link
-        try {
-          const link = await fetchFormLink(kind, slug);
-          setFormLink(link.url);
-          setStep("ready");
-        } catch (e: any) {
-          if (e?.status === 401) {
-            signOut();
-            setStep("auth");
-          } else {
-            setError(e?.message || "Failed to get application form link.");
-            setStep("error");
-          }
-        }
-      }
+      const link = await fetchFormLink(kind, slug);
+      setFormLink(link.url);
+      setStep("ready");
     } catch (e: any) {
       if (e?.status === 401) {
         signOut();
         setStep("auth");
       } else {
-        setError(e?.message || "Failed to check application status.");
+        setError(e?.message || "Failed to get application form link.");
         setStep("error");
       }
     }
@@ -168,8 +127,7 @@ export function ApplySpeakerDialog({
         return (
           <div className="space-y-4">
             <DialogDescription className="text-base">
-              You're applying for <strong>{formTitle}</strong>. We'll check if
-              you already have an existing application and guide you through the
+              You're applying for <strong>{formTitle}</strong>. We'll guide you through the
               process.
             </DialogDescription>
             <Button onClick={handleContinue} className="w-full">
@@ -183,7 +141,7 @@ export function ApplySpeakerDialog({
           <div className="space-y-4 text-center">
             <DialogDescription className="text-base">
               Please sign in with your Google account to continue. We use your
-              email to match your application and prevent duplicates.
+              email to match your application.
             </DialogDescription>
             <div className="flex justify-center">
               <GoogleSignInButton onSignIn={handleSignInComplete} useDialog={false} />

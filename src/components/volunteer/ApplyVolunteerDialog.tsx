@@ -329,8 +329,14 @@ export function ApplyVolunteerDialog({
               </>
             ) : (
               <DialogDescription className="text-sm text-muted-foreground">
-                This application can no longer be edited. If you need to make
-                changes, please contact the organizers.
+                You already have an existing submission. You can view or edit this application on the{" "}
+                <a
+                  href="/applications"
+                  className="text-primary hover:underline font-semibold"
+                >
+                  My Applications
+                </a>{" "}
+                page.
               </DialogDescription>
             )}
             <Button

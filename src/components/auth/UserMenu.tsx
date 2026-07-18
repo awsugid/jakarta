@@ -19,10 +19,18 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { User, LogOut, FileText, Bug, ChevronDown } from "lucide-react";
+import {
+  User,
+  LogOut,
+  FileText,
+  Bug,
+  ChevronDown,
+  Ticket,
+  Shield,
+} from "lucide-react";
 
 export function UserMenu() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -93,6 +101,26 @@ export function UserMenu() {
                 <span>My Applications</span>
               </a>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a
+                href="/orders"
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer rounded px-2 py-1.5 transition-colors text-sm w-full font-medium"
+              >
+                <Ticket className="h-4 w-4" />
+                <span>My Event Orders</span>
+              </a>
+            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <a
+                  href="/admin"
+                  className="flex items-center gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer rounded px-2 py-1.5 transition-colors text-sm w-full font-medium"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span>Admin Dashboard</span>
+                </a>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator className="my-1 bg-border/40" />
             <DropdownMenuItem
               onClick={() => {
@@ -172,6 +200,28 @@ export function UserMenu() {
                   <span>My Applications</span>
                 </a>
               </Button>
+              <Button
+                asChild
+                variant="ghost"
+                className="w-full flex items-center justify-start gap-3 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              >
+                <a href="/orders">
+                  <Ticket className="h-4 w-4" />
+                  <span>My Event Orders</span>
+                </a>
+              </Button>
+              {isAdmin && (
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="w-full flex items-center justify-start gap-3 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                >
+                  <a href="/admin">
+                    <Shield className="h-4 w-4" />
+                    <span>Admin Dashboard</span>
+                  </a>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 onClick={() => {

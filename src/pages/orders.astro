@@ -1,0 +1,13 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { UserPretixOrdersDashboard } from "../components/auth/UserPretixOrdersDashboard";
+---
+
+<Layout
+	title="My Event Orders — AWS User Group Jakarta"
+	description="View your Pretix order history for AWS User Group Jakarta events."
+>
+	<main class="min-h-[calc(100vh-16rem)] bg-background">
+		<UserPretixOrdersDashboard client:load />
+	</main>
+</Layout>

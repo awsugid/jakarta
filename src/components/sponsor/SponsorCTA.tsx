@@ -25,7 +25,7 @@ export function SponsorCTA() {
                                 size="lg"
                                 className="h-14 px-8 text-base font-medium rounded-full bg-foreground text-background hover:bg-foreground/90 shadow-xl"
                             >
-                                <a href="mailto:organizers@awsugjakarta.id">
+                                <a href="mailto:awsugjakarta@gmail.com">
                                     <Mail className="mr-2 h-5 w-5" />
                                     Email Us
                                 </a>

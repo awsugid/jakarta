@@ -94,3 +94,123 @@ export interface FormSchemaQuestion {
 export interface FormSchema {
   questions: Record<string, FormSchemaQuestion>;
 }
+
+/** User's own Pretix order summary (camelCase from backend serde rename_all). */
+export interface UserPretixOrderSummary {
+  orderCode: string;
+  eventSlug: string;
+  eventName: string;
+  eventDate: string | null;
+  orderDatetime: string | null;
+  status: string;
+  attendeeCount: number;
+  checkedInCount: number | null;
+  total: string | null;
+  currency: string | null;
+  pretixCustomerPortalUrl: string | null;
+}
+
+/** Paginated wrapper for GET /api/pretix/me/orders */
+export interface UserPretixOrdersResponse {
+  orders: UserPretixOrderSummary[];
+  total: number | null;
+  limit: number;
+  offset: number;
+}
+
+/** Pretix event statistics returned by GET /api/events/:slug/pretix-stats */
+export interface PretixEventStats {
+  site_slug: string;
+  pretix: {
+    organizer_slug: string;
+    event_slug: string;
+    checkin_list_id: string;
+    subevent_id: string | null;
+  };
+  registered_count: number;
+  checked_in_count: number;
+  attendance_rate: number | null;
+  last_refreshed_at: string;
+  stale: boolean;
+}
+
+/** Admin identity returned by GET /api/admin/me */
+export interface AdminMe {
+  email: string;
+  name?: string;
+  picture?: string;
+  is_admin: true;
+}
+
+/** Admin form list entry from GET /api/admin/forms */
+export interface AdminFormSummary {
+  kind: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  survey_id: string;
+  is_active: boolean;
+  response_count: number | null;
+}
+
+/** Response summary in admin Formbricks listings. */
+export interface AdminFormbricksResponseSummary {
+  id: string;
+  survey_id: string;
+  submitted_at: string | null;
+  updated_at: string | null;
+  finished: boolean;
+  respondent_email: string | null;
+  respondent_name: string | null;
+  preview_answers: Record<string, string | number | boolean | string[] | null>;
+}
+
+/** Paginated list wrapper. */
+export interface AdminFormbricksResponseList {
+  items: AdminFormbricksResponseSummary[];
+  total: number | null;
+  limit: number;
+  offset: number;
+}
+
+/** Single labeled answer in a response detail payload. */
+export interface AdminFormbricksAnswer {
+  question_id: string;
+  label: string;
+  type: string;
+  value: unknown;
+}
+
+/** Full response detail from GET /api/admin/formbricks/responses/:id */
+export interface AdminFormbricksResponseDetail {
+  id: string;
+  survey_id: string;
+  submitted_at: string | null;
+  updated_at: string | null;
+  finished: boolean;
+  answers: AdminFormbricksAnswer[];
+  metadata: { contact_id?: string };
+}
+
+/** A labeled count entry (e.g. top positions, top companies). */
+export interface LabelCount {
+  label: string;
+  count: number;
+}
+
+/** Community statistics returned by GET /api/community/statistics. */
+export interface CommunityStatistics {
+  participantNumOfTheYear: { year: number; total: number }[];
+  eventPerYear: { year: number; total: number }[];
+  participantGenderDistributionLastYear: { male: number; female: number };
+  participantBackgroundDistribution: {
+    professional: number;
+    student: number;
+  };
+  participantGenderDistributionThisYear?: { male: number; female: number };
+  positionDistributionThisYear?: LabelCount[];
+  topCompaniesThisYear?: LabelCount[];
+  avgAwsExperienceYears?: number | null;
+  awsExperienceDistributionThisYear?: LabelCount[];
+  ageDistributionThisYear?: LabelCount[];
+}

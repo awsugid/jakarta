@@ -1,0 +1,13 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { AdminDashboard } from "../../components/admin/AdminDashboard";
+---
+
+<Layout
+	title="Admin Dashboard — AWS User Group Jakarta"
+	description="Internal admin dashboard for Formbricks responses."
+>
+	<main class="min-h-[calc(100vh-16rem)] bg-background">
+		<AdminDashboard client:load />
+	</main>
+</Layout>

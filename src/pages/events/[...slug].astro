@@ -8,6 +8,7 @@ import { PretixWidget } from "@/components/PretixWidget";
 import { ImmichKiosk } from "@/components/ImmichKiosk";
 import { LumaCheckoutButton } from "@/components/LumaCheckoutButton";
 import { LumaEmbed } from "@/components/LumaEmbed";
+import { EventPretixStats } from "@/components/events/EventPretixStats";
 
 export async function getStaticPaths() {
     const events = await getCollection("events");
@@ -20,6 +21,17 @@ export async function getStaticPaths() {
 const { event } = Astro.props;
 const { Content } = await render(event);
 const isLumaUrl = event.data.registrationUrl?.includes('luma.com');
+
+// Parse organizer/event slugs from pretixUrl
+let pretixOrgSlug: string | null = null;
+let pretixEvtSlug: string | null = null;
+if (event.data.pretixUrl) {
+  try {
+    const segments = new URL(event.data.pretixUrl).pathname.split('/').filter(Boolean);
+    pretixOrgSlug = segments[0] ?? null;
+    pretixEvtSlug = segments[1] ?? null;
+  } catch { /* invalid URL, leave null */ }
+}
 ---
 
 <Layout title={`${event.data.title} - AWS User Group Jakarta`}>
@@ -65,6 +77,20 @@ const isLumaUrl = event.data.registrationUrl?.includes('luma.com');
                         {event.data.location}
                     </div>
                 </div>
+
+                {
+                    pretixOrgSlug && pretixEvtSlug && (
+                        <EventPretixStats
+                            client:visible
+                            siteSlug={event.id}
+                            organizerSlug={pretixOrgSlug}
+                            eventSlug={pretixEvtSlug}
+                            checkinListId={event.data.pretixCheckinListId ?? null}
+                            subeventId={event.data.pretixSubevent ?? null}
+                            eventDate={event.data.date.toISOString()}
+                        />
+                    )
+                }
 
                 {
                     event.data.registrationUrl && !isLumaUrl && (

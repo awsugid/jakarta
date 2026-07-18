@@ -27,3 +27,4 @@ pnpm-debug.log*
 .playwright-mcp
 .vscode
 .wrangler
+package-lock.json

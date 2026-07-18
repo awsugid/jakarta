@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import type { AuthUser } from "@/lib/types";
+import { fetchAdminMe } from "@/lib/api";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -16,6 +17,7 @@ interface AuthContextValue {
   idToken: string | null;
   gisReady: boolean;
   gisError: string | null;
+  isAdmin: boolean;
   signIn: (onSuccess?: (user: AuthUser | null) => void) => void;
   signOut: () => void;
 }
@@ -26,6 +28,7 @@ const AuthContext = createContext<AuthContextValue>({
   idToken: null,
   gisReady: false,
   gisError: null,
+  isAdmin: false,
   signIn: () => {},
   signOut: () => {},
 });
@@ -80,11 +83,82 @@ function removeToken() {
   }
 }
 
+// localStorage-backed admin cache. Survives client-side navigation (Astro MPA
+// rebuilds JS context per page, so module-level cache is wiped every nav).
+const ADMIN_CACHE_KEY = "g_admin_cache";
+const ADMIN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface AdminCacheEntry {
+  email: string;
+  isAdmin: boolean;
+  ts: number;
+}
+
+export function readAdminCache(): AdminCacheEntry | null {
+  try {
+    const raw = localStorage.getItem(ADMIN_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AdminCacheEntry;
+    if (Date.now() - parsed.ts > ADMIN_CACHE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeAdminCache(email: string, isAdmin: boolean) {
+  try {
+    const entry: AdminCacheEntry = { email, isAdmin, ts: Date.now() };
+    localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function clearAdminCache() {
+  try {
+    localStorage.removeItem(ADMIN_CACHE_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+// Module-level in-flight dedupe: prevents concurrent islands on the SAME page
+// from each firing a network call when no localStorage cache exists yet.
+let inFlight: { email: string; promise: Promise<boolean> } | null = null;
+
+export function probeAdmin(email: string): Promise<boolean> {
+  // 1. Check localStorage cache (survives navigation).
+  const cached = readAdminCache();
+  if (cached && cached.email === email) {
+    return Promise.resolve(cached.isAdmin);
+  }
+  // 2. Dedupe concurrent probes on same page.
+  if (inFlight && inFlight.email === email) {
+    return inFlight.promise;
+  }
+  // 3. Network probe.
+  const promise = fetchAdminMe()
+    .then(() => {
+      writeAdminCache(email, true);
+      inFlight = null;
+      return true;
+    })
+    .catch(() => {
+      writeAdminCache(email, false);
+      inFlight = null;
+      return false;
+    });
+  inFlight = { email, promise };
+  return promise;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
   const [gisError, setGisError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const pendingSuccessRef = useRef<((user: AuthUser | null) => void) | null>(
     null,
   );
@@ -265,6 +339,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     removeToken();
     setUser(null);
     setIdToken(null);
+    setIsAdmin(false);
+    clearAdminCache();
     pendingSuccessRef.current = null;
     window.google?.accounts?.id?.disableAutoSelect();
   }, []);
@@ -300,12 +376,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [user]);
 
+  // Probe admin status once per user change. Cached in localStorage so client-side
+  // navigation does NOT re-probe (TTL-bounded).
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    // Optimistic: hydrate from cache before network resolves.
+    const cached = readAdminCache();
+    if (cached && cached.email === user.email) {
+      setIsAdmin(cached.isAdmin);
+      return; // trust cache within TTL; no network call.
+    }
+    let cancelled = false;
+    probeAdmin(user.email).then((ok) => {
+      if (!cancelled) setIsAdmin(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   const value: AuthContextValue = {
     user,
     isSignedIn: !!user,
     idToken,
     gisReady,
     gisError,
+    isAdmin,
     signIn,
     signOut,
   };

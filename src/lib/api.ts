@@ -11,6 +11,13 @@ import type {
   UserApplicationSummary,
   ApplicationResponseDetail,
   FormSchema,
+  PretixEventStats,
+  UserPretixOrdersResponse,
+  AdminMe,
+  AdminFormSummary,
+  AdminFormbricksResponseList,
+  AdminFormbricksResponseDetail,
+  CommunityStatistics,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -184,4 +191,82 @@ export async function fetchFormSchema(
   return apiFetch<FormSchema>(
     `/api/forms/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}/schema`,
   );
+}
+
+/** GET /api/events/:siteSlug/pretix-stats — public aggregate event statistics. */
+export async function fetchPretixEventStats(
+  siteSlug: string,
+  organizerSlug: string,
+  eventSlug: string,
+  checkinListId: string,
+  subeventId?: string | null,
+): Promise<PretixEventStats> {
+  const params = new URLSearchParams({
+    organizer_slug: organizerSlug,
+    event_slug: eventSlug,
+    checkin_list_id: checkinListId,
+  });
+  if (subeventId) params.set("subevent_id", subeventId);
+
+  return apiFetch<PretixEventStats>(
+    `/api/events/${encodeURIComponent(siteSlug)}/pretix-stats?${params}`,
+  );
+}
+
+/** GET /api/pretix/me/orders — current user's Pretix order history. */
+export async function fetchUserPretixOrders(
+  params?: { limit?: number; offset?: number; status?: "all" | "paid" | "canceled" },
+): Promise<UserPretixOrdersResponse> {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.offset) qs.set("offset", String(params.offset));
+  if (params?.status) qs.set("status", params.status);
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return apiFetch<UserPretixOrdersResponse>(`/api/pretix/me/orders${suffix}`, {
+    headers: authHeaders(),
+  });
+}
+
+/** GET /api/admin/me — current admin identity (403 if not admin). */
+export async function fetchAdminMe(): Promise<AdminMe> {
+  return apiFetch<AdminMe>("/api/admin/me", { headers: authHeaders() });
+}
+
+/** GET /api/admin/forms — list manageable Formbricks-backed forms. */
+export async function fetchAdminForms(): Promise<AdminFormSummary[]> {
+  return apiFetch<AdminFormSummary[]>("/api/admin/forms", {
+    headers: authHeaders(),
+  });
+}
+
+/** GET /api/admin/formbricks/responses — paginated responses for a survey. */
+export async function fetchAdminFormbricksResponses(
+  surveyId: string,
+  params?: { limit?: number; offset?: number; finished?: "all" | "true" | "false" },
+): Promise<AdminFormbricksResponseList> {
+  const qs = new URLSearchParams({ surveyId });
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.offset) qs.set("offset", String(params.offset));
+  if (params?.finished) qs.set("finished", params.finished);
+  return apiFetch<AdminFormbricksResponseList>(
+    `/api/admin/formbricks/responses?${qs}`,
+    { headers: authHeaders() },
+  );
+}
+
+/** GET /api/admin/formbricks/responses/:responseId — full answer detail. */
+export async function fetchAdminFormbricksResponseDetail(
+  responseId: string,
+  surveyId: string,
+): Promise<AdminFormbricksResponseDetail> {
+  const qs = new URLSearchParams({ surveyId });
+  return apiFetch<AdminFormbricksResponseDetail>(
+    `/api/admin/formbricks/responses/${encodeURIComponent(responseId)}?${qs}`,
+    { headers: authHeaders() },
+  );
+}
+
+/** GET /api/community/statistics — aggregate community growth + demographics. */
+export async function fetchCommunityStatistics(): Promise<CommunityStatistics> {
+  return apiFetch<CommunityStatistics>("/api/community/statistics");
 }

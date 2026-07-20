@@ -28,7 +28,7 @@ export function SponsorHero({ kioskUrl }: SponsorHeroProps) {
         </div>
 
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 fill-mode-both text-foreground">
-          Collaborate with <span className="text-primary">Us</span>
+          Sponsor & <span className="text-primary">Collaborate</span>
         </h1>
 
         <p className="max-w-2xl text-lg sm:text-xl text-muted-foreground mb-12 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both leading-relaxed">
@@ -37,17 +37,17 @@ export function SponsorHero({ kioskUrl }: SponsorHeroProps) {
           wanting to contribute, there are many ways to partner with us.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-2xl animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
+        <div className="grid grid-cols-3 gap-3 sm:gap-6 w-full max-w-2xl animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
           {metrics.map((metric) => (
             <div
               key={metric.label}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card/50 border border-border/50"
+              className="flex flex-col items-center gap-1.5 p-3 sm:p-4 rounded-xl bg-card/50 border border-border/50"
             >
-              <metric.icon className="h-6 w-6 text-primary" />
-              <span className="text-lg font-bold text-foreground">
+              <metric.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+              <span className="text-base sm:text-lg font-bold text-foreground">
                 {metric.value}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[10px] sm:text-xs text-muted-foreground text-center line-clamp-1 sm:line-clamp-none">
                 {metric.label}
               </span>
             </div>

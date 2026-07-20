@@ -154,5 +154,25 @@ bunx tsc --noEmit
 
 Ignore only confirmed pre-existing `PagesFunction` errors in `functions/api/subscribe.ts` unless that file changes. Review `git status` and `git diff`; scan changes for secrets.
 
+## Status: COMPLETED
+
+Implemented by orchestrator + 3 parallel sub-agents (divide & conquer).
+
+Files:
+- `src/components/sponsor/communityDayConfig.ts` — data + helpers (`computeSponsorTier`, `formatIDR`, `sanitizeSelection`).
+- `src/components/sponsor/communityDayConfig.check.ts` — node assert self-check.
+- `src/components/sponsor/SponsorConfigurator.tsx` — React component.
+- `src/pages/sponsor.astro` — wired configurator in section 2, added Monthly Meetup header in section 3.
+
+Deviations from plan:
+- `formatIDR` uses `Intl.NumberFormat("id-ID")` per literal spec. Indonesian `.` separator. Plan prose example showed comma (US style) — that example was wrong; spec literal won.
+- Inclusivity copy in component uses `formatIDR(2_500_000)` instead of hardcoded `IDR 2,500,000` so separator stays consistent.
+
+Validation:
+- `bun run src/components/sponsor/communityDayConfig.check.ts` → pass.
+- `bun run build` → green (20 pages, `/sponsor/index.html` built).
+- `bunx astro check` → only pre-existing errors (`functions/api/subscribe.ts` PagesFunction per AGENT.md; `AuthProvider.tsx` FedCM prop — unrelated).
+- `bunx tsc --noEmit` → no errors in new/modified files.
+
 ## Open item
 1. Confirm exact Community Day date. Replace `TBD` only after confirmation.

@@ -1,15 +1,15 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { SponsorHero } from "../components/sponsor/SponsorHero";
-import { SponsorTiers } from "../components/sponsor/SponsorTiers";
-import { SponsorBenefits } from "../components/sponsor/SponsorBenefits";
+import { SponsorshipTabs } from "../components/sponsor/SponsorshipTabs";
 import { SponsorCTA } from "../components/sponsor/SponsorCTA";
 ---
 
 <Layout title="Sponsorship & Collaboration — AWS User Group Jakarta">
     <SponsorHero client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
-    <SponsorTiers client:visible />
-    <SponsorBenefits client:visible />
+    <SponsorshipTabs
+        client:load
+        deckUrl={import.meta.env.PUBLIC_COMMUNITY_DAY_DECK_URL}
+    />
     <SponsorCTA client:visible />
 </Layout>
-

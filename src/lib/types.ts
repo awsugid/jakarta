@@ -214,3 +214,67 @@ export interface CommunityStatistics {
   awsExperienceDistributionThisYear?: LabelCount[];
   ageDistributionThisYear?: LabelCount[];
 }
+
+/** Background variants for the Linktree page. */
+export type LinkBackground = "dark" | "gradient" | "mesh";
+/** Button style variants for Linktree links. */
+export type LinkButtonStyle = "solid" | "outline" | "soft";
+/** Allowed icon identifiers (lucide-react mappings on frontend). */
+export type LinkIcon =
+  | "link" | "github" | "linkedin" | "twitter" | "instagram" | "youtube"
+  | "globe" | "mail" | "calendar" | "map-pin" | "users" | "external-link";
+
+/** Singleton Linktree profile. */
+export interface LinkPageProfile {
+  title: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  background: LinkBackground;
+  buttonStyle: LinkButtonStyle;
+  updatedAt: string;
+}
+
+/** A single link item. */
+export interface LinkItem {
+  id: string;
+  label: string;
+  url: string;
+  icon: LinkIcon | null;
+  isEnabled: boolean;
+  displayOrder: number;
+}
+
+/** Response envelope for GET /api/links and GET /api/admin/links. */
+export interface LinksResponse {
+  page: LinkPageProfile;
+  items: LinkItem[];
+}
+
+/** Body for PUT /api/admin/links/page. */
+export interface LinkPageUpdate {
+  title: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  background: LinkBackground;
+  buttonStyle: LinkButtonStyle;
+}
+
+/** Body for POST /api/admin/links/items. */
+export interface LinkItemCreate {
+  label: string;
+  url: string;
+  icon: LinkIcon | null;
+}
+
+/** Body for PUT /api/admin/links/items/:id. */
+export interface LinkItemUpdate {
+  label: string;
+  url: string;
+  icon: LinkIcon | null;
+  isEnabled: boolean;
+}
+
+/** Body for PUT /api/admin/links/order. */
+export interface LinkReorderRequest {
+  ids: string[];
+}

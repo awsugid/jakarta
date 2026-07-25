@@ -18,6 +18,12 @@ import type {
   AdminFormbricksResponseList,
   AdminFormbricksResponseDetail,
   CommunityStatistics,
+  LinkPageProfile,
+  LinkItem,
+  LinksResponse,
+  LinkPageUpdate,
+  LinkItemCreate,
+  LinkItemUpdate,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -269,4 +275,69 @@ export async function fetchAdminFormbricksResponseDetail(
 /** GET /api/community/statistics — aggregate community growth + demographics. */
 export async function fetchCommunityStatistics(): Promise<CommunityStatistics> {
   return apiFetch<CommunityStatistics>("/api/community/statistics");
+}
+
+/** GET /api/links — public Linktree page (profile + enabled items). */
+export async function fetchPublicLinks(): Promise<LinksResponse> {
+  return apiFetch<LinksResponse>("/api/links");
+}
+
+/** GET /api/admin/links — full Linktree config (all items). */
+export async function fetchAdminLinks(): Promise<LinksResponse> {
+  return apiFetch<LinksResponse>("/api/admin/links", { headers: authHeaders() });
+}
+
+/** PUT /api/admin/links/page — update profile. */
+export async function updateLinkPage(input: LinkPageUpdate): Promise<LinkPageProfile> {
+  return apiFetch<LinkPageProfile>("/api/admin/links/page", {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+}
+
+/** POST /api/admin/links/items — create link. */
+export async function createLink(input: LinkItemCreate): Promise<LinkItem> {
+  return apiFetch<LinkItem>("/api/admin/links/items", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /api/admin/links/items/:id — update link. */
+export async function updateLink(id: string, input: LinkItemUpdate): Promise<LinkItem> {
+  return apiFetch<LinkItem>(`/api/admin/links/items/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+}
+
+/** DELETE /api/admin/links/items/:id — remove link. */
+export async function deleteLink(id: string): Promise<void> {
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/api/admin/links/items/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const errBody = await res.json();
+      if (errBody?.error?.message) message = errBody.error.message;
+    } catch { /* ignore */ }
+    const error = new Error(message) as any;
+    error.status = res.status;
+    throw error;
+  }
+}
+
+/** PUT /api/admin/links/order — reorder all links. Returns full refreshed set. */
+export async function reorderLinks(ids: string[]): Promise<LinksResponse> {
+  return apiFetch<LinksResponse>("/api/admin/links/order", {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ ids }),
+  });
 }

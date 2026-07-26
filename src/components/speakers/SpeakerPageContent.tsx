@@ -62,12 +62,14 @@ export function SpeakerPageContent({ kioskUrl }: SpeakerPageContentProps) {
         isOpen={hasOpenForms}
         onApply={
           hasOpenForms && speakerForm
-            ? () => handleApply("speaker", speakerForm.title)
+            ? () => handleApply(speakerForm.slug, speakerForm.title)
             : undefined
         }
       />
 
-      {!loading && !error && <SpeakerBenefits />}
+      {!loading && !error && (
+        <SpeakerBenefits forms={forms} onApply={handleApply} />
+      )}
 
       {!loading && (error || forms.length === 0) && <SpeakerBenefits />}
 

@@ -3,6 +3,7 @@ import { Mic } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
+import { RotatingEventName } from "@/components/RotatingEventName";
 
 interface SpeakerHeroProps {
   kioskUrl?: string;
@@ -23,38 +24,50 @@ export function SpeakerHero({ kioskUrl, isOpen, onApply }: SpeakerHeroProps) {
               className={`flex h-2 w-2 rounded-full mr-2 animate-pulse ${isOpen ? "bg-green-500" : "bg-primary"}`}
             ></span>
             {isOpen
-              ? "CFP Now Open — Apply Today!"
-              : "Subscribe for Speaker Announcements"}
+              ? "Community Day & Meetup CFP Open — Apply Today!"
+              : "AWS Community Day & Meetup Speaker Opportunities"}
           </Badge>
         </div>
 
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 fill-mode-both text-foreground">
-          Speak at <span className="text-primary">AWS UG Jakarta</span>
+        <h1 className="min-h-20 sm:min-h-0 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 fill-mode-both text-foreground">
+          Speak at <span className="text-primary">AWS </span>
+          <RotatingEventName
+            names={["User Group Jakarta", "Monthly Meetups", "Community Day"]}
+          />
         </h1>
 
         <p className="max-w-2xl text-lg sm:text-xl text-muted-foreground mb-10 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both leading-relaxed">
-          Share your AWS knowledge with the community. Whether it's a lightning
-          talk or a deep dive, we'd love to feature your expertise at our
-          monthly meetups.
+          Share practical AWS knowledge with community members. Submit a
+          proposal for an open Call for Speakers matching your session.
         </p>
 
-        {isOpen && onApply ? (
-          <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both">
+        <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both flex flex-col sm:flex-row gap-4 justify-center">
+          {isOpen && onApply && (
             <Button
               size="lg"
               onClick={onApply}
-              className="h-12 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-orange-500/20"
+              className="h-12 w-full sm:w-56 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-orange-500/20"
             >
               <Mic className="mr-2 h-5 w-5" />
-              Apply as a Speaker
+              Apply to Speak
             </Button>
-          </div>
-        ) : (
+          )}
+          <a href="/blog/speaker">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 w-full sm:w-56 px-8 text-base font-medium rounded-md border-border/80 hover:bg-muted"
+            >
+              Learn More
+            </Button>
+          </a>
+        </div>
+
+        {!isOpen && (
           <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
             <Mic className="h-5 w-5 text-primary" />
             <span className="text-sm font-medium">
-              Join our speaker subscription list to be notified the moment CFP
-              opens
+              Subscribe below for Community Day and meetup CFP updates
             </span>
           </div>
         )}

@@ -44,11 +44,11 @@ export function SpeakerNotify() {
                                 <span className="text-sm font-semibold text-primary uppercase tracking-wider">Stay Updated</span>
                             </div>
                             <h3 className="text-3xl font-bold text-foreground">
-                                Subscribe to Speaker Announcements
+                                Get Speaker Updates
                             </h3>
                             <p className="text-muted-foreground text-lg leading-relaxed">
-                                Join our speaker mailing list and we'll let you know the moment a
-                                Call for Speakers window opens, including which roles are available.
+                                Join our speaker mailing list for Call for Speakers announcements
+                                across AWS User Group Jakarta events.
                             </p>
                         </div>
 
@@ -58,7 +58,7 @@ export function SpeakerNotify() {
                                     <CheckCircle className="h-10 w-10 text-primary" />
                                     <p className="text-lg font-semibold text-foreground">You're on the list!</p>
                                     <p className="text-sm text-muted-foreground text-center">
-                                        We'll email you when the call for speakers opens. Thank you for your interest!
+                                        We'll email you when a Call for Speakers opens. Thank you for your interest!
                                     </p>
                                 </div>
                             ) : (

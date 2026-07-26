@@ -44,11 +44,11 @@ export function VolunteerNotify() {
                                 <span className="text-sm font-semibold text-primary uppercase tracking-wider">Stay Updated</span>
                             </div>
                             <h3 className="text-3xl font-bold text-foreground">
-                                Subscribe to Volunteer Announcements
+                                Get Volunteer Updates
                             </h3>
                             <p className="text-muted-foreground text-lg leading-relaxed">
-                                Join our volunteer mailing list and we'll let you know the moment
-                                applications open — including which roles and how many slots are available.
+                                Join our volunteer mailing list for role openings, available slots,
+                                and updates across AWS User Group Jakarta events.
                             </p>
                         </div>
 
@@ -58,7 +58,7 @@ export function VolunteerNotify() {
                                     <CheckCircle className="h-10 w-10 text-primary" />
                                     <p className="text-lg font-semibold text-foreground">You're on the list!</p>
                                     <p className="text-sm text-muted-foreground text-center">
-                                        We'll email you when volunteer positions open. Thank you for your interest!
+                                        We'll email you when volunteer roles open. Thank you for your interest!
                                     </p>
                                 </div>
                             ) : (

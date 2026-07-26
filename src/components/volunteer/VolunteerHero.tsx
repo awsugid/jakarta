@@ -3,6 +3,7 @@ import { HandHeart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
+import { RotatingEventName } from "@/components/RotatingEventName";
 
 interface VolunteerHeroProps {
   kioskUrl?: string;
@@ -23,47 +24,50 @@ export function VolunteerHero({ kioskUrl, openCount, onApplyClick }: VolunteerHe
               className={`flex h-2 w-2 rounded-full mr-2 animate-pulse ${openCount && openCount > 0 ? "bg-green-500" : "bg-primary"}`}
             ></span>
             {openCount && openCount > 0
-              ? `${openCount} Division(s) Open — Apply Now!`
-              : "Subscribe for Volunteer Announcements"}
+              ? `${openCount} Community Day & Meetup Division(s) Open — Apply Now!`
+              : "AWS Community Day & Meetup Volunteer Opportunities"}
           </Badge>
         </div>
 
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 fill-mode-both text-foreground">
-          Volunteer with <span className="text-primary">AWS UG Jakarta</span>
+        <h1 className="min-h-20 sm:min-h-0 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 fill-mode-both text-foreground">
+          Volunteer at <span className="text-primary">AWS </span>
+          <RotatingEventName
+            names={["User Group Jakarta", "Monthly Meetups", "Community Day"]}
+          />
         </h1>
 
         <p className="max-w-2xl text-lg sm:text-xl text-muted-foreground mb-10 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both leading-relaxed">
-          Give back to the community, build new skills, and connect with fellow
-          AWS enthusiasts. Volunteering is one of the best ways to grow your
-          career while helping others learn.
+          Help deliver great AWS community events. Build event skills, meet
+          fellow AWS enthusiasts, and make each event run smoothly.
         </p>
 
-        {openCount && openCount > 0 ? (
-          <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both flex flex-col sm:flex-row gap-4 justify-center">
+          {openCount && openCount > 0 && (
             <Button
               size="lg"
               onClick={onApplyClick}
-              className="h-12 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/95 shadow-lg shadow-orange-500/20 cursor-pointer"
+              className="h-12 w-full sm:w-56 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/95 shadow-lg shadow-orange-500/20 cursor-pointer"
             >
               <HandHeart className="mr-2 h-5 w-5" />
               Apply to Volunteer
             </Button>
-            <a href="#volunteer-roles">
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-12 px-8 text-base font-medium rounded-md border-border/80 hover:bg-muted cursor-pointer"
-              >
-                Browse Divisions
-              </Button>
-            </a>
-          </div>
-        ) : (
+          )}
+          <a href="/blog/volunteer">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 w-full sm:w-56 px-8 text-base font-medium rounded-md border-border/80 hover:bg-muted cursor-pointer"
+            >
+              Learn More
+            </Button>
+          </a>
+        </div>
+
+        {!(openCount && openCount > 0) && (
           <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
             <HandHeart className="h-5 w-5 text-primary" />
             <span className="text-sm font-medium">
-              Join our volunteer subscription list to be notified the moment
-              applications open
+              Subscribe below for Community Day and meetup volunteer updates
             </span>
           </div>
         )}

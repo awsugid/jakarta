@@ -9,8 +9,8 @@ Treat this as a living spec: when a token or pattern changes in code, update thi
 ## 1. Design Principles
 
 1. **Mobile-first.** Every layout is designed at 360–414 px before `sm:`/`md:`/`lg:` enhancements.
-2. **Dynamic Color Modes.** The site dynamically detects the user's preferred color scheme (via `prefers-color-scheme`) and updates instantly when changed. Light mode tokens are defined under `:root` and dark mode tokens under `.dark`.
-3. **Community warmth with AWS-technical precision.** Orange primary (AWS cue) on a deep purple-tinted neutral background (in dark mode) or light neutral background (in light mode); generous spacing; confident typography.
+2. **Dark-locked theme.** The site is dark only — `<html class="dark">` is hard-coded. Do not add light-mode-specific styles; implement all color variations using the semantic tokens in `global.css`.
+3. **Community warmth with AWS-technical precision.** Orange primary (AWS cue) on a deep purple-tinted neutral background; generous spacing; confident typography.
 4. **Progressive enhancement.** Most sections render server-side via Astro; React islands hydrate only when interactive (`client:visible` preferred).
 5. **Accessible by default.** Semantic HTML, keyboard focus via `--ring`, lucide icons paired with text labels.
 6. **Consistent rhythm.** Matching section padding, hero animation timings, radii, and shadow treatments across pages.
@@ -244,7 +244,7 @@ Each section: `py-24` vertical rhythm, alternate between `bg-background` and `bg
 
 ## 12. Adding a New Design Token
 
-1. Declare the CSS variable in `:root` (and `.dark`) in `src/styles/global.css`.
+1. Declare the CSS variable in `:root` in `src/styles/global.css` (the theme is dark-locked; no `.dark` override is needed).
 2. Expose it via `@theme inline` (`--color-*`, `--radius-*`, etc.) so Tailwind can consume it.
 3. Document it here (Section 2 or the relevant group).
 4. Reference it from components with the generated utility class (e.g. `bg-surface-raised`) — never with raw `var(--surface-raised)` inside JSX.

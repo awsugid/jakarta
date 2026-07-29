@@ -46,7 +46,7 @@ Event management and community portal for **AWS User Group Jakarta**. The site i
 │   │   └── blog/*.mdx
 │   ├── layouts/Layout.astro      # html.dark hard-coded; GA + Header/Footer
 │   ├── lib/utils.ts              # cn() = clsx + tailwind-merge
-│   ├── styles/global.css         # Tailwind v4 @theme, OKLCH tokens, .dark variant
+│   ├── styles/global.css         # Tailwind v4 @theme, OKLCH tokens (dark-locked :root)
 │   ├── pages/                    # File-based routes (index, events, blog, speakers, volunteer, sponsor, ...)
 │   │   └── api/                  # Empty — API lives in /functions/api (Cloudflare)
 │   └── components/
@@ -111,7 +111,7 @@ BILLIONMAIL_VOLUNTEERS_GROUP_ID=1
 ### Styling
 - Tailwind CSS v4 is configured inline in `src/styles/global.css` via `@theme`. There is **no** `tailwind.config.*` despite what `components.json` says.
 - Use token classes (`bg-background`, `text-foreground`, `text-primary`, `border-border`, etc.). Avoid raw hex values.
-- Dark mode is default — `<html class="dark">` is hard-coded in `Layout.astro`. Components must look correct on dark backgrounds first.
+- Dark mode is the only mode — `<html class="dark">` is hard-coded in `Layout.astro`. All tokens live in `:root`; no `.dark` override block exists.
 - Combine classes with `cn()` from `@/lib/utils`.
 - Animations: use `tw-animate-css` utilities (`animate-in fade-in slide-in-from-bottom-5 duration-700`). Match the cadence used in existing hero sections.
 

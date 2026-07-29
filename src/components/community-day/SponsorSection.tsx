@@ -45,7 +45,7 @@ export function SponsorSection() {
       perks: ["Booth Space", "Shared Rollup Area", "2 Free Passes", "Small Logo Size"],
     },
     {
-      name: "Community Support",
+      name: "Community",
       slots: "Unlimited",
       color: "border-purple-500/30 text-purple-300 bg-purple-500/5",
       badgeColor: "bg-purple-500/10 text-purple-300 border-purple-500/20",

@@ -34,7 +34,7 @@ export function MetricsBar() {
     },
     {
       label: "AWS User Group",
-      value: "1 Community",
+      value: "Jakarta",
       icon: Heart,
       color: "text-blue-500",
       glowColor: "from-blue-500/10 to-cyan-500/0",

@@ -17,9 +17,27 @@ const {
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 	<head>
 		<meta charset="UTF-8" />
+		<script is:inline>
+			// Check local storage or system preference to apply dark mode
+			const getThemePreference = () => {
+				if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+					return localStorage.getItem('theme');
+				}
+				return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+			};
+			const isDark = getThemePreference() === 'dark';
+			document.documentElement.classList.toggle('dark', isDark);
+
+			// Listen for system theme changes and update dynamically
+			window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+				if (typeof localStorage === 'undefined' || !localStorage.getItem('theme')) {
+					document.documentElement.classList.toggle('dark', e.matches);
+				}
+			});
+		</script>
 		<meta name="description" content={description} />
 		<meta name="viewport" content="width=device-width" />
 		<GoogleAnalytics />

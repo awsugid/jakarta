@@ -9,8 +9,8 @@ Treat this as a living spec: when a token or pattern changes in code, update thi
 ## 1. Design Principles
 
 1. **Mobile-first.** Every layout is designed at 360–414 px before `sm:`/`md:`/`lg:` enhancements.
-2. **Dark by default.** The site ships with `<html class="dark">` hard-coded. Plan for dark surfaces first; light variants are a future concern (tokens are currently identical for `:root` and `.dark`).
-3. **Community warmth with AWS-technical precision.** Orange primary (AWS cue) on a deep purple-tinted neutral background; generous spacing; confident typography.
+2. **Dynamic Color Modes.** The site dynamically detects the user's preferred color scheme (via `prefers-color-scheme`) and updates instantly when changed. Light mode tokens are defined under `:root` and dark mode tokens under `.dark`.
+3. **Community warmth with AWS-technical precision.** Orange primary (AWS cue) on a deep purple-tinted neutral background (in dark mode) or light neutral background (in light mode); generous spacing; confident typography.
 4. **Progressive enhancement.** Most sections render server-side via Astro; React islands hydrate only when interactive (`client:visible` preferred).
 5. **Accessible by default.** Semantic HTML, keyboard focus via `--ring`, lucide icons paired with text labels.
 6. **Consistent rhythm.** Matching section padding, hero animation timings, radii, and shadow treatments across pages.
@@ -262,6 +262,6 @@ Each section: `py-24` vertical rhythm, alternate between `bg-background` and `bg
 ### Don't
 - Don't introduce a second font without loading it in `global.css`.
 - Don't hard-code hex colors except for the documented orange-500 shadow utility.
-- Don't add light-mode-specific styles — the theme is dark-locked today.
+- Don't hard-code light-mode-specific styles directly in JSX components; implement color theme variations using adaptive semantic tokens in global.css.
 - Don't bypass shadcn primitives for one-off buttons/inputs; extend them via `variant`/`className` instead.
 - Don't add CLAUDE.md back as a separate file — it is a symlink to `AGENT.md`.

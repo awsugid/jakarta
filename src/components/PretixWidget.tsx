@@ -60,10 +60,9 @@ function isValidPretixUrl(url: string): boolean {
 // Generate CSS URL from event URL
 function generateCssUrl(eventUrl: string): string {
   try {
-    const urlObj = new URL(eventUrl);
-    const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+    new URL(eventUrl);
     return `${eventUrl}widget/v2.css`;
-  } catch (error) {
+  } catch {
     return "";
   }
 }
@@ -296,42 +295,7 @@ export function PretixWidget({
     loadResources();
   }, [eventUrl]);
 
-  // Viewport optimization: Ensure widget loads even when off-viewport
-  useEffect(() => {
-    // If resources are already loaded, no need for intersection observer
-    if (state.resourcesLoaded || state.hasError) {
-      return;
-    }
 
-    // Use Intersection Observer to detect when widget enters viewport
-    // This ensures the widget is ready when user scrolls to it
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          // Widget is visible or about to be visible
-          // Resources are already loading in parallel, so this is just for optimization
-          if (entry.isIntersecting) {
-            // Widget is in viewport - resources should be loading
-            // No additional action needed as resources load regardless
-          }
-        });
-      },
-      {
-        // Start loading slightly before widget enters viewport
-        rootMargin: "50px",
-      },
-    );
-
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
-    return () => {
-      if (containerRef.current) {
-        observer.unobserve(containerRef.current);
-      }
-    };
-  }, [state.resourcesLoaded, state.hasError]);
 
   // Trigger Pretix widget initialization after resources load
   useEffect(() => {
@@ -342,6 +306,85 @@ export function PretixWidget({
       }
     }
   }, [state.resourcesLoaded]);
+
+  // Fix relative image URLs and add broken image fallback logic inside the Pretix widget
+  useEffect(() => {
+    if (!state.resourcesLoaded || !containerRef.current) return;
+
+    let baseUrl = "";
+    try {
+      const urlObj = new URL(eventUrl);
+      baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+    } catch (e) {
+      return;
+    }
+
+    const fixWidgetImages = () => {
+      if (!containerRef.current) return;
+      
+      const rows = containerRef.current.querySelectorAll(".pretix-widget-item-row");
+      rows.forEach((row) => {
+        const hasPicture = row.querySelector(".pretix-widget-item-picture");
+        if (!hasPicture) {
+          // No picture exists: inject fallback picture container to align layout with production example
+          row.classList.add("pretix-widget-item-with-picture");
+          
+          const picContainer = document.createElement("div");
+          picContainer.className = "pretix-widget-item-picture fallback-picture-container";
+          
+          const picLink = document.createElement("a");
+          picLink.className = "pretix-widget-item-picture-link";
+          picLink.href = eventUrl;
+          picLink.target = "_blank";
+          picLink.rel = "noopener noreferrer";
+          
+          const img = document.createElement("img");
+          img.src = "/android-chrome-192x192.png";
+          img.alt = "AWS User Group Jakarta Logo";
+          img.className = "fallback-logo opacity-80 scale-95 object-contain";
+          
+          picLink.appendChild(img);
+          picContainer.appendChild(picLink);
+          
+          // Prepend as the first child of the row to align left
+          row.insertBefore(picContainer, row.firstChild);
+        } else {
+          // Picture exists: check if src is a relative path or fails to load
+          const img = hasPicture.querySelector("img");
+          if (img) {
+            const src = img.getAttribute("src");
+            if (src && src.startsWith("/") && !src.startsWith("//") && !src.includes("android-chrome")) {
+              img.src = `${baseUrl}${src}`;
+            }
+            
+            // Fallback to community logo if loading fails
+            img.onerror = () => {
+              img.src = "/android-chrome-192x192.png";
+              img.className = (img.className || "") + " opacity-80 scale-95 object-contain fallback-logo";
+              img.onerror = null; // Prevent loops
+            };
+          }
+        }
+      });
+    };
+
+    // Run initial scan
+    fixWidgetImages();
+
+    // Observe changes inside the widget as it renders asynchronously
+    const observer = new MutationObserver(() => {
+      fixWidgetImages();
+    });
+
+    observer.observe(containerRef.current, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["src"],
+    });
+
+    return () => observer.disconnect();
+  }, [state.resourcesLoaded, eventUrl]);
 
   // Error state display with fallback link
   if (state.hasError) {

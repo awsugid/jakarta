@@ -4,25 +4,24 @@
 
 @layer base {
   :root {
-    --background: #1B1827;
-    /* #1B1827 - Custom dark background */
-    --foreground: hsl(210 40% 98%);
-    --card: hsl(222 27% 22%);
-    --card-foreground: hsl(210 40% 98%);
-    --popover: hsl(222 27% 19%);
-    --popover-foreground: hsl(210 40% 98%);
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(224 71.4% 4.1%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(224 71.4% 4.1%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(224 71.4% 4.1%);
     --primary: hsl(36 100% 50%);
     --primary-foreground: hsl(222 47.4% 11.2%);
-    --secondary: hsl(217.2 32.6% 17.5%);
-    --secondary-foreground: hsl(210 40% 98%);
-    --muted: hsl(217.2 32.6% 17.5%);
-    --muted-foreground: hsl(215 20.2% 65.1%);
-    --accent: hsl(217.2 32.6% 17.5%);
-    --accent-foreground: hsl(210 40% 98%);
-    --destructive: hsl(0 62.8% 30.6%);
+    --secondary: hsl(220 14.3% 95.9%);
+    --secondary-foreground: hsl(220.9 39.3% 11%);
+    --muted: hsl(220 14.3% 95.9%);
+    --muted-foreground: hsl(220 8.9% 46.1%);
+    --accent: hsl(220 14.3% 95.9%);
+    --accent-foreground: hsl(220.9 39.3% 11%);
+    --destructive: hsl(0 84.2% 60.2%);
     --destructive-foreground: hsl(210 40% 98%);
-    --border: hsl(217.2 32.6% 17.5%);
-    --input: hsl(217.2 32.6% 17.5%);
+    --border: hsl(220 13% 91%);
+    --input: hsl(220 13% 91%);
     --ring: hsl(36 100% 50%);
     --radius: 0.5rem;
     --chart-1: hsl(12 76% 61%);
@@ -145,5 +144,53 @@
   html, body {
     @apply bg-background text-foreground;
     overflow-x: hidden;
+  }
+}
+
+/* Pretix Widget Layout Enhancements to ensure buttons are full-width and match production design */
+.pretix-widget-container {
+  .pretix-widget-action {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-top: 1.5rem !important;
+    float: none !important;
+    display: block !important;
+  }
+
+  .pretix-widget-action button, 
+  .pretix-widget-action input[type="submit"] {
+    width: 100% !important;
+    display: block !important;
+    padding: 12px 24px !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    border-radius: 0.75rem !important;
+    transition: all 0.2s !important;
+    cursor: pointer !important;
+  }
+
+  .pretix-widget-voucher-input-wrap {
+    width: 100% !important;
+    float: none !important;
+    display: block !important;
+  }
+
+  .pretix-widget-voucher-button-wrap {
+    width: 100% !important;
+    float: none !important;
+    margin-top: 0.8rem !important;
+    display: block !important;
+    clear: both !important;
+  }
+
+  .pretix-widget-voucher-button-wrap button {
+    width: 100% !important;
+    display: block !important;
+    padding: 12px 24px !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    border-radius: 0.75rem !important;
+    transition: all 0.2s !important;
+    cursor: pointer !important;
   }
 }

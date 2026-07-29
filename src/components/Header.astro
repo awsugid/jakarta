@@ -24,7 +24,7 @@ const currentPath = Astro.url.pathname;
                     class="h-10 w-auto"
                 />
             </a>
-            <nav class="hidden md:flex gap-8 text-sm font-medium">
+            <nav class="hidden lg:flex gap-8 text-sm font-medium">
                 {
                     navItems.map((item) => {
                         const isActive = currentPath === item.href || currentPath === `${item.href}/` || (item.href !== '/' && currentPath.startsWith(item.href));

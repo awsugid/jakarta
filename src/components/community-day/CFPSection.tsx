@@ -60,23 +60,23 @@ export function CFPSection() {
   ];
 
   return (
-    <section id="cfp" className="py-24 px-4 bg-background dark:bg-slate-950 relative border-b border-border dark:border-white/5 overflow-hidden">
+    <section id="cfp" className="py-24 px-4 bg-background relative border-b border-border overflow-hidden">
       {/* Background Decorative Glows */}
-      <div className="absolute right-0 top-1/4 w-[350px] h-[350px] bg-purple-500/5 dark:bg-purple-900/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute left-0 bottom-1/4 w-[300px] h-[300px] bg-orange-500/5 dark:bg-orange-950/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute right-0 top-1/4 w-[350px] h-[350px] bg-purple-900/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute left-0 bottom-1/4 w-[300px] h-[300px] bg-orange-950/10 rounded-full blur-[100px] pointer-events-none" />
       
       <div className="container max-w-6xl mx-auto space-y-20">
         
         {/* Section Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-600 dark:text-purple-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
             🎤 Call for Speakers
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
             Share Your Story at <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500">CFP 2026</span>
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 mx-auto rounded-full" />
-          <p className="text-muted-foreground text-base sm:text-lg font-light leading-relaxed">
+          <p className="text-muted-foreground text-base sm:text-lg font-normal leading-relaxed">
             Join the largest community-led developer conference in Indonesia. We welcome technical deep dives, architectural case studies, and hands-on guide proposals from both first-time speakers and seasoned experts.
           </p>
         </div>
@@ -87,17 +87,17 @@ export function CFPSection() {
             <h3 className="text-lg font-bold uppercase tracking-wider text-muted-foreground/80 border-l-2 border-orange-500 pl-3">
               Tracks & Topics We Love
             </h3>
-            <div className="h-px bg-border dark:bg-white/10 flex-1 hidden sm:block" />
+            <div className="h-px bg-border flex-1 hidden sm:block" />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {tracks.map((track, idx) => (
               <div 
                 key={`track-${idx}`} 
-                className="flex flex-col justify-between p-6 rounded-2xl border border-border dark:border-white/5 bg-card/40 dark:bg-white/[0.01] backdrop-blur-sm relative overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:bg-card/75 dark:hover:bg-white/[0.03] hover:border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/5 min-h-[220px]"
+                className="flex flex-col justify-between p-6 rounded-2xl border border-border bg-card/40 backdrop-blur-sm relative overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:bg-card/75 hover:border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/5 min-h-[220px]"
               >
                 {/* Large Background Track Number */}
-                <div className="absolute right-4 top-2 text-6xl font-extrabold font-mono text-orange-500/[0.04] dark:text-orange-500/[0.06] select-none group-hover:text-orange-500/[0.08] transition-colors">
+                <div className="absolute right-4 top-2 text-6xl font-extrabold font-mono text-orange-500/[0.06] select-none group-hover:text-orange-500/[0.08] transition-colors">
                   {`0${idx + 1}`}
                 </div>
                 
@@ -116,7 +116,7 @@ export function CFPSection() {
                   {track.tags.map((tag, tagIdx) => (
                     <span 
                       key={tagIdx}
-                      className="bg-orange-500/5 text-orange-600 dark:text-orange-400 border border-orange-500/10 text-xs px-2 py-0.5 rounded-md font-medium"
+                      className="bg-orange-500/5 text-orange-400 border border-orange-500/10 text-xs px-2 py-0.5 rounded-md font-medium"
                     >
                       {tag}
                     </span>
@@ -133,7 +133,7 @@ export function CFPSection() {
             <h3 className="text-lg font-bold uppercase tracking-wider text-muted-foreground/80 border-l-2 border-purple-500 pl-3">
               Speaker Benefits & Perks
             </h3>
-            <div className="h-px bg-border dark:bg-white/10 flex-1 hidden sm:block" />
+            <div className="h-px bg-border flex-1 hidden sm:block" />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -142,9 +142,9 @@ export function CFPSection() {
               return (
                 <div 
                   key={`perk-${idx}`} 
-                  className="flex flex-col items-center text-center p-6 rounded-2xl border border-border dark:border-white/5 bg-card/40 dark:bg-white/[0.01] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-card/75 dark:hover:bg-white/[0.03] hover:border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/5 group"
+                  className="flex flex-col items-center text-center p-6 rounded-2xl border border-border bg-card/40 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-card/75 hover:border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/5 group"
                 >
-                  <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-2xl h-12 w-12 flex items-center justify-center mb-4 transition-colors group-hover:bg-purple-500/20">
+                  <div className="p-3 bg-purple-500/10 text-purple-400 rounded-2xl h-12 w-12 flex items-center justify-center mb-4 transition-colors group-hover:bg-purple-500/20">
                     <Icon className="h-6 w-6" />
                   </div>
                   <div className="space-y-2">
@@ -162,17 +162,17 @@ export function CFPSection() {
         </div>
 
         {/* Full-width CFP Action Banner */}
-        <div className="p-8 sm:p-10 rounded-3xl border border-purple-500/20 dark:border-purple-500/20 bg-gradient-to-br from-purple-500/[0.04] via-card/50 to-orange-500/[0.02] dark:from-purple-500/[0.03] dark:via-slate-900/40 dark:to-orange-500/[0.01] backdrop-blur-md flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden">
+        <div className="p-8 sm:p-10 rounded-3xl border border-purple-500/20 bg-gradient-to-br from-purple-500/[0.04] via-card/50 to-orange-500/[0.02] backdrop-blur-md flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/5 rounded-full blur-[64px]" />
           
           <div className="space-y-4 text-center lg:text-left relative z-10">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               CFP Open & Accepting Submissions
             </div>
             
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
+              <p className="text-xs font-semibold text-purple-400 uppercase tracking-widest">
                 📅 Submission Deadline
               </p>
               <h3 className="text-3xl font-extrabold text-foreground tracking-tight">
@@ -188,14 +188,14 @@ export function CFPSection() {
           <div className="w-full lg:w-auto shrink-0 relative z-10">
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:min-w-[240px] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-6 rounded-xl active:scale-95 transition-all text-base justify-center shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30">
+                <Button className="w-full sm:min-w-[240px] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-primary-foreground font-bold py-6 rounded-xl active:scale-95 transition-all text-base justify-center shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30">
                   <Mic className="mr-2 h-5 w-5" /> Submit Your Proposal
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[480px] bg-background dark:bg-slate-900 border-border dark:border-white/10 text-foreground dark:text-white">
+              <DialogContent className="sm:max-w-[480px] bg-background border-border text-foreground">
                 <DialogHeader className="space-y-3">
-                  <DialogTitle className="text-2xl font-bold text-foreground dark:text-white flex items-center gap-2">
-                    <Mic className="h-6 w-6 text-purple-600 dark:text-purple-400" /> CFP Submission Guidelines
+                  <DialogTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
+                    <Mic className="h-6 w-6 text-purple-400" /> CFP Submission Guidelines
                   </DialogTitle>
                   <DialogDescription className="text-muted-foreground text-sm">
                     Please read the speaker rules and checklist before redirecting to Sessionize to submit your proposal.
@@ -209,12 +209,12 @@ export function CFPSection() {
                     <li>You may submit up to 3 different proposals.</li>
                   </ul>
                 </div>
-                <div className="flex gap-3 pt-4 border-t border-border dark:border-white/10">
-                  <Button variant="outline" className="flex-1 border-border dark:border-white/10 text-foreground dark:text-white hover:bg-muted" onClick={() => setIsOpen(false)}>
+                <div className="flex gap-3 pt-4 border-t border-border">
+                  <Button variant="outline" className="flex-1 border-border text-foreground hover:bg-muted" onClick={() => setIsOpen(false)}>
                     Cancel
                   </Button>
                   <Button 
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white" 
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-primary-foreground" 
                     onClick={() => {
                       window.open("https://sessionize.com/aws-community-day-indonesia-2026", "_blank");
                       setIsOpen(false);

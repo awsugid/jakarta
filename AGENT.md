@@ -46,7 +46,7 @@ Event management and community portal for **AWS User Group Jakarta**. The site i
 │   │   └── blog/*.mdx
 │   ├── layouts/Layout.astro      # html.dark hard-coded; GA + Header/Footer
 │   ├── lib/utils.ts              # cn() = clsx + tailwind-merge
-│   ├── styles/global.css # Tailwind v4 @theme, OKLCH tokens, .dark variant
+│   ├── styles/global.css         # Tailwind v4 @theme, OKLCH tokens, .dark variant
 │   ├── pages/                    # File-based routes (index, events, blog, speakers, volunteer, sponsor, ...)
 │   │   └── api/                  # Empty — API lives in /functions/api (Cloudflare)
 │   └── components/

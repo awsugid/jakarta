@@ -32,6 +32,30 @@
   }
 }
 
+.dark {
+    --background: #1B1827;
+    /* #1B1827 - Custom dark background */
+    --foreground: hsl(210 40% 98%);
+    --card: hsl(222 27% 22%);
+    --card-foreground: hsl(210 40% 98%);
+    --popover: hsl(222 27% 19%);
+    --popover-foreground: hsl(210 40% 98%);
+    --primary: hsl(36 100% 50%);
+    --primary-foreground: hsl(222 47.4% 11.2%);
+    --secondary: hsl(217.2 32.6% 17.5%);
+    --secondary-foreground: hsl(210 40% 98%);
+    --muted: hsl(217.2 32.6% 17.5%);
+    --muted-foreground: hsl(215 20.2% 65.1%);
+    --accent: hsl(217.2 32.6% 17.5%);
+    --accent-foreground: hsl(210 40% 98%);
+    --destructive: hsl(0 62.8% 30.6%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(217.2 32.6% 17.5%);
+    --input: hsl(217.2 32.6% 17.5%);
+    --ring: hsl(36 100% 50%);
+  }
+
+
 @font-face {
   font-family: "Amazon Ember";
   src: url("/Amazon Ember.woff2") format("woff2");
@@ -124,8 +148,75 @@
   }
 }
 
-/* Pretix Widget Layout Enhancements to ensure buttons are full-width and match production design */
+/* Pretix Widget Layout Enhancements and Dark Mode Overrides */
 .pretix-widget-container {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border) !important;
+  padding: 1.5rem !important;
+
+  .pretix-widget {
+    background: transparent !important;
+    color: var(--foreground) !important;
+    border: none !important;
+    font-family: inherit !important;
+  }
+
+  .pretix-widget-info-reselling {
+    background: var(--background) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--muted-foreground) !important;
+  }
+
+  .pretix-widget-item-row {
+    background: transparent !important;
+    border-bottom: 1px solid var(--border) !important;
+    color: var(--foreground) !important;
+  }
+
+  .pretix-widget-item-row:last-child {
+    border-bottom: none !important;
+  }
+
+  .pretix-widget-item-title,
+  .pretix-widget-item-price,
+  .pretix-widget-item-availability,
+  .pretix-widget-item-total,
+  .pretix-widget-item-tax,
+  .pretix-widget-item-row strong {
+    color: var(--foreground) !important;
+  }
+
+  .pretix-widget-item-description {
+    color: var(--muted-foreground) !important;
+  }
+
+  /* Form elements (Voucher input, count select) */
+  input[type="text"],
+  input[type="number"],
+  select {
+    background-color: var(--background) !important;
+    color: var(--foreground) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-sm) !important;
+    padding: 6px 10px !important;
+  }
+
+  /* Alert / Error / Success messages */
+  .pretix-widget-alert-info,
+  .pretix-widget-alert-warning,
+  .pretix-widget-alert-danger {
+    background-color: var(--background) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--foreground) !important;
+  }
+
+  .pretix-widget-alert-danger {
+    border-color: var(--destructive) !important;
+    color: var(--destructive) !important;
+  }
+
   .pretix-widget-action {
     width: 100% !important;
     margin-left: 0 !important;
@@ -144,6 +235,14 @@
     border-radius: 0.75rem !important;
     transition: all 0.2s !important;
     cursor: pointer !important;
+    background-color: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    border: none !important;
+  }
+
+  .pretix-widget-action button:hover, 
+  .pretix-widget-action input[type="submit"]:hover {
+    background-color: color-mix(in srgb, var(--primary) 90%, black) !important;
   }
 
   .pretix-widget-voucher-input-wrap {
@@ -169,5 +268,47 @@
     border-radius: 0.75rem !important;
     transition: all 0.2s !important;
     cursor: pointer !important;
+    background-color: var(--secondary) !important;
+    color: var(--secondary-foreground) !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  .pretix-widget-voucher-button-wrap button:hover {
+    background-color: var(--accent) !important;
+  }
+
+  /* Global link overrides inside widget to avoid default browser blue/purple */
+  a,
+  a:visited,
+  a:hover,
+  a:active {
+    color: var(--primary) !important;
+    text-decoration: none !important;
+  }
+
+  a:hover {
+    text-decoration: underline !important;
+  }
+
+  /* Footer Attribution styling */
+  .pretix-widget-attribution,
+  .pretix-widget-attribution a,
+  .pretix-widget-attribution a:visited {
+    color: var(--muted-foreground) !important;
+    font-size: 0.75rem !important;
+    text-decoration: none !important;
+  }
+
+  .pretix-widget-attribution a:hover {
+    text-decoration: underline !important;
+  }
+
+  /* Original Price (Strikethrough) formatting */
+  del,
+  .pretix-widget-item-price del,
+  .price del {
+    color: var(--muted-foreground) !important;
+    opacity: 0.6 !important;
+    text-decoration: line-through !important;
   }
 }

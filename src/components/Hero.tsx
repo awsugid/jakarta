@@ -35,7 +35,7 @@ export function Hero({ kioskUrl }: HeroProps) {
           <Button
             asChild
             size="lg"
-            className="h-12 px-8 text-base bg-primary hover:bg-primary/90 text-white shadow-lg shadow-orange-500/20"
+            className="h-12 px-8 text-base bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-orange-500/20"
           >
             <a
               href="https://www.meetup.com/aws-ug-jakarta"

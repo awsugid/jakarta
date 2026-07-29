@@ -240,13 +240,12 @@ const columns = [
   </div>
 
   <script>
-    const timeInput = document.getElementById('demo-time');
+    const timeInput = document.getElementById('demo-time') as HTMLInputElement | null;
     const applyButton = document.getElementById('apply-time');
     const resetButton = document.getElementById('reset-time');
     const presetButtons = document.querySelectorAll('.preset-button');
-    const scheduleTable = document.querySelector('[data-astro-cid-ScheduleTable]')?.closest('[style*=""]')?.parentElement;
 
-    function updateScheduleWithTime(time) {
+    function updateScheduleWithTime(time: string | null) {
       // Store the time in sessionStorage so the component can access it
       if (time) {
         sessionStorage.setItem('scheduleTableDemoTime', time);
@@ -260,30 +259,37 @@ const columns = [
       alert(`Demo time set to: ${time || 'real time'}\n\nThe schedule will update on next page reload or component re-render.`);
     }
 
-    applyButton.addEventListener('click', () => {
-      const time = timeInput.value;
-      if (time) {
-        updateScheduleWithTime(time);
-      }
-    });
+    if (applyButton && timeInput) {
+      applyButton.addEventListener('click', () => {
+        const time = timeInput.value;
+        if (time) {
+          updateScheduleWithTime(time);
+        }
+      });
+    }
 
-    resetButton.addEventListener('click', () => {
-      updateScheduleWithTime(null);
-      timeInput.value = '09:45';
-      alert('Demo time reset. The schedule will use real time on next page reload.');
-    });
+    if (resetButton && timeInput) {
+      resetButton.addEventListener('click', () => {
+        updateScheduleWithTime(null);
+        timeInput.value = '09:45';
+        alert('Demo time reset. The schedule will use real time on next page reload.');
+      });
+    }
 
     presetButtons.forEach(button => {
       button.addEventListener('click', () => {
-        const time = button.dataset.time;
-        timeInput.value = time;
-        updateScheduleWithTime(time);
+        const htmlButton = button as HTMLElement;
+        const time = htmlButton.dataset.time;
+        if (time && timeInput) {
+          timeInput.value = time;
+          updateScheduleWithTime(time);
+        }
       });
     });
 
     // Load saved demo time if exists
     const savedTime = sessionStorage.getItem('scheduleTableDemoTime');
-    if (savedTime) {
+    if (savedTime && timeInput) {
       timeInput.value = savedTime;
     }
   </script>

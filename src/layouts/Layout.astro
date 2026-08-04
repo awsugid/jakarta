@@ -3,6 +3,7 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import GoogleAnalytics from "../components/GoogleAnalytics.astro";
 import FormbricksSDK from "../components/FormbricksSDK.astro";
+import { navItems } from "../lib/navigation";
 import "../styles/global.css";
 
 interface Props {
@@ -14,6 +15,13 @@ const {
 	title = "AWS User Group Jakarta",
 	description = "Join the AWS User Group Jakarta community.",
 } = Astro.props;
+
+const site = Astro.site?.origin ?? "https://jakarta.awscommunity.id";
+const siteNav = navItems.map((item) => ({
+	"@type": "SiteNavigationElement",
+	name: item.name,
+	url: new URL(item.href, site).href,
+}));
 ---
 
 <!doctype html>
@@ -45,6 +53,13 @@ const {
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+		<script
+			type="application/ld+json"
+			set:html={JSON.stringify({
+				"@context": "https://schema.org",
+				"@graph": siteNav,
+			})}
+		/>
 	</head>
 	<body
 		class="min-h-screen bg-background font-sans antialiased flex flex-col"

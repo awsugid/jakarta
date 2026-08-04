@@ -30,10 +30,13 @@ export function VolunteerHero({ kioskUrl, openCount, onApplyClick }: VolunteerHe
         </div>
 
         <h1 className="min-h-20 sm:min-h-0 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 fill-mode-both text-foreground">
-          Volunteer at <span className="text-primary">AWS </span>
-          <RotatingEventName
-            names={["User Group Jakarta", "Monthly Meetups", "Community Day"]}
-          />
+          <span className="sr-only">Volunteer at AWS User Group Jakarta</span>
+          <span aria-hidden="true">
+            Volunteer at <span className="text-primary">AWS </span>
+            <RotatingEventName
+              names={["User Group Jakarta", "Monthly Meetups", "Community Day"]}
+            />
+          </span>
         </h1>
 
         <p className="max-w-2xl text-lg sm:text-xl text-muted-foreground mb-10 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both leading-relaxed">

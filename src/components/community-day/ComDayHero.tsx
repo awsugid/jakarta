@@ -74,7 +74,7 @@ export function ComDayHero() {
             <div className="flex items-center space-x-3 bg-card/70 backdrop-blur-md border border-border rounded-xl p-3.5">
               <Calendar className="h-5 w-5 text-orange-500 shrink-0" />
               <div className="text-left text-sm">
-                <p className="font-semibold text-foreground">October 25, 2026</p>
+                <p className="font-semibold text-foreground">October 31, 2026</p>
                 <p className="text-muted-foreground text-xs">08:30 - 17:00 WIB</p>
               </div>
             </div>
@@ -86,8 +86,8 @@ export function ComDayHero() {
             >
               <MapPin className="h-5 w-5 text-pink-500 shrink-0 group-hover:scale-110 transition-transform" />
               <div className="text-left text-sm">
-                <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Binus @Alam Sutera</p>
-                <p className="text-muted-foreground text-xs">Auditorium, Tangerang</p>
+                <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Binus @Anggrek</p>
+                <p className="text-muted-foreground text-xs">Auditorium, Jakarta Barat</p>
               </div>
             </a>
           </div>

@@ -48,7 +48,7 @@ function MobileNavInner({ items }: MobileNavProps) {
     : "";
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       <Button
         variant="ghost"
         size="icon"
@@ -81,14 +81,14 @@ function MobileNavInner({ items }: MobileNavProps) {
                       alt="Logo"
                       className="h-8 w-auto"
                     />
-                    <span className="font-bold text-sm tracking-tight text-white">AWS UG Jakarta</span>
+                    <span className="font-bold text-sm tracking-tight text-foreground">AWS UG Jakarta</span>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setOpen(false)}
                     aria-label="Close menu"
-                    className="text-muted-foreground hover:text-white"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-6 w-6" />
                   </Button>
@@ -104,7 +104,7 @@ function MobileNavInner({ items }: MobileNavProps) {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-white truncate">{user.name || user.email}</p>
+                      <p className="text-sm font-bold text-foreground truncate">{user.name || user.email}</p>
                       <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                     </div>
                   </div>
@@ -124,7 +124,7 @@ function MobileNavInner({ items }: MobileNavProps) {
                         className={`text-lg font-semibold tracking-tight transition-all flex items-center justify-between hover:translate-x-1 duration-200 ${
                           isActive
                             ? "text-primary font-bold"
-                            : "text-white/80 hover:text-primary"
+                            : "text-foreground/80 hover:text-primary"
                         }`}
                         onClick={() => setOpen(false)}
                       >
@@ -141,7 +141,7 @@ function MobileNavInner({ items }: MobileNavProps) {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 px-1">Account</p>
                     <a
                       href="/applications"
-                      className="text-sm font-semibold text-white/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1"
+                      className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1"
                       onClick={() => setOpen(false)}
                     >
                       <FileText className="h-4 w-4" />
@@ -154,7 +154,7 @@ function MobileNavInner({ items }: MobileNavProps) {
                           (window as any).formbricks.track("submit-bug");
                         }
                       }}
-                      className="text-sm font-semibold text-white/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1 bg-transparent border-0 cursor-pointer text-left w-full focus:outline-none"
+                      className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1 bg-transparent border-0 cursor-pointer text-left w-full focus:outline-none"
                     >
                       <Bug className="h-4 w-4" />
                       <span>Submit a Bug</span>

@@ -50,9 +50,6 @@ export function EventFAQ({ extraFaqs, faqs, className }: EventFAQProps) {
 
   return (
     <div className={className}>
-      {/*<h2 className="text-2xl font-bold tracking-tight mb-6 text-foreground">
-        Frequently Asked Questions
-      </h2>*/}
       <Accordion type="single" collapsible className="w-full space-y-2">
         {items.map((faq, index) => (
           <AccordionItem

@@ -1,0 +1,157 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { ComDayHero } from "../components/community-day/ComDayHero";
+import { MetricsBar } from "../components/community-day/MetricsBar";
+import { CFPSection } from "../components/community-day/CFPSection";
+import { SponsorSection } from "../components/community-day/SponsorSection";
+import { MobileStickyBar } from "../components/community-day/MobileStickyBar";
+import { PretixWidget } from "../components/PretixWidget";
+import { ScheduleTable } from "../components/ScheduleTable";
+import { EventFAQ } from "../components/EventFAQ";
+import { AlertCircle } from "lucide-react";
+
+// Columns configuration for ScheduleTable
+const scheduleColumns = [
+    { key: "start", label: "Start", className: "w-20 font-mono" },
+    { key: "finish", label: "Finish", className: "w-20 font-mono" },
+    { key: "agenda", label: "Agenda Session", className: "font-semibold" },
+    { key: "speaker", label: "Presenter / Speaker", hideOnMobile: true }
+];
+
+// Schedule rows matching top conference standards
+const scheduleItems = [
+    { start: "08:30", finish: "09:00", agenda: "Registration & Morning Tea", speaker: "All Attendees" },
+    { start: "09:00", finish: "09:20", agenda: "Opening Keynote & Welcome Address", speaker: "AWS UG Indonesia Team" },
+    { start: "09:20", finish: "10:10", agenda: "Standardizing Platform Engineering on EKS", speaker: "AWS Principal Solutions Architect" },
+    { start: "10:10", finish: "10:30", agenda: "Networking & Coffee Break", speaker: "Foyer Exhibition Hall" },
+    { start: "10:30", finish: "11:15", agenda: "Event-Driven GenAI Agents on Lambda & Bedrock", speaker: "Christian Laurence, Developer Hero" },
+    { start: "11:15", finish: "12:00", agenda: "Zero-Trust Service Meshes inside ECS Fargate", speaker: "Platform Security Lead @Tokopedia" },
+    { start: "12:00", finish: "13:00", agenda: "Lunch, Networking & Sponsor Booth Demos", speaker: "All Sponsors" },
+    { start: "13:00", finish: "13:45", agenda: "Rust WASM vs Go on Cloudflare Workers", speaker: "WASM Engineering Group Leader" },
+    { start: "13:45", finish: "14:30", agenda: "Scaling Multi-Region Databases on AWS D1 & Aurora", speaker: "Nathaniel Wikamulia, Confluent Solutions Eng" },
+    { start: "14:30", finish: "15:00", agenda: "Afternoon Coffee & Refreshments", speaker: "Foyer Exhibition Hall" },
+    { start: "15:00", finish: "16:00", agenda: "Panel Discussion: The Future of Cloud in Indonesia", speaker: "AWS UG leaders, DevShare representatives" },
+    { start: "16:00", finish: "16:30", agenda: "Closing Remarks, Swag Raffle & Group Photo", speaker: "Organizers & Sponsors" }
+];
+
+// Custom FAQs tailored for Community Day 2026
+const customFaqs = [
+    {
+        question: "What is AWS Community Day Indonesia?",
+        answer: "AWS Community Day is a peer-to-peer developer conference organized by the community for the community. The event features technical talks, workshops, and networking opportunities centered around Amazon Web Services technologies."
+    },
+    {
+        question: "Where is the event located and how do I get there?",
+        answer: "The event will take place physically at the <strong>Auditorium Binus @Anggrek</strong>, Jakarta Barat, Indonesia. You can easily access the location via public transit or private vehicles. Click the map location in the Hero section for Google Maps directions."
+    },
+    {
+        question: "Is there a commitment fee, and is it refundable?",
+        answer: "Yes, to prevent no-shows and make seats available to genuine learners, we require a small ticket fee. General admission tickets are <strong>fully refundable</strong> if you check in at the registration desk on the day of the event."
+    },
+    {
+        question: "How can I submit my session proposal?",
+        answer: "You can submit your proposal directly through our CFP section. Click on 'Submit Your Proposal' which will guide you to our Sessionize page where you can fill in your title, abstract, and speaker details."
+    },
+    {
+        question: "How can my company sponsor the event?",
+        answer: "Sponsorship tier packages are shown in our Sponsor section. You can download the PDF prospectus or click 'Register Interest' to send an inquiry form directly to our community organizers."
+    }
+];
+---
+
+<Layout title="AWS Community Day Indonesia 2026 - Jakarta Chapter">
+    <!-- Alert Banner -->
+    <div class="bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border-b border-orange-500/30 py-3 px-4 text-center">
+        <div class="container max-w-6xl mx-auto flex items-center justify-center gap-2 text-xs sm:text-sm text-orange-300 font-medium">
+            <AlertCircle className="h-4 w-4 shrink-0 text-orange-400" />
+            <span>🔥 Early Bird Tickets are sold out! Regular Tickets and Speaker submissions are open below.</span>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <ComDayHero client:load />
+
+    <!-- Metrics Stats Section -->
+    <MetricsBar client:visible />
+
+    <!-- Ticket Sales Section -->
+    <section id="tickets" class="py-20 px-4 bg-background border-b border-border relative">
+        <div class="absolute right-0 top-1/4 w-80 h-80 bg-orange-500/5 rounded-full blur-[100px]" />
+        <div class="container max-w-4xl mx-auto space-y-12">
+            <div class="text-center space-y-4">
+                <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+                    Get Your Tickets
+                </h2>
+                <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
+                <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">
+                    Secure your attendance today. Select a ticket tier below to register. Refundable upon check-in.
+                </p>
+            </div>
+
+            {/* Embedded Pretix Widget */}
+            <div class="bg-card/60 backdrop-blur-xl border border-border rounded-3xl p-6 sm:p-8 shadow-2xl relative">
+                <PretixWidget 
+                    client:load 
+                    eventUrl="https://gultix.awscommunity.id/AWSUserGroupJakarta/CommunityDay26/" 
+                    className="w-full"
+                />
+            </div>
+
+            <div class="text-center text-xs text-muted-foreground/60">
+                🔒 Ticket ordering is secure and powered by Pretix.
+            </div>
+        </div>
+    </section>
+
+    <!-- Speaker CFP Section -->
+    <CFPSection client:load />
+
+    <!-- Agenda / Schedule Section -->
+    <section id="agenda" class="py-20 px-4 bg-background border-b border-border">
+        <div class="container max-w-4xl mx-auto space-y-12">
+            <div class="text-center space-y-4">
+                <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+                    Event Schedule
+                </h2>
+                <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
+                <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">
+                    An action-packed day of deep dives, technical sessions, panels, and networking tracks.
+                </p>
+            </div>
+
+            <div class="bg-card/50 border border-border rounded-3xl p-4 sm:p-6 shadow-2xl">
+                <ScheduleTable 
+                    client:load 
+                    columns={scheduleColumns} 
+                    items={scheduleItems} 
+                    eventDate="2026-10-31" 
+                />
+            </div>
+        </div>
+    </section>
+
+    <!-- Sponsor Section -->
+    <SponsorSection client:load />
+
+    <!-- FAQ Section -->
+    <section id="faq" class="py-20 px-4 bg-background">
+        <div class="container max-w-4xl mx-auto space-y-12">
+            <div class="text-center space-y-4">
+                <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+                    Frequently Asked Questions
+                </h2>
+                <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
+                <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">
+                    Need help? Find quick answers for attendees, speakers, and sponsors below.
+                </p>
+            </div>
+
+            <div class="bg-card/60 border border-border rounded-3xl p-6 sm:p-8 shadow-xl">
+                <EventFAQ client:load faqs={customFaqs} />
+            </div>
+        </div>
+    </section>
+
+    <!-- Mobile Sticky Action Bar -->
+    <MobileStickyBar client:load />
+</Layout>

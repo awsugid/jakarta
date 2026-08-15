@@ -49,7 +49,7 @@ function getIdToken(): string | null {
 }
 
 /** Build headers for an authenticated request. */
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -79,7 +79,7 @@ function authHeaders(): Record<string, string> {
 }
 
 /** Lightweight fetch wrapper that prepends base URL and parses JSON errors. */
-async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const base = getBaseUrl();
   const url = `${base}${path}`;
 
@@ -93,6 +93,25 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
       if (errBody?.error?.message) message = errBody.error.message;
     } catch {
       /* use default message */
+    }
+    if (status === 401) {
+      try {
+        localStorage.removeItem("g_id_token");
+        localStorage.removeItem("g_admin_cache");
+      } catch {
+        /* storage unavailable */
+      }
+      try {
+        sessionStorage.removeItem("g_id_token");
+        sessionStorage.removeItem("g_admin_cache");
+      } catch {
+        /* storage unavailable */
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("auth-state-change", { detail: null })
+        );
+      }
     }
     const error = new Error(message) as any;
     error.status = status;

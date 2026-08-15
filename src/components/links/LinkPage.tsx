@@ -16,6 +16,7 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchPublicLinks } from "@/lib/api";
 import type {
 	LinkBackground,
@@ -205,13 +206,14 @@ function LoadedView({
 function LoadingSkeleton() {
 	return (
 		<>
-			<div className="h-24 w-24 rounded-full bg-muted animate-pulse" />
-			<div className="mt-4 h-8 w-48 rounded-md bg-muted animate-pulse" />
+			<Skeleton className="h-24 w-24 rounded-full" />
+			<Skeleton className="mt-4 h-8 w-48" />
+			<Skeleton className="mt-2 h-4 w-64" />
 			<div className="mt-6 w-full flex flex-col gap-3">
-				{[0, 1, 2].map((i) => (
-					<div
+				{[0, 1, 2, 3].map((i) => (
+					<Skeleton
 						key={i}
-						className="h-12 w-full rounded-xl bg-muted animate-pulse"
+						className="h-12 w-full rounded-xl"
 					/>
 				))}
 			</div>

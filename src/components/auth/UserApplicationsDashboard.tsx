@@ -34,6 +34,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Format response data keys to human-friendly labels
 function formatQuestionKey(key: string, index?: number): string {
@@ -185,11 +186,25 @@ function UserApplicationsDashboardInner() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3 bg-card border border-border/80 rounded-xl">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground animate-pulse">
-            Fetching your applications...
-          </p>
+        <div className="grid gap-4">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-card/60 border border-border/80 rounded-xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+            >
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-24 rounded-full" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-9 w-24 rounded-lg" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className="bg-card border border-border/80 rounded-xl p-8 text-center space-y-4 shadow-sm">

@@ -12,8 +12,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  ResponsiveContainer,
-  Label,
 } from "recharts";
 import {
   ChartContainer,
@@ -30,10 +28,266 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchCommunityStatistics } from "@/lib/api";
 import type { CommunityStatistics } from "@/lib/types";
 
 interface StatisticsChartsProps {}
+
+// Modern, clean Chart Skeleton component supporting Line, Pie/Donut, Vertical Bar, and Horizontal Bar wireframes
+export function ChartSkeleton({
+  height = "h-[300px]",
+  type = "bar",
+}: {
+  height?: string;
+  type?: "bar" | "line" | "pie" | "horizontal-bar";
+}) {
+  return (
+    <div
+      className={`${height} w-full relative flex flex-col justify-between select-none py-1 overflow-hidden animate-pulse`}
+    >
+      {type === "line" && (
+        <div className="w-full h-full flex flex-col justify-between py-2">
+          {/* SVG Line Wireframe */}
+          <div className="relative flex-1 w-full flex items-center justify-center">
+            <svg
+              className="w-full h-full overflow-visible"
+              viewBox="0 0 300 100"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient
+                  id="line-skeleton-gradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
+                  <stop
+                    offset="0%"
+                    stopColor="currentColor"
+                    className="text-muted-foreground/15"
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="currentColor"
+                    className="text-muted-foreground/0"
+                  />
+                </linearGradient>
+              </defs>
+
+              {/* Cartesian grid wireframe */}
+              <line
+                x1="0"
+                y1="20"
+                x2="300"
+                y2="20"
+                stroke="currentColor"
+                className="text-border/40"
+                strokeDasharray="4 4"
+                strokeWidth="1"
+              />
+              <line
+                x1="0"
+                y1="50"
+                x2="300"
+                y2="50"
+                stroke="currentColor"
+                className="text-border/40"
+                strokeDasharray="4 4"
+                strokeWidth="1"
+              />
+              <line
+                x1="0"
+                y1="80"
+                x2="300"
+                y2="80"
+                stroke="currentColor"
+                className="text-border/40"
+                strokeDasharray="4 4"
+                strokeWidth="1"
+              />
+
+              {/* Area fill */}
+              <path
+                d="M 10 75 Q 80 30, 150 50 T 290 20 L 290 95 L 10 95 Z"
+                fill="url(#line-skeleton-gradient)"
+              />
+
+              {/* Curved line path */}
+              <path
+                d="M 10 75 Q 80 30, 150 50 T 290 20"
+                fill="none"
+                stroke="currentColor"
+                className="text-muted-foreground/40 stroke-[2.5]"
+                strokeLinecap="round"
+              />
+
+              {/* Node dots */}
+              {[
+                { cx: 10, cy: 75 },
+                { cx: 80, cy: 37 },
+                { cx: 150, cy: 50 },
+                { cx: 220, cy: 28 },
+                { cx: 290, cy: 20 },
+              ].map((pt, i) => (
+                <circle
+                  key={i}
+                  cx={pt.cx}
+                  cy={pt.cy}
+                  r="3.5"
+                  fill="currentColor"
+                  className="text-muted-foreground/50"
+                />
+              ))}
+            </svg>
+          </div>
+
+          {/* X-axis labels */}
+          <div className="pt-3 border-t border-border/40 flex justify-between px-2">
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+          </div>
+        </div>
+      )}
+
+      {type === "pie" && (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-6 py-2">
+          {/* Clean Donut Ring Geometry */}
+          <div className="relative h-36 w-36 flex items-center justify-center">
+            <svg
+              className="w-full h-full -rotate-90 transform"
+              viewBox="0 0 100 100"
+            >
+              {/* Background Ring Track */}
+              <circle
+                cx="50"
+                cy="50"
+                r="36"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="14"
+                className="text-muted/40"
+              />
+              {/* Foreground Segmented Ring */}
+              <circle
+                cx="50"
+                cy="50"
+                r="36"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="14"
+                strokeLinecap="round"
+                strokeDasharray="140 226"
+                strokeDashoffset="0"
+                className="text-muted-foreground/30"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="36"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="14"
+                strokeLinecap="round"
+                strokeDasharray="50 226"
+                strokeDashoffset="-155"
+                className="text-muted-foreground/20"
+              />
+            </svg>
+          </div>
+
+          {/* Clean Neutral Legend */}
+          <div className="flex items-center justify-center gap-5">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+              <Skeleton className="h-2.5 w-14" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
+              <Skeleton className="h-2.5 w-14" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {type === "horizontal-bar" && (
+        <div className="w-full h-full flex flex-col justify-center space-y-4 px-2 py-3">
+          {[
+            { labelW: "w-24", barW: "w-[85%]" },
+            { labelW: "w-20", barW: "w-[65%]" },
+            { labelW: "w-28", barW: "w-[48%]" },
+            { labelW: "w-16", barW: "w-[32%]" },
+            { labelW: "w-22", barW: "w-[18%]" },
+          ].map((row, idx) => (
+            <div key={idx} className="flex items-center gap-3">
+              <Skeleton className={`h-3 ${row.labelW} shrink-0`} />
+              <div className="flex-1 flex items-center gap-2">
+                <Skeleton className={`h-4 ${row.barW} rounded-md`} />
+                <Skeleton className="h-2.5 w-6 shrink-0" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {type === "bar" && (
+        <div className="w-full h-full flex flex-col justify-between py-2">
+          {/* Vertical Bars on Grid */}
+          <div className="relative flex-1 w-full flex items-end justify-between gap-3 px-4 pb-2 border-b border-border/40">
+            {/* Horizontal Grid lines */}
+            <div className="absolute inset-x-0 top-1/4 border-b border-dashed border-border/20 pointer-events-none" />
+            <div className="absolute inset-x-0 top-2/4 border-b border-dashed border-border/20 pointer-events-none" />
+            <div className="absolute inset-x-0 top-3/4 border-b border-dashed border-border/20 pointer-events-none" />
+
+            {/* Bars */}
+            {[
+              "h-[35%]",
+              "h-[70%]",
+              "h-[45%]",
+              "h-[90%]",
+              "h-[60%]",
+              "h-[80%]",
+            ].map((heightClass, idx) => (
+              <div
+                key={idx}
+                className="flex-1 flex flex-col items-center h-full justify-end z-10"
+              >
+                <Skeleton
+                  className={`w-full max-w-[42px] ${heightClass} rounded-t-md`}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* X-axis labels */}
+          <div className="pt-3 flex justify-between px-4">
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+            <Skeleton className="h-2.5 w-8" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Explicit empty state component when datasets are empty
+export function EmptyChartState({ height = "h-[300px]" }: { height?: string }) {
+  return (
+    <div
+      className={`${height} w-full flex items-center justify-center text-muted-foreground text-sm font-medium border border-dashed border-border/50 rounded-lg bg-muted/10`}
+    >
+      No data yet
+    </div>
+  );
+}
 
 // Chart configurations matching reference design
 const participantsConfig = {
@@ -86,38 +340,56 @@ const companyConfig = {
   },
 } satisfies ChartConfig;
 
+const awsExperienceConfig = {
+  count: {
+    label: "Participants",
+    color: "hsl(36 100% 50%)",
+  },
+} satisfies ChartConfig;
+
+const ageConfig = {
+  count: {
+    label: "Participants",
+    color: "hsl(36 100% 50%)",
+  },
+} satisfies ChartConfig;
+
 // Colors matching the reference design
 const CHART_COLORS = {
   orange: "hsl(36 100% 50%)", // AWS Orange
   teal: "hsl(186 100% 42%)", // Professional Teal/Cyan
 };
 
+type ChartStatus = "loading" | "ready" | "error";
+
 export function StatisticsCharts({}: StatisticsChartsProps = {}) {
   const [data, setData] = useState<CommunityStatistics | null>(null);
-  const [error, setError] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [status, setStatus] = useState<ChartStatus>("loading");
 
   useEffect(() => {
     let cancelled = false;
     fetchCommunityStatistics()
       .then((d) => {
-        if (!cancelled) setData(d);
+        if (!cancelled) {
+          setData(d);
+          setStatus("ready");
+        }
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (!cancelled) {
+          setStatus("error");
+        }
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  useEffect(() => {
-    // Delay chart rendering slightly to improve perceived performance
-    const timer = setTimeout(() => setIsLoaded(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+  const isLoading = status === "loading";
 
-  const isLoading = !data || !isLoaded;
+  // Datasets
+  const participantGrowth = data?.participantNumOfTheYear ?? [];
+  const eventPerYear = data?.eventPerYear ?? [];
 
   // Transform gender data for pie chart
   const genderData = [
@@ -142,6 +414,7 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
       value: data?.participantBackgroundDistribution.student ?? 0,
     },
   ];
+  const hasBackgroundData = backgroundData.some((b) => b.value > 0);
 
   // Live current-year metrics (may be empty when Pretix unavailable)
   const genderThisYear = data?.participantGenderDistributionThisYear ?? {
@@ -167,20 +440,8 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
   const awsExperience = data?.avgAwsExperienceYears ?? null;
   const awsExperienceData = data?.awsExperienceDistributionThisYear ?? [];
   const ageData = data?.ageDistributionThisYear ?? [];
-  const awsExperienceConfig = {
-    count: {
-      label: "Participants",
-      color: "hsl(36 100% 50%)",
-    },
-  } satisfies ChartConfig;
-  const ageConfig = {
-    count: {
-      label: "Participants",
-      color: "hsl(36 100% 50%)",
-    },
-  } satisfies ChartConfig;
 
-  if (error) {
+  if (status === "error") {
     return (
       <section className="py-24 bg-background relative">
         <div className="container mx-auto px-4 md:px-6">
@@ -221,11 +482,13 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="h-[300px] w-full animate-pulse bg-muted/20 rounded-lg" />
+                <ChartSkeleton height="h-[300px]" type="line" />
+              ) : participantGrowth.length === 0 ? (
+                <EmptyChartState height="h-[300px]" />
               ) : (
                 <ChartContainer config={participantsConfig}>
                   <LineChart
-                    data={data?.participantNumOfTheYear ?? []}
+                    data={participantGrowth}
                     margin={{ top: 20, right: 20, left: 20, bottom: 0 }}
                   >
                     <CartesianGrid
@@ -265,11 +528,13 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="h-[300px] w-full animate-pulse bg-muted/20 rounded-lg" />
+                <ChartSkeleton height="h-[300px]" type="bar" />
+              ) : eventPerYear.length === 0 ? (
+                <EmptyChartState height="h-[300px]" />
               ) : (
                 <ChartContainer config={eventsConfig}>
                   <BarChart
-                    data={data?.eventPerYear ?? []}
+                    data={eventPerYear}
                     margin={{ top: 20, right: 20, left: 20, bottom: 0 }}
                   >
                     <CartesianGrid
@@ -305,8 +570,10 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading || ageData.length === 0 ? (
-                <div className="h-[280px] w-full animate-pulse bg-muted/20 rounded-lg" />
+              {isLoading ? (
+                <ChartSkeleton height="h-[280px]" type="bar" />
+              ) : ageData.length === 0 ? (
+                <EmptyChartState height="h-[280px]" />
               ) : (
                 <ChartContainer config={ageConfig} className="h-[280px] w-full">
                   <BarChart
@@ -344,8 +611,10 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading || !hasGenderThisYear ? (
-                <div className="h-[280px] w-full animate-pulse bg-muted/20 rounded-lg" />
+              {isLoading ? (
+                <ChartSkeleton height="h-[280px]" type="pie" />
+              ) : !hasGenderThisYear ? (
+                <EmptyChartState height="h-[280px]" />
               ) : (
                 <ChartContainer
                   config={genderConfig}
@@ -385,7 +654,9 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="h-[280px] w-full animate-pulse bg-muted/20 rounded-lg" />
+                <ChartSkeleton height="h-[280px]" type="pie" />
+              ) : !hasBackgroundData ? (
+                <EmptyChartState height="h-[280px]" />
               ) : (
                 <ChartContainer
                   config={backgroundConfig}
@@ -413,8 +684,6 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
             </CardContent>
           </Card>
 
-          {/* (Legacy manual gender card removed — live card below replaces it.) */}
-
           {/* Top Roles — current year horizontal bar */}
           <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/20 transition-all duration-300 group">
             <CardHeader>
@@ -422,8 +691,10 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
               <CardDescription>Current year attendee roles</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading || positionData.length === 0 ? (
-                <div className="h-[300px] w-full animate-pulse bg-muted/20 rounded-lg" />
+              {isLoading ? (
+                <ChartSkeleton height="h-[300px]" type="horizontal-bar" />
+              ) : positionData.length === 0 ? (
+                <EmptyChartState height="h-[300px]" />
               ) : (
                 <ChartContainer config={positionConfig}>
                   <BarChart
@@ -463,8 +734,10 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
               <CardDescription>Current year attendee companies</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading || companyData.length === 0 ? (
-                <div className="h-[300px] w-full animate-pulse bg-muted/20 rounded-lg" />
+              {isLoading ? (
+                <ChartSkeleton height="h-[300px]" type="horizontal-bar" />
+              ) : companyData.length === 0 ? (
+                <EmptyChartState height="h-[300px]" />
               ) : (
                 <ChartContainer config={companyConfig}>
                   <BarChart
@@ -511,8 +784,10 @@ export function StatisticsCharts({}: StatisticsChartsProps = {}) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading || awsExperienceData.length === 0 ? (
-                <div className="h-[300px] w-full animate-pulse bg-muted/20 rounded-lg" />
+              {isLoading ? (
+                <ChartSkeleton height="h-[300px]" />
+              ) : awsExperienceData.length === 0 ? (
+                <EmptyChartState height="h-[300px]" />
               ) : (
                 <ChartContainer config={awsExperienceConfig}>
                   <BarChart

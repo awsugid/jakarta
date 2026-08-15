@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, MapPin, Ticket, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
 
 interface TimeLeft {
   days: number;
@@ -9,8 +10,12 @@ interface TimeLeft {
   seconds: number;
 }
 
-export function ComDayHero() {
-  const targetDate = "2026-10-25T08:30:00+07:00";
+interface ComDayHeroProps {
+  kioskUrl?: string;
+}
+
+export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
+  const targetDate = "2026-10-31T09:00:00+07:00";
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isExpired, setIsExpired] = useState(false);
 
@@ -35,15 +40,11 @@ export function ComDayHero() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleScroll = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center py-20 px-4 overflow-hidden bg-background">
+      {/* Immich Event Preview Background Carousel */}
+      <ImmichKioskBackground kioskUrl={kioskUrl} albumId="0c7e9c9e-d2f4-423f-a9d6-4b3caa8bb0a5" />
+
       {/* Background Gradient Mesh */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,rgba(120,119,198,0.26),rgba(255,255,255,0))]" />
       <div className="absolute top-20 left-1/4 w-96 h-96 bg-purple-900/10 rounded-full blur-[128px] animate-pulse" />
@@ -53,15 +54,15 @@ export function ComDayHero() {
         
         {/* Left Column: Heading & CTAs */}
         <div className="lg:col-span-7 text-center lg:text-left space-y-8 animate-in fade-in duration-700">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-orange-500/30 bg-orange-500/5 text-orange-400 text-sm font-medium">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-            Registration Now Open
+            🎤 Share Your Story at Community Day Jakarta — Sessionize
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight">
             AWS Community Day <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500">
-              Indonesia 2026
+              Jakarta 2026
             </span>
           </h1>
 
@@ -95,19 +96,23 @@ export function ComDayHero() {
           {/* Action CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
             <Button
+              asChild
               size="lg"
-              className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-primary-foreground font-bold tracking-wide shadow-lg shadow-orange-500/20 active:scale-95 transition-all py-6 px-8 rounded-xl"
-              onClick={() => handleScroll("tickets")}
+              className="w-full sm:w-auto bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 hover:from-orange-600 hover:to-purple-600 text-primary-foreground font-bold tracking-wide shadow-lg shadow-orange-500/25 active:scale-95 transition-all py-6 px-8 rounded-xl"
             >
-              <Ticket className="mr-2 h-5 w-5" /> Get Tickets
+              <a href="https://sessionize.com/AWSComDayJakarta26/" target="_blank" rel="noopener noreferrer">
+                <Mic className="mr-2 h-5 w-5" /> Share Your Story
+              </a>
             </Button>
             <Button
+              asChild
               variant="outline"
               size="lg"
               className="w-full sm:w-auto border-border bg-card text-foreground hover:bg-accent hover:border-border font-medium py-6 px-8 rounded-xl"
-              onClick={() => handleScroll("cfp")}
             >
-              <Mic className="mr-2 h-5 w-5" /> Speaker CFP
+              <a href="#tickets">
+                <Ticket className="mr-2 h-5 w-5" /> Get Tickets
+              </a>
             </Button>
           </div>
         </div>

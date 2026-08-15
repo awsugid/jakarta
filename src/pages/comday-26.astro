@@ -4,41 +4,20 @@ import { ComDayHero } from "../components/community-day/ComDayHero";
 import { MetricsBar } from "../components/community-day/MetricsBar";
 import { CFPSection } from "../components/community-day/CFPSection";
 import { SponsorSection } from "../components/community-day/SponsorSection";
+import { ComDaySponsors } from "../components/community-day/ComDaySponsors";
 import { MobileStickyBar } from "../components/community-day/MobileStickyBar";
 import { PretixWidget } from "../components/PretixWidget";
-import { ScheduleTable } from "../components/ScheduleTable";
 import { EventFAQ } from "../components/EventFAQ";
-import { AlertCircle } from "lucide-react";
 import AgendaStatus from "@/components/AgendaStatus";
-
-// Columns configuration for ScheduleTable
-const scheduleColumns = [
-    { key: "start", label: "Start", className: "w-20 font-mono" },
-    { key: "finish", label: "Finish", className: "w-20 font-mono" },
-    { key: "agenda", label: "Agenda Session", className: "font-semibold" },
-    { key: "speaker", label: "Presenter / Speaker", hideOnMobile: true }
-];
-
-// Schedule rows matching top conference standards
-const scheduleItems = [
-    { start: "08:30", finish: "09:00", agenda: "Registration & Morning Tea", speaker: "All Attendees" },
-    { start: "09:00", finish: "09:20", agenda: "Opening Keynote & Welcome Address", speaker: "AWS UG Indonesia Team" },
-    { start: "09:20", finish: "10:10", agenda: "Standardizing Platform Engineering on EKS", speaker: "AWS Principal Solutions Architect" },
-    { start: "10:10", finish: "10:30", agenda: "Networking & Coffee Break", speaker: "Foyer Exhibition Hall" },
-    { start: "10:30", finish: "11:15", agenda: "Event-Driven GenAI Agents on Lambda & Bedrock", speaker: "Christian Laurence, Developer Hero" },
-    { start: "11:15", finish: "12:00", agenda: "Zero-Trust Service Meshes inside ECS Fargate", speaker: "Platform Security Lead @Tokopedia" },
-    { start: "12:00", finish: "13:00", agenda: "Lunch, Networking & Sponsor Booth Demos", speaker: "All Sponsors" },
-    { start: "13:00", finish: "13:45", agenda: "Rust WASM vs Go on Cloudflare Workers", speaker: "WASM Engineering Group Leader" },
-    { start: "13:45", finish: "14:30", agenda: "Scaling Multi-Region Databases on AWS D1 & Aurora", speaker: "Nathaniel Wikamulia, Confluent Solutions Eng" },
-    { start: "14:30", finish: "15:00", agenda: "Afternoon Coffee & Refreshments", speaker: "Foyer Exhibition Hall" },
-    { start: "15:00", finish: "16:00", agenda: "Panel Discussion: The Future of Cloud in Indonesia", speaker: "AWS UG leaders, DevShare representatives" },
-    { start: "16:00", finish: "16:30", agenda: "Closing Remarks, Swag Raffle & Group Photo", speaker: "Organizers & Sponsors" }
-];
+import { VolunteerCallSection } from "../components/community-day/VolunteerCallSection";
+import PeopleList from "../components/people/PeopleList";
+import { getCollection } from "astro:content";
+import { buildPeopleGroups } from "@/lib/event-people";
 
 // Custom FAQs tailored for Community Day 2026
 const customFaqs = [
     {
-        question: "What is AWS Community Day Indonesia?",
+        question: "What is AWS Community Day Jakarta?",
         answer: "AWS Community Day is a peer-to-peer developer conference organized by the community for the community. The event features technical talks, workshops, and networking opportunities centered around Amazon Web Services technologies."
     },
     {
@@ -55,25 +34,28 @@ const customFaqs = [
     },
     {
         question: "How can my company sponsor the event?",
-        answer: "Sponsorship tier packages are shown in our Sponsor section. You can download the PDF prospectus or click 'Register Interest' to send an inquiry form directly to our community organizers."
+        answer: "You can explore our sponsorship packages, calculate custom budgets with our interactive tool, and download the official prospectus on our <a href='/sponsors' class='text-orange-400 underline underline-offset-4 hover:text-orange-300'>Sponsors page</a>."
     }
 ];
+
+const comdayEvent = (await getCollection("events")).find(
+    (entry) => entry.id === "community-day-2026"
+);
+const peopleGroups = comdayEvent
+    ? buildPeopleGroups(comdayEvent.data.organizers, comdayEvent.data.volunteers)
+    : [];
+const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
 ---
 
-<Layout title="AWS Community Day Indonesia 2026 - Jakarta Chapter">
-    <!-- Alert Banner -->
-    <div class="bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border-b border-orange-500/30 py-3 px-4 text-center">
-        <div class="container max-w-6xl mx-auto flex items-center justify-center gap-2 text-xs sm:text-sm text-orange-300 font-medium">
-            <AlertCircle className="h-4 w-4 shrink-0 text-orange-400" />
-            <span>🔥 Early Bird Tickets are sold out! Regular Tickets and Speaker submissions are open below.</span>
-        </div>
-    </div>
-
+<Layout title="AWS Community Day Jakarta 2026">
     <!-- Hero Section -->
-    <ComDayHero client:load />
+    <ComDayHero client:load kioskUrl={kioskUrl} />
 
     <!-- Metrics Stats Section -->
     <MetricsBar client:visible />
+
+    <!-- Speaker CFP Section -->
+    <CFPSection client:visible />
 
     <!-- Ticket Sales Section -->
     <section id="tickets" class="py-20 px-4 bg-background border-b border-border relative">
@@ -91,9 +73,9 @@ const customFaqs = [
 
             {/* Embedded Pretix Widget */}
             <div class="bg-card/60 backdrop-blur-xl border border-border rounded-3xl p-6 sm:p-8 shadow-2xl relative">
-                <PretixWidget 
-                    client:load 
-                    eventUrl="https://gultix.awscommunity.id/AWSUserGroupJakarta/CommunityDay26/" 
+                <PretixWidget
+                    client:visible
+                    eventUrl="https://gultix.awscommunity.id/AWSUserGroupJakarta/CommunityDay26/"
                     className="w-full"
                 />
             </div>
@@ -103,9 +85,6 @@ const customFaqs = [
             </div>
         </div>
     </section>
-
-    <!-- Speaker CFP Section -->
-    <CFPSection client:load />
 
     <!-- Agenda / Schedule Section -->
     <section id="agenda" class="py-20 px-4 bg-background border-b border-border">
@@ -121,19 +100,40 @@ const customFaqs = [
             </div>
 
             <div class="bg-card/50 border border-border rounded-3xl p-4 sm:p-6 shadow-2xl">
-                <!-- <ScheduleTable    --- currently use tba first
-                    client:load 
-                    columns={scheduleColumns} 
-                    items={scheduleItems} 
-                    eventDate="2026-10-31" 
-                /> --> 
-                <AgendaStatus client:load/>
+                <AgendaStatus client:visible />
             </div>
         </div>
     </section>
 
-    <!-- Sponsor Section -->
-    <SponsorSection client:load />
+    <!-- Sponsor CTA Section -->
+    <SponsorSection client:visible />
+
+    <!-- Sponsors & Partners Showcase Section -->
+    <ComDaySponsors client:visible />
+
+    <!-- Calling for Volunteer Section -->
+    <VolunteerCallSection client:visible />
+
+    <!-- Organizers & Volunteers Section -->
+    {peopleGroups.length > 0 && (
+        <section id="team" class="py-20 px-4 bg-background border-b border-border">
+            <div class="container max-w-5xl mx-auto space-y-12">
+                <div class="text-center space-y-4">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+                        Organizers & Volunteers
+                    </h2>
+                    <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
+                    <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">
+                        The passionate community members working behind the scenes to bring you AWS Community Day 2026.
+                    </p>
+                </div>
+
+                <div class="bg-card/50 border border-border rounded-3xl p-6 sm:p-8 shadow-2xl">
+                    <PeopleList client:visible groups={peopleGroups} />
+                </div>
+            </div>
+        </section>
+    )}
 
     <!-- FAQ Section -->
     <section id="faq" class="py-20 px-4 bg-background">
@@ -149,7 +149,7 @@ const customFaqs = [
             </div>
 
             <div class="bg-card/60 border border-border rounded-3xl p-6 sm:p-8 shadow-xl">
-                <EventFAQ client:load faqs={customFaqs} />
+                <EventFAQ client:visible faqs={customFaqs} />
             </div>
         </div>
     </section>

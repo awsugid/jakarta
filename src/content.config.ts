@@ -16,6 +16,9 @@ const events = defineCollection({
     pretixCheckinListId: z.string().optional(),
     pretixListType: z.enum(["list", "calendar", "week"]).optional(),
     immichAlbumId: z.string().optional(),
+    redirectTo: z.string().optional(),
+    organizers: z.array(z.string().email()).max(50).optional(),
+    volunteers: z.array(z.string().email()).max(50).optional(),
   }),
 });
 

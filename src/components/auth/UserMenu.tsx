@@ -51,7 +51,7 @@ export function UserMenu() {
     <>
       {/* Desktop user menu */}
       <div className="hidden md:block">
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-1.5 h-9 rounded-full px-2.5 py-0 border border-border/40 hover:bg-primary/10 transition-all cursor-pointer focus:outline-none bg-transparent select-none">
               <Avatar className="h-7 w-7">
@@ -92,6 +92,15 @@ export function UserMenu() {
               </div>
             </div>
             <DropdownMenuSeparator className="my-1 bg-border/40" />
+            <DropdownMenuItem asChild>
+              <a
+                href="/profile"
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer rounded px-2 py-1.5 transition-colors text-sm w-full font-medium"
+              >
+                <User className="h-4 w-4" />
+                <span>My Profile</span>
+              </a>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <a
                 href="/applications"
@@ -190,6 +199,16 @@ export function UserMenu() {
               </div>
             </SheetHeader>
             <div className="py-4 space-y-2">
+              <Button
+                asChild
+                variant="ghost"
+                className="w-full flex items-center justify-start gap-3 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              >
+                <a href="/profile">
+                  <User className="h-4 w-4" />
+                  <span>My Profile</span>
+                </a>
+              </Button>
               <Button
                 asChild
                 variant="ghost"

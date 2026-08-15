@@ -144,8 +144,10 @@ export function probeAdmin(email: string): Promise<boolean> {
       inFlight = null;
       return true;
     })
-    .catch(() => {
-      writeAdminCache(email, false);
+    .catch((err: any) => {
+      if (err?.status !== 401) {
+        writeAdminCache(email, false);
+      }
       inFlight = null;
       return false;
     });
@@ -154,8 +156,16 @@ export function probeAdmin(email: string): Promise<boolean> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [idToken, setIdToken] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    const token = getStoredToken();
+    if (token) return parseJwtPayload(token);
+    return null;
+  });
+  const [idToken, setIdToken] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return getStoredToken();
+  });
   const [gisReady, setGisReady] = useState(false);
   const [gisError, setGisError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);

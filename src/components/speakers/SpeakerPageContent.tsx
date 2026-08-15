@@ -9,6 +9,8 @@ import { AuthProvider } from "@/components/auth/AuthProvider";
 import { fetchForms } from "@/lib/api";
 import type { FormInfo } from "@/lib/types";
 
+import { SpeakerTabs } from "@/components/speakers/SpeakerTabs";
+
 interface SpeakerPageContentProps {
   kioskUrl?: string;
 }
@@ -47,6 +49,8 @@ export function SpeakerPageContent({ kioskUrl }: SpeakerPageContentProps) {
     };
   }, []);
 
+  const [activeTab, setActiveTab] = useState<"community" | "monthly">("community");
+
   const speakerForm = forms.find((f) => f.slug === "speaker") ?? forms[0];
   const hasOpenForms = !!speakerForm?.is_active;
 
@@ -55,36 +59,31 @@ export function SpeakerPageContent({ kioskUrl }: SpeakerPageContentProps) {
     setDialogOpen(true);
   };
 
+  const handleHeroApply = () => {
+    if (speakerForm) {
+      handleApply(speakerForm.slug, speakerForm.title);
+    } else {
+      handleApply("speaker", "Speaker Application");
+    }
+  };
+
   return (
     <AuthProvider>
       <SpeakerHero
         kioskUrl={kioskUrl}
         isOpen={hasOpenForms}
-        onApply={
-          hasOpenForms && speakerForm
-            ? () => handleApply(speakerForm.slug, speakerForm.title)
-            : undefined
-        }
+        activeTab={activeTab}
+        onApply={handleHeroApply}
       />
 
-      {!loading && !error && (
-        <SpeakerBenefits forms={forms} onApply={handleApply} />
-      )}
-
-      {!loading && (error || forms.length === 0) && <SpeakerBenefits />}
-
-      {loading && (
-        <section className="py-24 bg-muted/30">
-          <div className="container mx-auto px-4 md:px-6 text-center">
-            <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-            <p className="text-muted-foreground mt-4">
-              Loading speaker formats...
-            </p>
-          </div>
-        </section>
-      )}
-
-      <SpeakerNotify />
+      <SpeakerTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        forms={forms}
+        loading={loading}
+        error={error}
+        onApply={handleApply}
+      />
 
       {selectedForm && (
         <ApplySpeakerDialog

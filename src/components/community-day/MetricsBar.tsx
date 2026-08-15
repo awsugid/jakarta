@@ -4,7 +4,7 @@ export function MetricsBar() {
   const stats = [
     {
       label: "Expected Attendees",
-      value: "1000+",
+      value: "300+",
       icon: Users,
       color: "text-orange-500",
       glowColor: "from-orange-500/10 to-amber-500/0",
@@ -14,7 +14,7 @@ export function MetricsBar() {
     },
     {
       label: "Expert Speakers",
-      value: "30+",
+      value: "20+",
       icon: Presentation,
       color: "text-pink-500",
       glowColor: "from-pink-500/10 to-rose-500/0",
@@ -24,7 +24,7 @@ export function MetricsBar() {
     },
     {
       label: "Technical Tracks",
-      value: "3 Tracks",
+      value: "2 Tracks",
       icon: Layers,
       color: "text-purple-500",
       glowColor: "from-purple-500/10 to-indigo-500/0",
@@ -48,7 +48,7 @@ export function MetricsBar() {
     <section className="relative bg-background border-y border-border py-16 px-4 overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-r from-purple-500/[0.01] via-pink-500/[0.01] to-orange-500/[0.01] pointer-events-none" />
-      
+
       <div className="container max-w-6xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {stats.map((stat, index) => {
@@ -60,17 +60,17 @@ export function MetricsBar() {
               >
                 {/* Glowing effect inside card on hover */}
                 <div className={`absolute -inset-px bg-gradient-to-br ${stat.glowColor} opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
-                
+
                 {/* Icon Container */}
                 <div className={`p-4 rounded-2xl ${stat.bgColor} ${stat.color} mb-4 relative z-10 transition-transform duration-500 group-hover:scale-110 shadow-inner`}>
                    <Icon className="h-6 w-6" />
                 </div>
-                
+
                 {/* Stat Value with Gradient text */}
                 <h3 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${stat.gradient} relative z-10 font-mono`}>
                   {stat.value}
                 </h3>
-                
+
                 {/* Stat Label */}
                 <p className="text-xs sm:text-sm text-muted-foreground mt-2 font-medium tracking-wide uppercase relative z-10">
                   {stat.label}

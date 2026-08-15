@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Ticket } from "lucide-react";
+import { Ticket, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function MobileStickyBar() {
@@ -7,8 +7,16 @@ export function MobileStickyBar() {
 
   useEffect(() => {
     const handleScroll = () => {
+      const scrollPosition = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const fullHeight = document.documentElement.scrollHeight;
+
       // Show sticky bar after scrolling past the main hero height (approx 400px)
-      if (window.scrollY > 400) {
+      // and hide when near the bottom so it doesn't obscure FAQ or footer content
+      const isPastHero = scrollPosition > 400;
+      const isNearBottom = windowHeight + scrollPosition >= fullHeight - 120;
+
+      if (isPastHero && !isNearBottom) {
         setIsVisible(true);
       } else {
         setIsVisible(false);
@@ -16,31 +24,39 @@ export function MobileStickyBar() {
     };
 
     window.addEventListener("scroll", handleScroll);
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const handleScrollToTickets = () => {
-    const element = document.getElementById("tickets");
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
-    }
-  };
 
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/90 dark:bg-slate-950/90 backdrop-blur-lg border-t border-border dark:border-white/10 shadow-2xl flex items-center justify-between sm:hidden transition-all duration-300 animate-slide-in">
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px))] bg-background/90 dark:bg-slate-950/90 backdrop-blur-lg border-t border-border dark:border-white/10 shadow-2xl flex items-center justify-between sm:hidden transition-all duration-300 animate-slide-in">
       <div className="flex flex-col text-left">
         <span className="text-[10px] uppercase font-bold text-orange-500 tracking-wider">AWS Community Day</span>
-        <span className="text-xs font-semibold text-foreground dark:text-white">Tickets Available</span>
+        <span className="text-xs font-semibold text-foreground dark:text-white">Share Your Story</span>
       </div>
-      <Button
-        size="sm"
-        className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-bold text-xs py-5 px-5 rounded-lg flex items-center gap-1.5"
-        onClick={handleScrollToTickets}
-      >
-        <Ticket className="h-4 w-4" /> Get Tickets
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          asChild
+          size="sm"
+          className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 hover:from-orange-600 hover:to-purple-600 text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5"
+        >
+          <a href="https://sessionize.com/AWSComDayJakarta26/" target="_blank" rel="noopener noreferrer">
+            <Mic className="h-4 w-4" /> Share Story
+          </a>
+        </Button>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="text-xs py-2 px-2.5 rounded-lg flex items-center gap-1 border-border/80"
+        >
+          <a href="#tickets" title="Get Tickets">
+            <Ticket className="h-4 w-4 text-muted-foreground" />
+          </a>
+        </Button>
+      </div>
     </div>
   );
 }

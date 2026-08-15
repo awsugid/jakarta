@@ -1,17 +1,24 @@
 import React from "react";
-import { Mic } from "lucide-react";
+import { Mic, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
 import { RotatingEventName } from "@/components/RotatingEventName";
+import { SESSIONIZE_CONFIG } from "@/lib/sessionize";
 
 interface SpeakerHeroProps {
   kioskUrl?: string;
   isOpen?: boolean;
+  activeTab?: "community" | "monthly";
   onApply?: () => void;
 }
 
-export function SpeakerHero({ kioskUrl, isOpen, onApply }: SpeakerHeroProps) {
+export function SpeakerHero({
+  kioskUrl,
+  isOpen = true,
+  activeTab = "community",
+  onApply,
+}: SpeakerHeroProps) {
   return (
     <section className="relative overflow-hidden py-24 lg:py-32 bg-background">
       <div className="container mx-auto relative z-10 flex flex-col items-center text-center px-4 md:px-6">
@@ -20,12 +27,10 @@ export function SpeakerHero({ kioskUrl, isOpen, onApply }: SpeakerHeroProps) {
             variant="outline"
             className="mb-6 py-1.5 px-4 text-sm backdrop-blur-sm bg-background/50 border-muted-foreground/20"
           >
-            <span
-              className={`flex h-2 w-2 rounded-full mr-2 animate-pulse ${isOpen ? "bg-green-500" : "bg-primary"}`}
-            ></span>
-            {isOpen
-              ? "Community Day & Meetup CFP Open — Apply Today!"
-              : "AWS Community Day & Meetup Speaker Opportunities"}
+            <span className="flex h-2 w-2 rounded-full mr-2 animate-pulse bg-green-500"></span>
+            {activeTab === "community"
+              ? "Share Your Story at Community Day Jakarta — Sessionize"
+              : "Monthly Meetup CFP Open — Formbrick Application"}
           </Badge>
         </div>
 
@@ -40,21 +45,35 @@ export function SpeakerHero({ kioskUrl, isOpen, onApply }: SpeakerHeroProps) {
         </h1>
 
         <p className="max-w-2xl text-lg sm:text-xl text-muted-foreground mb-10 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both leading-relaxed">
-          Share practical AWS knowledge with community members. Submit a
-          proposal for an open Call for Speakers matching your session.
+          {activeTab === "community"
+            ? "Share your practical AWS experience at Community Day Jakarta 2026. Submit your proposal directly via Sessionize."
+            : "Share practical AWS knowledge at our monthly Jakarta meetups. Submit a proposal using our community form."}
         </p>
 
         <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both flex flex-col sm:flex-row gap-4 justify-center">
-          {isOpen && onApply && (
+          {activeTab === "community" ? (
+            <Button
+              asChild
+              size="lg"
+              className="h-12 w-full sm:w-64 px-8 text-base font-bold rounded-md bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/20 gap-2"
+            >
+              <a href={SESSIONIZE_CONFIG.CFP_URL} target="_blank" rel="noopener noreferrer">
+                <Mic className="h-5 w-5" />
+                Share Your Story
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
+          ) : (
             <Button
               size="lg"
               onClick={onApply}
-              className="h-12 w-full sm:w-56 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-orange-500/20"
+              className="h-12 w-full sm:w-64 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-orange-500/20 gap-2"
             >
-              <Mic className="mr-2 h-5 w-5" />
-              Apply to Speak
+              <Mic className="h-5 w-5" />
+              Apply for Meetup
             </Button>
           )}
+
           <a href="/blog/speaker">
             <Button
               size="lg"
@@ -65,29 +84,14 @@ export function SpeakerHero({ kioskUrl, isOpen, onApply }: SpeakerHeroProps) {
             </Button>
           </a>
         </div>
-
-        {!isOpen && (
-          <div className="flex items-center gap-2 text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-300 fill-mode-both">
-            <Mic className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">
-              Subscribe below for Community Day and meetup CFP updates
-            </span>
-          </div>
-        )}
       </div>
 
-      {kioskUrl ? (
-        <ImmichKioskBackground kioskUrl={kioskUrl} />
-      ) : (
-        <>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] sm:w-[800px] sm:h-[800px] bg-primary/10 rounded-full blur-[100px] -z-10 opacity-40 animate-pulse duration-[5000ms]" />
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-secondary/10 rounded-full blur-[80px] -z-10 opacity-30" />
-          <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[90px] -z-10 opacity-30" />
-
-          {/* Grid Pattern Overlay */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] -z-20 pointer-events-none"></div>
-        </>
-      )}
+      {/* Dynamic Immich Photo Carousel Background */}
+      <ImmichKioskBackground
+        kioskUrl={kioskUrl}
+        randomizeAlbumOnVisit={true}
+      />
     </section>
   );
 }
+

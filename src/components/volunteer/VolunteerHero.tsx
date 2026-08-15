@@ -76,18 +76,11 @@ export function VolunteerHero({ kioskUrl, openCount, onApplyClick }: VolunteerHe
         )}
       </div>
 
-      {kioskUrl ? (
-        <ImmichKioskBackground kioskUrl={kioskUrl} />
-      ) : (
-        <>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] sm:w-[800px] sm:h-[800px] bg-primary/10 rounded-full blur-[100px] -z-10 opacity-40 animate-pulse duration-[5000ms]" />
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-secondary/10 rounded-full blur-[80px] -z-10 opacity-30" />
-          <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[90px] -z-10 opacity-30" />
-
-          {/* Grid Pattern Overlay */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] -z-20 pointer-events-none"></div>
-        </>
-      )}
+      {/* Dynamic Immich Photo Carousel Background */}
+      <ImmichKioskBackground
+        kioskUrl={kioskUrl}
+        randomizeAlbumOnVisit={true}
+      />
     </section>
   );
 }

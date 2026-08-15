@@ -9,18 +9,23 @@ import { ImmichKiosk } from "@/components/ImmichKiosk";
 import { LumaCheckoutButton } from "@/components/LumaCheckoutButton";
 import { LumaEmbed } from "@/components/LumaEmbed";
 import { EventPretixStats } from "@/components/events/EventPretixStats";
+import PeopleList from "@/components/people/PeopleList";
+import { buildPeopleGroups } from "@/lib/event-people";
 
 export async function getStaticPaths() {
     const events = await getCollection("events");
-    return events.map((event) => ({
-        params: { slug: event.id },
-        props: { event },
-    }));
+    return events
+        .filter((event) => !event.data.redirectTo)
+        .map((event) => ({
+            params: { slug: event.id },
+            props: { event },
+        }));
 }
 
 const { event } = Astro.props;
 const { Content } = await render(event);
 const isLumaUrl = event.data.registrationUrl?.includes('luma.com');
+const peopleGroups = buildPeopleGroups(event.data.organizers, event.data.volunteers);
 
 // Parse organizer/event slugs from pretixUrl
 let pretixOrgSlug: string | null = null;
@@ -156,6 +161,19 @@ if (event.data.pretixUrl) {
         >
             <Content />
         </article>
+
+        {
+            peopleGroups.length > 0 && (
+                <div class="mt-12 pt-12 border-t border-border/50">
+                    <h2 class="text-2xl font-bold tracking-tight mb-6">
+                        Organizers & Volunteers
+                    </h2>
+                    <div class="bg-muted/30 rounded-lg p-6 md:p-8">
+                        <PeopleList client:visible groups={peopleGroups} />
+                    </div>
+                </div>
+            )
+        }
 
         {
             event.data.pretixUrl && (

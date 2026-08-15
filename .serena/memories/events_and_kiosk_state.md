@@ -1,0 +1,6 @@
+- Sessionize CFP: Hardcoded to 2026-09-17 23:59 WIB, Sessionize URL https://sessionize.com/AWSComDayJakarta26/.
+- CFP & Sponsor Branding: Strict AWS Orange (#FF9900) & Amber theme.
+- Immich Kiosk Carousel: Dynamic background with randomizeAlbumOnVisit={true} across all community album IDs. Integrated on Hero, Speakers, Sponsors, Volunteers, and /events.
+- Chart Skeletons: Native Shadcn skeleton primitives with neutral muted tones.
+- Sponsorship Section: Streamlined SponsorSection.tsx with non-repetitive ROI value pillars and direct action buttons routing to /sponsors and downloading the prospectus.
+- Sponsors Showcase: Created reusable SponsorGrid component in src/components/sponsors/SponsorGrid.tsx showcasing clean logo cards (no descriptions) categorized by tier. Incorporated BINUS University with logo at /assets/comday26/sponsors/binus.png as Venue Partner, with simple and extensible design for future sponsors.

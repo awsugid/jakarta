@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Menu, X, LogOut, FileText, Bug } from "lucide-react";
+import { Menu, X, LogOut, FileText, Bug, User, Ticket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth, AuthProvider } from "@/components/auth/AuthProvider";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -21,7 +21,7 @@ export function MobileNav({ items }: MobileNavProps) {
 function MobileNavInner({ items }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState("");
-  const { isSignedIn, user, signOut } = useAuth();
+  const { isSignedIn, user, isAdmin, signOut } = useAuth();
 
   useEffect(() => {
     if (open) {
@@ -140,6 +140,14 @@ function MobileNavInner({ items }: MobileNavProps) {
                   <div className="flex flex-col gap-4 pt-6 border-t border-border/40 mt-6">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 px-1">Account</p>
                     <a
+                      href="/profile"
+                      className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1"
+                      onClick={() => setOpen(false)}
+                    >
+                      <User className="h-4 w-4" />
+                      <span>My Profile</span>
+                    </a>
+                    <a
                       href="/applications"
                       className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1"
                       onClick={() => setOpen(false)}
@@ -147,6 +155,24 @@ function MobileNavInner({ items }: MobileNavProps) {
                       <FileText className="h-4 w-4" />
                       <span>My Applications</span>
                     </a>
+                    <a
+                      href="/orders"
+                      className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1"
+                      onClick={() => setOpen(false)}
+                    >
+                      <Ticket className="h-4 w-4" />
+                      <span>My Event Orders</span>
+                    </a>
+                    {isAdmin && (
+                      <a
+                        href="/admin"
+                        className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors flex items-center gap-2.5 py-1 px-1"
+                        onClick={() => setOpen(false)}
+                      >
+                        <Shield className="h-4 w-4" />
+                        <span>Admin Dashboard</span>
+                      </a>
+                    )}
                     <button
                       onClick={() => {
                         setOpen(false);

@@ -93,7 +93,7 @@ export function SponsorSection() {
         </div>
 
         {/* Sponsor Tiers Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 items-stretch">
+        {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 items-stretch">
           {tiers.map((tier, idx) => {
             const isGold = tier.name === "Gold";
             const isDiamond = tier.name === "Diamond";
@@ -109,7 +109,7 @@ export function SponsorSection() {
                   isDiamond && "opacity-75"
                 )}
               >
-                {/* Featured Banner for Gold Package */}
+                
                 {isGold && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-orange-500 text-primary-foreground text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full shadow-lg">
                     ★ Featured Tier
@@ -141,7 +141,7 @@ export function SponsorSection() {
               </div>
             );
           })}
-        </div>
+        </div> */}
 
         {/* Prospectus & Register Box (Glassmorphic Redesign) */}
         <div className="max-w-3xl mx-auto bg-gradient-to-br from-purple-500/[0.04] via-card/50 to-orange-500/[0.02] border border-purple-500/20 rounded-3xl p-8 sm:p-10 flex flex-col items-center text-center gap-6 shadow-2xl relative overflow-hidden">

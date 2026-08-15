@@ -9,6 +9,7 @@ import { PretixWidget } from "../components/PretixWidget";
 import { ScheduleTable } from "../components/ScheduleTable";
 import { EventFAQ } from "../components/EventFAQ";
 import { AlertCircle } from "lucide-react";
+import AgendaStatus from "@/components/AgendaStatus";
 
 // Columns configuration for ScheduleTable
 const scheduleColumns = [
@@ -120,12 +121,13 @@ const customFaqs = [
             </div>
 
             <div class="bg-card/50 border border-border rounded-3xl p-4 sm:p-6 shadow-2xl">
-                <ScheduleTable 
+                <!-- <ScheduleTable    --- currently use tba first
                     client:load 
                     columns={scheduleColumns} 
                     items={scheduleItems} 
                     eventDate="2026-10-31" 
-                />
+                /> --> 
+                <AgendaStatus client:load/>
             </div>
         </div>
     </section>

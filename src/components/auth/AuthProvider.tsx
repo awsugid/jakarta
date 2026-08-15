@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import type { AuthUser } from "@/lib/types";
 import { fetchAdminMe } from "@/lib/api";
+import { getMyProfile } from "@/lib/profiles-api";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -123,6 +124,103 @@ function clearAdminCache() {
   }
 }
 
+// localStorage-backed profile cache to persist custom R2 avatar and display name across client navigations.
+const PROFILE_CACHE_KEY = "g_profile_cache";
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export interface ProfileCacheEntry {
+  email: string;
+  picture?: string | null;
+  displayName?: string | null;
+  username?: string | null;
+  ts: number;
+}
+
+export function readProfileCache(): ProfileCacheEntry | null {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ProfileCacheEntry;
+  } catch {
+    return null;
+  }
+}
+
+export function writeProfileCache(entry: Omit<ProfileCacheEntry, "ts"> & { ts?: number }) {
+  try {
+    const fullEntry: ProfileCacheEntry = { ...entry, ts: entry.ts ?? Date.now() };
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(fullEntry));
+    window.dispatchEvent(new CustomEvent("profile-state-change", { detail: fullEntry }));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function clearProfileCache() {
+  try {
+    localStorage.removeItem(PROFILE_CACHE_KEY);
+    window.dispatchEvent(new CustomEvent("profile-state-change", { detail: null }));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function resolveUserWithProfile(parsed: AuthUser | null): AuthUser | null {
+  if (!parsed) return null;
+  const profileCache = readProfileCache();
+  if (profileCache && profileCache.email.toLowerCase() === parsed.email.toLowerCase()) {
+    return {
+      ...parsed,
+      name: profileCache.displayName || parsed.name,
+      picture: profileCache.picture !== undefined && profileCache.picture !== null ? profileCache.picture : parsed.picture,
+    };
+  }
+  return parsed;
+}
+
+// Module-level in-flight dedupe for profile sync across multiple React islands on the same page.
+let profileInFlight: { email: string; promise: Promise<ProfileCacheEntry | null> } | null = null;
+
+export function probeProfile(email: string, force = false): Promise<ProfileCacheEntry | null> {
+  const normalizedEmail = email.toLowerCase();
+  // 1. Check localStorage cache if not forced
+  if (!force) {
+    const cached = readProfileCache();
+    if (cached && cached.email.toLowerCase() === normalizedEmail && Date.now() - cached.ts < PROFILE_CACHE_TTL_MS) {
+      return Promise.resolve(cached);
+    }
+  }
+
+  // 2. Dedupe concurrent in-flight probes on the same page
+  if (profileInFlight && profileInFlight.email === normalizedEmail) {
+    return profileInFlight.promise;
+  }
+
+  // 3. Network probe
+  const promise = getMyProfile()
+    .then((profile) => {
+      profileInFlight = null;
+      if (!profile) return null;
+      const entry: ProfileCacheEntry = {
+        email: profile.email,
+        picture: profile.picture,
+        displayName: profile.displayName,
+        username: profile.username,
+        ts: Date.now(),
+      };
+      writeProfileCache(entry);
+      return entry;
+    })
+    .catch((err) => {
+      profileInFlight = null;
+      console.debug("[AuthProvider] Profile probe failed (skipped):", err);
+      return null;
+    });
+
+  profileInFlight = { email: normalizedEmail, promise };
+  return promise;
+}
+
 // Module-level in-flight dedupe: prevents concurrent islands on the SAME page
 // from each firing a network call when no localStorage cache exists yet.
 let inFlight: { email: string; promise: Promise<boolean> } | null = null;
@@ -159,7 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
     if (typeof window === "undefined") return null;
     const token = getStoredToken();
-    if (token) return parseJwtPayload(token);
+    if (token) return resolveUserWithProfile(parseJwtPayload(token));
     return null;
   });
   const [idToken, setIdToken] = useState<string | null>(() => {
@@ -178,7 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (token) {
       const parsed = parseJwtPayload(token);
       if (parsed) {
-        setUser(parsed);
+        setUser(resolveUserWithProfile(parsed));
         setIdToken(token);
       } else {
         removeToken();
@@ -190,7 +288,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         const parsed = parseJwtPayload(token);
         if (parsed) {
-          setUser(parsed);
+          setUser(resolveUserWithProfile(parsed));
           setIdToken(token);
         }
       } else {
@@ -199,9 +297,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    const handleProfileChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail as ProfileCacheEntry | null;
+      setUser((prev) => {
+        if (!prev) return null;
+        if (!detail) {
+          const token = getStoredToken();
+          return token ? parseJwtPayload(token) : null;
+        }
+        if (detail.email.toLowerCase() !== prev.email.toLowerCase()) return prev;
+        const nextPicture = detail.picture !== undefined && detail.picture !== null ? detail.picture : prev.picture;
+        const nextName = detail.displayName || prev.name;
+        if (prev.picture === nextPicture && prev.name === nextName) {
+          return prev;
+        }
+        return {
+          ...prev,
+          name: nextName,
+          picture: nextPicture,
+        };
+      });
+    };
+
     window.addEventListener("auth-state-change", handleAuthChange);
+    window.addEventListener("profile-state-change", handleProfileChange);
     return () => {
       window.removeEventListener("auth-state-change", handleAuthChange);
+      window.removeEventListener("profile-state-change", handleProfileChange);
     };
   }, []);
 
@@ -210,7 +332,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!parsed) return;
 
     storeToken(credential);
-    setUser(parsed);
+    setUser(resolveUserWithProfile(parsed));
     setIdToken(credential);
     pendingSuccessRef.current?.(parsed);
     pendingSuccessRef.current = null;
@@ -351,6 +473,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIdToken(null);
     setIsAdmin(false);
     clearAdminCache();
+    clearProfileCache();
     pendingSuccessRef.current = null;
     window.google?.accounts?.id?.disableAutoSelect();
   }, []);
@@ -386,6 +509,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [user]);
 
+  // Sync profile details (custom avatar, display name) from backend with TTL cache
+  useEffect(() => {
+    if (!user?.email || !idToken) return;
+    let cancelled = false;
+    probeProfile(user.email).then((entry) => {
+      if (cancelled || !entry) return;
+      setUser((prev) => {
+        if (!prev || prev.email.toLowerCase() !== entry.email.toLowerCase()) return prev;
+        const nextPicture = entry.picture !== undefined && entry.picture !== null ? entry.picture : prev.picture;
+        const nextName = entry.displayName || prev.name;
+        if (prev.picture === nextPicture && prev.name === nextName) return prev;
+        return {
+          ...prev,
+          name: nextName,
+          picture: nextPicture,
+        };
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.email, idToken]);
+
   // Probe admin status once per user change. Cached in localStorage so client-side
   // navigation does NOT re-probe (TTL-bounded).
   useEffect(() => {
@@ -406,7 +552,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user?.email]);
 
   const value: AuthContextValue = {
     user,

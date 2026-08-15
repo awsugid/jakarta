@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, Plus, RotateCcw, Save, Trash2, User } from "lucide-react";
-import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
+import { AuthProvider, useAuth, writeProfileCache } from "@/components/auth/AuthProvider";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -174,6 +174,12 @@ function ProfileEditorInner() {
 				setLinks(profile.links ?? []);
 				setIsPublic(profile.isPublic);
 				setPicture(profile.picture ?? null);
+				writeProfileCache({
+					email: profile.email,
+					picture: profile.picture,
+					displayName: profile.displayName,
+					username: profile.username,
+				});
 			})
 			.catch((err: Error) => {
 				if (cancelled) return;
@@ -184,7 +190,7 @@ function ProfileEditorInner() {
 		return () => {
 			cancelled = true;
 		};
-	}, [mounted, isSignedIn, user]);
+	}, [mounted, isSignedIn, user?.email]);
 
 	if (!mounted || loading) {
 		return (
@@ -276,6 +282,12 @@ function ProfileEditorInner() {
 		try {
 			const updated = await uploadAvatar(file);
 			setPicture(updated.picture ?? null);
+			writeProfileCache({
+				email: updated.email,
+				picture: updated.picture,
+				displayName: updated.displayName,
+				username: updated.username,
+			});
 			setSuccess("Profile picture updated.");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to upload avatar.");
@@ -290,7 +302,14 @@ function ProfileEditorInner() {
 		setRevertingAvatar(true);
 		try {
 			const updated = await revertAvatarToGoogle();
-			setPicture(updated.picture ?? user.picture ?? null);
+			const newPic = updated.picture ?? user.picture ?? null;
+			setPicture(newPic);
+			writeProfileCache({
+				email: updated.email,
+				picture: newPic,
+				displayName: updated.displayName,
+				username: updated.username,
+			});
 			setSuccess("Profile picture reset to Google photo.");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to reset avatar.");
@@ -327,6 +346,12 @@ function ProfileEditorInner() {
 			setTitle(saved.title ?? "");
 			setLinks(saved.links ?? []);
 			setIsPublic(saved.isPublic);
+			writeProfileCache({
+				email: saved.email,
+				picture: saved.picture ?? picture,
+				displayName: saved.displayName,
+				username: saved.username,
+			});
 			setSuccess("Profile saved.");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save profile.");

@@ -21,7 +21,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 
 export interface PersonItem {
-  email: string;
+  username: string;
+  /** @deprecated transitional alias if needed */
+  email?: string;
   fallbackName?: string;
   /** Transitional title until every roster member has a published profile. */
   fallbackTitle?: string;
@@ -100,24 +102,24 @@ export const PeopleList: React.FC<PeopleListProps> = ({ groups }) => {
 
   useEffect(() => {
     let isMounted = true;
-    const allEmails = groups
+    const allUsernames = groups
       .flatMap((g) => g.people)
-      .map((p) => p.email)
+      .map((p) => p.username || p.email || "")
       .filter(Boolean);
 
-    if (allEmails.length === 0) {
+    if (allUsernames.length === 0) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    fetchProfilesLookup(allEmails)
+    fetchProfilesLookup(allUsernames)
       .then((profiles) => {
         if (!isMounted) return;
         const map: Record<string, Profile> = {};
         for (const p of profiles) {
-          if (p.normalized_email) {
-            map[p.normalized_email.trim().toLowerCase()] = p;
+          if (p.username) {
+            map[p.username.trim().toLowerCase()] = p;
           }
         }
         setProfilesMap(map);
@@ -134,8 +136,8 @@ export const PeopleList: React.FC<PeopleListProps> = ({ groups }) => {
     };
   }, [groups]);
 
-  const handleImageError = (emailKey: string) => {
-    setFailedImages((prev) => ({ ...prev, [emailKey]: true }));
+  const handleImageError = (userKey: string) => {
+    setFailedImages((prev) => ({ ...prev, [userKey]: true }));
   };
 
   if (loading) {
@@ -181,19 +183,19 @@ export const PeopleList: React.FC<PeopleListProps> = ({ groups }) => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {group.people.map((person, pIdx) => {
-              const emailKey = person.email
-                ? person.email.trim().toLowerCase()
-                : "";
-              const profile = emailKey ? profilesMap[emailKey] : undefined;
+              const userKey = (person.username || person.email || "")
+                .trim()
+                .toLowerCase();
+              const profile = userKey ? profilesMap[userKey] : undefined;
               const displayName = getDisplayName(person, profile);
               const displayTitle = getDisplayTitle(person, profile);
               const pictureUrl = profile?.picture;
-              const imageFailed = failedImages[emailKey];
+              const imageFailed = failedImages[userKey];
               const links = safeLinks(profile);
 
               return (
                 <div
-                  key={`${person.email}-${pIdx}`}
+                  key={`${userKey || pIdx}-${pIdx}`}
                   className="group relative flex flex-col items-center text-center p-6 pt-8 rounded-2xl bg-linear-to-b from-card to-card/60 border border-border/70 hover:border-primary/50 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-primary/5"
                 >
                   {/* Soft orange corner glow */}
@@ -208,7 +210,7 @@ export const PeopleList: React.FC<PeopleListProps> = ({ groups }) => {
                       <img
                         src={pictureUrl}
                         alt={displayName}
-                        onError={() => handleImageError(emailKey)}
+                        onError={() => handleImageError(userKey)}
                         loading="lazy"
                         decoding="async"
                         referrerPolicy="no-referrer"

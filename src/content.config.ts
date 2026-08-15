@@ -1,6 +1,11 @@
 import { defineCollection, z } from "astro:content";
 import { glob } from "astro/loaders";
 
+const personEntrySchema = z.string().regex(
+  /^[a-z0-9_-]{3,30}(:.*)?$/,
+  { message: "Must be a valid username or 'username:fallbackName:role' format (3-30 lowercase alphanumeric, underscore, hyphen)" }
+);
+
 const events = defineCollection({
   loader: glob({ pattern: "**/*.mdx", base: "./src/content/events" }),
   schema: z.object({
@@ -17,8 +22,8 @@ const events = defineCollection({
     pretixListType: z.enum(["list", "calendar", "week"]).optional(),
     immichAlbumId: z.string().optional(),
     redirectTo: z.string().optional(),
-    organizers: z.array(z.string().email()).max(50).optional(),
-    volunteers: z.array(z.string().email()).max(50).optional(),
+    organizers: z.array(personEntrySchema).max(50).optional(),
+    volunteers: z.array(personEntrySchema).max(50).optional(),
   }),
 });
 

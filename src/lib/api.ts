@@ -31,12 +31,16 @@ import type {
 // ---------------------------------------------------------------------------
 
 /** Base URL of the backend Worker. Configure via PUBLIC_BACKEND_API_URL env. */
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   // Vite/Astro replaces import.meta.env.PUBLIC_* at build time.
   // If not set the result will be the literal "undefined" string, so guard.
   const raw: string | undefined = import.meta.env.PUBLIC_BACKEND_API_URL;
   if (raw && raw !== "undefined") return raw.replace(/\/+$/, "");
   return "";
+}
+
+export function getApiBaseUrl(): string {
+  return getBaseUrl();
 }
 
 /** Get stored Google ID token (set by AuthProvider). */

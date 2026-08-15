@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Loader2, Plus, Save, Trash2, User } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Camera, Loader2, Plus, RotateCcw, Save, Trash2, User } from "lucide-react";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import {
 import {
 	getMyProfile,
 	updateMyProfile,
+	uploadAvatar,
+	revertAvatarToGoogle,
 	type MyProfile,
 	type ProfileLink,
 	type ProfileLinkKind,
@@ -59,9 +61,25 @@ function urlHost(url: string): string | null {
 	}
 }
 
-function validateForm(displayName: string, title: string, links: ProfileLink[], isPublic: boolean): string | null {
+const USERNAME_REGEX = /^[a-z0-9_-]{3,30}$/;
+
+function validateForm(
+	username: string,
+	displayName: string,
+	title: string,
+	links: ProfileLink[],
+	isPublic: boolean
+): string | null {
+	const userHandle = username.trim().toLowerCase();
 	const name = displayName.trim();
 	const role = title.trim();
+
+	if (userHandle && !USERNAME_REGEX.test(userHandle)) {
+		return "Username must be 3-30 characters (lowercase letters, numbers, hyphens, underscores).";
+	}
+	if (isPublic && !userHandle) {
+		return "Username is required to publish your profile.";
+	}
 	if (name.length > 80) return "Display name must be 80 characters or fewer.";
 	if (role.length > 100) return "Title must be 100 characters or fewer.";
 	if (isPublic && !name) return "Display name is required to publish your profile.";
@@ -95,6 +113,20 @@ function validateForm(displayName: string, title: string, links: ProfileLink[], 
 	return null;
 }
 
+function getInitials(name?: string | null, email?: string | null): string {
+	if (name?.trim()) {
+		const parts = name.trim().split(/\s+/);
+		if (parts.length >= 2) {
+			return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+		}
+		return parts[0].slice(0, 2).toUpperCase();
+	}
+	if (email?.trim()) {
+		return email.trim().slice(0, 2).toUpperCase();
+	}
+	return "U";
+}
+
 export function ProfileEditor() {
 	return (
 		<AuthProvider>
@@ -106,6 +138,7 @@ export function ProfileEditor() {
 function ProfileEditorInner() {
 	const { user, isSignedIn } = useAuth();
 	const [mounted, setMounted] = useState(false);
+	const [username, setUsername] = useState("");
 	const [displayName, setDisplayName] = useState("");
 	const [title, setTitle] = useState("");
 	const [links, setLinks] = useState<ProfileLink[]>([]);
@@ -114,8 +147,12 @@ function ProfileEditorInner() {
 	const [loading, setLoading] = useState(true);
 	const [loadFailed, setLoadFailed] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const [uploadingAvatar, setUploadingAvatar] = useState(false);
+	const [revertingAvatar, setRevertingAvatar] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
+
+	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
 	useEffect(() => setMounted(true), []);
 
@@ -131,6 +168,7 @@ function ProfileEditorInner() {
 		getMyProfile()
 			.then((profile: MyProfile) => {
 				if (cancelled) return;
+				setUsername(profile.username ?? "");
 				setDisplayName(profile.displayName ?? "");
 				setTitle(profile.title ?? "");
 				setLinks(profile.links ?? []);
@@ -162,6 +200,7 @@ function ProfileEditorInner() {
 						</div>
 					</CardHeader>
 					<CardContent className="space-y-6 p-6">
+						<Skeleton className="h-16 w-full rounded-xl" />
 						<Skeleton className="h-16 w-full rounded-xl" />
 						<Skeleton className="h-16 w-full rounded-xl" />
 						<Skeleton className="h-24 w-full rounded-2xl" />
@@ -215,6 +254,51 @@ function ProfileEditorInner() {
 	const updateLink = (index: number, patch: Partial<ProfileLink>) =>
 		setLinks((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
 
+	const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		e.target.value = "";
+		if (!file) return;
+
+		setError(null);
+		setSuccess(null);
+
+		const allowed = ["image/jpeg", "image/png", "image/webp"];
+		if (!allowed.includes(file.type)) {
+			setError("Invalid file type. Please select a JPEG, PNG, or WebP image.");
+			return;
+		}
+		if (file.size > 2 * 1024 * 1024) {
+			setError("File size exceeds 2MB limit.");
+			return;
+		}
+
+		setUploadingAvatar(true);
+		try {
+			const updated = await uploadAvatar(file);
+			setPicture(updated.picture ?? null);
+			setSuccess("Profile picture updated.");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to upload avatar.");
+		} finally {
+			setUploadingAvatar(false);
+		}
+	};
+
+	const handleResetAvatar = async () => {
+		setError(null);
+		setSuccess(null);
+		setRevertingAvatar(true);
+		try {
+			const updated = await revertAvatarToGoogle();
+			setPicture(updated.picture ?? user.picture ?? null);
+			setSuccess("Profile picture reset to Google photo.");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to reset avatar.");
+		} finally {
+			setRevertingAvatar(false);
+		}
+	};
+
 	const handleSave = async () => {
 		setError(null);
 		setSuccess(null);
@@ -224,7 +308,7 @@ function ProfileEditorInner() {
 			.map((l) => ({ ...l, url: l.url.trim(), label: l.label?.trim() || undefined }))
 			.filter((l) => l.url.length > 0);
 
-		const invalid = validateForm(displayName, title, cleanLinks, isPublic);
+		const invalid = validateForm(username, displayName, title, cleanLinks, isPublic);
 		if (invalid) {
 			setError(invalid);
 			return;
@@ -232,11 +316,13 @@ function ProfileEditorInner() {
 		setSaving(true);
 		try {
 			const saved = await updateMyProfile({
+				username: username.trim().toLowerCase() || null,
 				displayName: displayName.trim() || null,
 				title: title.trim() || null,
 				links: cleanLinks,
 				isPublic,
 			});
+			setUsername(saved.username ?? "");
 			setDisplayName(saved.displayName ?? "");
 			setTitle(saved.title ?? "");
 			setLinks(saved.links ?? []);
@@ -249,28 +335,156 @@ function ProfileEditorInner() {
 		}
 	};
 
+	const isCustomAvatar = Boolean(
+		picture && (
+			picture.includes("avatars.awscommunity.id") ||
+			(user.picture && picture !== user.picture)
+		)
+	);
+
 	return (
 		<div className="container mx-auto max-w-2xl px-4 py-8 sm:py-12">
 			<Card className="overflow-hidden rounded-3xl bg-card/90 border-border/70 shadow-2xl shadow-black/20">
 				<CardHeader className="border-b border-border/50 bg-linear-to-r from-primary/10 via-card to-card p-6 sm:p-8">
-					<div className="flex items-center gap-3">
-						{picture && (
-							<img
-								src={picture}
-								alt=""
-								referrerPolicy="no-referrer"
-								className="h-10 w-10 rounded-full object-cover"
+					<div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+						{/* Avatar with hover badge / camera button */}
+						<div className="relative group shrink-0">
+							<div
+								onClick={() => !uploadingAvatar && !revertingAvatar && fileInputRef.current?.click()}
+								className="relative flex h-20 w-20 sm:h-24 sm:w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-border/80 bg-muted shadow-md transition-all group-hover:border-primary/60 group-hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+								role="button"
+								tabIndex={0}
+								aria-label="Change profile photo"
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										fileInputRef.current?.click();
+									}
+								}}
+							>
+								{picture ? (
+									<img
+										src={picture}
+										alt={displayName || user.name || "Avatar"}
+										referrerPolicy="no-referrer"
+										className="h-full w-full object-cover"
+									/>
+								) : (
+									<span className="text-xl sm:text-2xl font-bold text-muted-foreground">
+										{getInitials(displayName || user.name, user.email)}
+									</span>
+								)}
+
+								{/* Hover overlay edit badge */}
+								<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+									<Camera className="h-6 w-6 text-white drop-shadow" />
+									<span className="mt-0.5 text-[10px] font-medium text-white/90">Edit</span>
+								</div>
+
+								{/* Uploading / reverting spinner */}
+								{(uploadingAvatar || revertingAvatar) && (
+									<div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-xs">
+										<Loader2 className="h-7 w-7 animate-spin text-primary" />
+									</div>
+								)}
+							</div>
+
+							{/* Floating camera badge indicator at bottom right of avatar */}
+							<button
+								type="button"
+								onClick={() => !uploadingAvatar && !revertingAvatar && fileInputRef.current?.click()}
+								disabled={uploadingAvatar || revertingAvatar}
+								className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+								aria-label="Change photo"
+							>
+								<Camera className="h-3.5 w-3.5" />
+							</button>
+						</div>
+
+						{/* Details & controls */}
+						<div className="flex-1 space-y-2.5 text-center sm:text-left">
+							<div>
+								<CardTitle className="text-xl font-bold">My Profile</CardTitle>
+								<CardDescription className="text-xs">
+									Signed in as {user.email}
+								</CardDescription>
+							</div>
+
+							<input
+								type="file"
+								ref={fileInputRef}
+								accept="image/jpeg,image/png,image/webp"
+								onChange={handleFileSelect}
+								className="hidden"
+								tabIndex={-1}
+								aria-hidden="true"
 							/>
-						)}
-						<div>
-							<CardTitle className="text-xl font-bold">My Profile</CardTitle>
-							<CardDescription className="text-xs">
-								Signed in as {user.email}
-							</CardDescription>
+
+							<div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => fileInputRef.current?.click()}
+									disabled={uploadingAvatar || revertingAvatar}
+									className="h-8 gap-1.5 text-xs font-medium"
+								>
+									{uploadingAvatar ? (
+										<Loader2 className="h-3.5 w-3.5 animate-spin" />
+									) : (
+										<Camera className="h-3.5 w-3.5" />
+									)}
+									Change Photo
+								</Button>
+
+								{isCustomAvatar && (
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										onClick={handleResetAvatar}
+										disabled={uploadingAvatar || revertingAvatar}
+										className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+									>
+										{revertingAvatar ? (
+											<Loader2 className="h-3.5 w-3.5 animate-spin" />
+										) : (
+											<RotateCcw className="h-3.5 w-3.5" />
+										)}
+										Reset to Google Photo
+									</Button>
+								)}
+							</div>
+
+							<p className="text-[11px] text-muted-foreground">
+								JPEG, PNG, or WebP. Max 2MB.
+							</p>
 						</div>
 					</div>
 				</CardHeader>
 				<CardContent className="space-y-6 p-6 sm:p-8">
+					<div className="space-y-2">
+						<Label htmlFor="username">Username</Label>
+						<div className="relative flex items-center">
+							<span className="pointer-events-none absolute left-3 text-sm font-semibold text-muted-foreground">
+								@
+							</span>
+							<Input
+								id="username"
+								value={username}
+								onChange={(e) =>
+									setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))
+								}
+								placeholder="username"
+								maxLength={30}
+								className="pl-8"
+							/>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							3-30 lowercase characters (letters, numbers, hyphens, underscores).
+						</p>
+					</div>
+
 					<div className="space-y-2">
 						<Label htmlFor="displayName">Display Name</Label>
 						<Input
@@ -368,7 +582,7 @@ function ProfileEditorInner() {
 							</Label>
 							<p className="text-xs text-muted-foreground">
 								When public, this profile can appear on community pages that include
-								your signed-in email. Display name and title are required to publish.
+								your username. Username, display name, and title are required to publish.
 							</p>
 						</div>
 					</div>

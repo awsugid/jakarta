@@ -7,46 +7,96 @@ const currentPath = Astro.url.pathname;
 ---
 
 <header
-    class="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+    id="site-header"
+    class="fixed top-0 left-0 right-0 z-50 w-full border-b border-transparent bg-transparent transition-all duration-300 ease-in-out"
 >
     <div
-        class="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4 sm:px-8"
+        class="container mx-auto max-w-7xl flex h-16 sm:h-20 items-center justify-between px-4 sm:px-8"
     >
-        <div class="flex items-center gap-8">
+        <div class="flex items-center gap-8 xl:gap-10">
             <a
                 href="/"
-                class="flex items-center space-x-2 font-bold text-xl tracking-tight"
+                class="flex items-center space-x-2 font-bold text-xl tracking-tight transition-transform hover:scale-105 active:scale-95 shrink-0 drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]"
                 aria-label="AWS User Group Jakarta"
             >
                 <img
                     src="/android-chrome-192x192.png"
                     alt="AWS User Group Jakarta Logo"
-                    class="h-10 w-auto"
+                    class="h-9 sm:h-10 w-auto"
                 />
             </a>
-            <nav class="hidden lg:flex gap-8 text-sm font-medium">
+
+            {/* Enhanced font size (15px/16px) + Drop Shadow for high readability */}
+            <nav class="hidden lg:flex gap-6 xl:gap-8 text-[15px] xl:text-base font-bold items-center tracking-tight">
                 {
                     navItems.map((item) => {
                         const isActive = currentPath === item.href || currentPath === `${item.href}/` || (item.href !== '/' && currentPath.startsWith(item.href));
+                        const isComday = item.href === '/comday-26';
                         return (
                             <a
                                 href={item.href}
-                                class={`transition-colors hover:text-primary hover:font-semibold ${
-                                    isActive
-                                        ? "text-primary font-semibold"
-                                        : "text-muted-foreground/80"
+                                class={`transition-all duration-200 flex items-center gap-1.5 drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] ${
+                                    isComday
+                                        ? "text-orange-400 font-extrabold hover:text-orange-300"
+                                        : isActive
+                                            ? "text-primary font-extrabold underline underline-offset-8 decoration-primary decoration-2"
+                                            : "text-foreground hover:text-primary font-bold"
                                 }`}
                             >
-                                {item.name}
+                                <span>{item.name}</span>
+                                {isComday && (
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-500/25 text-orange-400 border border-orange-500/40 shadow-xs">
+                                        2026
+                                    </span>
+                                )}
                             </a>
                         );
                     })
                 }
             </nav>
         </div>
-        <div class="flex items-center gap-5 sm:gap-6">
+
+        <div class="flex items-center gap-4 sm:gap-6 shrink-0">
             <HeaderAuth client:load />
             <MobileNav client:load items={navItems} />
         </div>
     </div>
 </header>
+
+<script>
+    function initHeaderScroll() {
+        const header = document.getElementById("site-header");
+        if (!header) return;
+
+        const handleScroll = () => {
+            if (window.scrollY > 15) {
+                header.classList.add(
+                    "bg-background/98",
+                    "backdrop-blur-md",
+                    "border-border/80",
+                    "shadow-md",
+                    "shadow-black/20"
+                );
+                header.classList.remove("bg-transparent", "border-transparent");
+            } else {
+                header.classList.remove(
+                    "bg-background/98",
+                    "backdrop-blur-md",
+                    "border-border/80",
+                    "shadow-md",
+                    "shadow-black/20"
+                );
+                header.classList.add("bg-transparent", "border-transparent");
+            }
+        };
+
+        window.addEventListener("scroll", handleScroll, { passive: true });
+        handleScroll();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initHeaderScroll);
+    } else {
+        initHeaderScroll();
+    }
+</script>

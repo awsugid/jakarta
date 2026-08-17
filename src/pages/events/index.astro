@@ -22,7 +22,8 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
 ---
 
 <Layout title={title} description={description}>
-    <div class="relative overflow-hidden py-16 md:py-24 bg-background border-b border-border">
+    <div class="relative overflow-hidden min-h-[40vh] flex flex-col justify-center pt-28 sm:pt-36 pb-16 md:pb-24 bg-background border-b border-border">
+
         <ImmichKioskBackground
             client:load
             kioskUrl={kioskUrl}

@@ -201,7 +201,7 @@ export function SponsorGrid({
               size="sm"
               className="border-dashed border-border hover:border-orange-500/40 hover:bg-orange-500/5 text-muted-foreground hover:text-foreground rounded-xl"
             >
-              <a href="/sponsors">
+              <a href="/sponsor">
                 <PlusCircle className="mr-1.5 h-3.5 w-3.5 text-orange-400" />
                 Become a Sponsor — View Packages
               </a>

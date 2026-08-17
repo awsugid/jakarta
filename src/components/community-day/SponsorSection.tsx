@@ -91,7 +91,7 @@ export function SponsorSection() {
               asChild
               className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-slate-950 font-bold py-6 px-8 rounded-xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-sm sm:text-base w-full sm:w-auto"
             >
-              <a href="/sponsors">
+              <a href="/sponsor">
                 <Handshake className="mr-2 h-5 w-5" />
                 Explore Sponsorship Packages
                 <ArrowRight className="ml-2 h-4 w-4" />

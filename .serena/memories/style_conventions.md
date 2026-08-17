@@ -10,6 +10,8 @@
 - Functional React components only. No class components.
 - Feature folders under `src/components/<feature>/` (e.g. `speakers/`, `volunteer/`, `sponsor/`, `blog/`). Shared primitives live in `src/components/ui/` (shadcn).
 - React components that live in `.astro` files MUST receive a client directive only when interactivity is required (`client:load`, `client:visible`, `client:idle`). Prefer `client:visible` for below-the-fold interactive sections.
+- **Single Responsibility & Data Decoupling**: Each component has 1 view responsibility. Static data arrays live in `src/data/` (e.g., `src/data/faqs.ts`, `src/data/sponsors.ts`), NOT inside page frontmatters or UI components: `mem:component_single_responsibility_and_data_decoupling`.
+
 
 ## Styling
 - Tailwind CSS v4; configuration is inline via `@theme` directive in `src/styles/global.css` (no `tailwind.config.*` file is used at runtime even though `components.json` references one).

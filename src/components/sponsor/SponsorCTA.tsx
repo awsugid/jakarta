@@ -36,10 +36,15 @@ export function SponsorCTA() {
                                 size="lg"
                                 className="h-14 px-8 text-base font-medium rounded-full border-border/50 bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground"
                             >
-                                <a href="#">
+                                <a
+                                    href={import.meta.env.PUBLIC_COMMUNITY_DAY_DECK_URL || "/AWSUG_Jakarta_Sponsorship_Deck.pdf"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
                                     <Download className="mr-2 h-5 w-5" />
                                     Sponsorship Deck
                                 </a>
+
                             </Button>
                         </div>
                     </CardContent>

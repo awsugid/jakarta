@@ -17,28 +17,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getInitials } from "@/lib/utils";
+import type { PersonItem, PeopleGroup } from "@/lib/types";
 
-
-
-export interface PersonItem {
-  username: string;
-  /** @deprecated transitional alias if needed */
-  email?: string;
-  fallbackName?: string;
-  /** Transitional title until every roster member has a published profile. */
-  fallbackTitle?: string;
-  /** @deprecated use `fallbackTitle`; alias kept so current roster pages keep typechecking. */
-  role?: string;
-}
-
-export interface PeopleGroup {
-  label: string;
-  people: PersonItem[];
-}
+export type { PersonItem, PeopleGroup };
 
 export interface PeopleListProps {
   groups: PeopleGroup[];
 }
+
 
 const LINK_META: Record<ProfileLinkKind, { icon: LucideIcon; label: string }> = {
   instagram: { icon: Instagram, label: "Instagram" },
@@ -74,23 +61,19 @@ function getDisplayTitle(
   return (person.fallbackTitle ?? person.role)?.trim() || undefined;
 }
 
-/** Derives 1-2 uppercase initials from a name string for the avatar fallback. */
-function getInitials(name: string): string {
-  if (!name || name === "Community Member") return "CM";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return parts[0].substring(0, 2).toUpperCase();
-}
 
-function safeLinks(profile?: Profile): ProfileLink[] {
-  if (!profile?.links || !Array.isArray(profile.links)) return [];
-  return profile.links.filter(
+function safeLinks(person: PersonItem, profile?: Profile): ProfileLink[] {
+  const source =
+    profile?.links && Array.isArray(profile.links) && profile.links.length > 0
+      ? profile.links
+      : (person.fallbackLinks as ProfileLink[] | undefined) ?? [];
+
+  return source.filter(
     (link): link is ProfileLink =>
       Boolean(link?.url) && LINK_META[link?.kind as ProfileLinkKind] != null
   );
 }
+
 
 const SOCIAL_ROW_CLASSES =
   "flex items-center justify-center flex-wrap gap-2 w-full";
@@ -191,7 +174,7 @@ export const PeopleList: React.FC<PeopleListProps> = ({ groups }) => {
               const displayTitle = getDisplayTitle(person, profile);
               const pictureUrl = profile?.picture;
               const imageFailed = failedImages[userKey];
-              const links = safeLinks(profile);
+              const links = safeLinks(person, profile);
 
               return (
                 <div

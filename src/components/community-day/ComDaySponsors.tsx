@@ -1,13 +1,6 @@
-import { SponsorGrid, type Sponsor } from "@/components/sponsors/SponsorGrid";
-
-const COMDAY26_SPONSORS: Sponsor[] = [
-  {
-    name: "BINUS University",
-    logo: "/assets/comday26/sponsors/binus.png",
-    url: "https://binus.ac.id",
-    tier: "venue",
-  },
-];
+import React from "react";
+import { SponsorGrid } from "@/components/sponsors/SponsorGrid";
+import { COMDAY26_SPONSORS } from "@/data/sponsors";
 
 export function ComDaySponsors() {
   return (

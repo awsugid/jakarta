@@ -10,7 +10,7 @@ interface HeroProps {
 
 export function Hero({ kioskUrl }: HeroProps) {
   return (
-    <section className="relative overflow-hidden py-24 lg:py-40 bg-background">
+    <section className="relative overflow-hidden min-h-[85vh] flex items-center justify-center pt-24 sm:pt-28 pb-16 px-4 bg-background">
       <div className="container mx-auto relative z-10 flex flex-col items-center text-center px-4 md:px-6">
         <div className="animate-in fade-in slide-in-from-bottom-5 duration-700 ease-out">
           <Badge

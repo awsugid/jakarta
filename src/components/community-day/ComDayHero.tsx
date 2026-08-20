@@ -41,7 +41,8 @@ export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
   }, []);
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center py-20 px-4 overflow-hidden bg-background">
+    <section id="overview" className="relative min-h-[85vh] flex items-center justify-center pt-24 sm:pt-28 pb-16 px-4 overflow-hidden bg-background">
+
       {/* Immich Event Preview Background Carousel */}
       <ImmichKioskBackground kioskUrl={kioskUrl} albumId="0c7e9c9e-d2f4-423f-a9d6-4b3caa8bb0a5" />
 

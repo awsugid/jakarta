@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { VolunteerHero } from "@/components/volunteer/VolunteerHero";
 import { VolunteerRoles } from "@/components/volunteer/VolunteerRoles";
 import { VolunteerNotify } from "@/components/volunteer/VolunteerNotify";
+import { VolunteerSpotlight } from "@/components/volunteer/VolunteerSpotlight";
 import { ApplyVolunteerDialog } from "@/components/volunteer/ApplyVolunteerDialog";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { fetchForms } from "@/lib/api";
@@ -85,6 +86,8 @@ export function VolunteerPageContent({ kioskUrl }: VolunteerPageContentProps) {
           </div>
         </section>
       )}
+
+      <VolunteerSpotlight />
 
       <VolunteerNotify />
 

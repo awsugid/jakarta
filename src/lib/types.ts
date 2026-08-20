@@ -2,6 +2,26 @@
 // Shared API types — mirrors jakarta-backend Rust Worker responses.
 // =============================================================================
 
+export interface PersonItem {
+  username: string;
+  email?: string;
+  fallbackName?: string;
+  fallbackTitle?: string;
+  role?: string;
+  fallbackLinks?: {
+    kind: "linkedin" | "github" | "website" | "instagram" | "x" | "youtube" | "other";
+    url: string;
+    label?: string;
+  }[];
+}
+
+
+export interface PeopleGroup {
+  label: string;
+  people: PersonItem[];
+}
+
+
 /** A single application form returned by GET /api/forms or /api/forms/:kind */
 export interface FormInfo {
   kind: string;

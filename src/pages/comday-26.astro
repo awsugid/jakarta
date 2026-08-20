@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { ComDayHero } from "../components/community-day/ComDayHero";
+import { ComDaySectionNav } from "../components/community-day/ComDaySectionNav";
 import { MetricsBar } from "../components/community-day/MetricsBar";
 import { CFPSection } from "../components/community-day/CFPSection";
 import { SponsorSection } from "../components/community-day/SponsorSection";
@@ -13,30 +14,7 @@ import { VolunteerCallSection } from "../components/community-day/VolunteerCallS
 import PeopleList from "../components/people/PeopleList";
 import { getCollection } from "astro:content";
 import { buildPeopleGroups } from "@/lib/event-people";
-
-// Custom FAQs tailored for Community Day 2026
-const customFaqs = [
-    {
-        question: "What is AWS Community Day Jakarta?",
-        answer: "AWS Community Day is a peer-to-peer developer conference organized by the community for the community. The event features technical talks, workshops, and networking opportunities centered around Amazon Web Services technologies."
-    },
-    {
-        question: "Where is the event located and how do I get there?",
-        answer: "The event will take place physically at the <strong>Auditorium Binus @Anggrek</strong>, Jakarta Barat, Indonesia. You can easily access the location via public transit or private vehicles. Click the map location in the Hero section for Google Maps directions."
-    },
-    {
-        question: "Is there a commitment fee, and is it refundable?",
-        answer: "Yes, to prevent no-shows and make seats available to genuine learners, we require a small ticket fee. General admission tickets are <strong>fully refundable</strong> if you check in at the registration desk on the day of the event."
-    },
-    {
-        question: "How can I submit my session proposal?",
-        answer: "You can submit your proposal directly through our CFP section. Click on 'Submit Your Proposal' which will guide you to our Sessionize page where you can fill in your title, abstract, and speaker details."
-    },
-    {
-        question: "How can my company sponsor the event?",
-        answer: "You can explore our sponsorship packages, calculate custom budgets with our interactive tool, and download the official prospectus on our <a href='/sponsors' class='text-orange-400 underline underline-offset-4 hover:text-orange-300'>Sponsors page</a>."
-    }
-];
+import { comday26Faqs } from "@/data/faqs";
 
 const comdayEvent = (await getCollection("events")).find(
     (entry) => entry.id === "community-day-2026"
@@ -50,6 +28,10 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
 <Layout title="AWS Community Day Jakarta 2026">
     <!-- Hero Section -->
     <ComDayHero client:load kioskUrl={kioskUrl} />
+
+    <!-- Sticky Section Navigation -->
+    <ComDaySectionNav client:load />
+
 
     <!-- Metrics Stats Section -->
     <MetricsBar client:visible />
@@ -149,7 +131,7 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
             </div>
 
             <div class="bg-card/60 border border-border rounded-3xl p-6 sm:p-8 shadow-xl">
-                <EventFAQ client:visible faqs={customFaqs} />
+                <EventFAQ client:visible faqs={comday26Faqs} />
             </div>
         </div>
     </section>

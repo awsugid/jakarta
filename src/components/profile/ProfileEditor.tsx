@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, Plus, RotateCcw, Save, Trash2, User } from "lucide-react";
 import { AuthProvider, useAuth, writeProfileCache } from "@/components/auth/AuthProvider";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -52,16 +53,7 @@ const KIND_HOSTS: Partial<Record<ProfileLinkKind, string[]>> = {
 	youtube: ["youtube.com", "youtu.be"],
 };
 
-function urlHost(url: string): string | null {
-	try {
-		const host = new URL(url.trim()).hostname.toLowerCase();
-		return host.replace(/^www\./, "");
-	} catch {
-		return null;
-	}
-}
-
-const USERNAME_REGEX = /^[a-z0-9_-]{3,30}$/;
+import { urlHost, USERNAME_REGEX } from "@/lib/validation";
 
 function validateForm(
 	username: string,
@@ -113,19 +105,6 @@ function validateForm(
 	return null;
 }
 
-function getInitials(name?: string | null, email?: string | null): string {
-	if (name?.trim()) {
-		const parts = name.trim().split(/\s+/);
-		if (parts.length >= 2) {
-			return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-		}
-		return parts[0].slice(0, 2).toUpperCase();
-	}
-	if (email?.trim()) {
-		return email.trim().slice(0, 2).toUpperCase();
-	}
-	return "U";
-}
 
 export function ProfileEditor() {
 	return (
@@ -183,8 +162,8 @@ function ProfileEditorInner() {
 			})
 			.catch((err: Error) => {
 				if (cancelled) return;
-				setError(err.message);
-				setLoadFailed(true);
+					setError(err.message);
+					setLoadFailed(true);
 			})
 			.finally(() => !cancelled && setLoading(false));
 		return () => {
@@ -194,23 +173,38 @@ function ProfileEditorInner() {
 
 	if (!mounted || loading) {
 		return (
-			<div className="container mx-auto max-w-2xl px-4 py-8 sm:py-12">
-				<Card className="overflow-hidden rounded-3xl border-border/70 bg-card/80 shadow-xl">
-					<CardHeader className="border-b border-border/50 bg-linear-to-r from-primary/10 via-card to-card">
-						<div className="flex items-center gap-3">
-							<Skeleton className="h-12 w-12 rounded-full" />
-							<div className="space-y-2">
-								<Skeleton className="h-5 w-32" />
-								<Skeleton className="h-3 w-48" />
+			<div className="container mx-auto max-w-2xl px-4 py-4 sm:py-8 animate-in fade-in duration-500">
+				<Card className="overflow-hidden rounded-3xl border-border/80 bg-card/60 backdrop-blur-xl shadow-2xl relative">
+					{/* Gradient Accent Strip */}
+					<div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500" />
+					
+					<CardHeader className="border-b border-border/50 bg-gradient-to-r from-orange-500/10 via-pink-500/5 to-purple-500/10 p-6 sm:p-8">
+						<div className="flex items-center gap-4">
+							<Skeleton className="h-20 w-20 sm:h-24 sm:w-24 rounded-full border border-border/50" />
+							<div className="space-y-2 flex-1">
+								<Skeleton className="h-6 w-32 bg-muted/80" />
+								<Skeleton className="h-4 w-48 bg-muted/60" />
 							</div>
 						</div>
 					</CardHeader>
-					<CardContent className="space-y-6 p-6">
-						<Skeleton className="h-16 w-full rounded-xl" />
-						<Skeleton className="h-16 w-full rounded-xl" />
-						<Skeleton className="h-16 w-full rounded-xl" />
-						<Skeleton className="h-24 w-full rounded-2xl" />
-						<Skeleton className="h-12 w-full rounded-xl" />
+					<CardContent className="space-y-6 p-6 sm:p-8">
+						<div className="space-y-2">
+							<Skeleton className="h-4 w-20 bg-muted/80" />
+							<Skeleton className="h-11 w-full rounded-xl bg-muted/60" />
+						</div>
+						<div className="space-y-2">
+							<Skeleton className="h-4 w-24 bg-muted/80" />
+							<Skeleton className="h-11 w-full rounded-xl bg-muted/60" />
+						</div>
+						<div className="space-y-2">
+							<Skeleton className="h-4 w-16 bg-muted/80" />
+							<Skeleton className="h-11 w-full rounded-xl bg-muted/60" />
+						</div>
+						<div className="space-y-3">
+							<Skeleton className="h-4 w-12 bg-muted/80" />
+							<Skeleton className="h-24 w-full rounded-2xl bg-muted/60" />
+						</div>
+						<Skeleton className="h-12 w-full rounded-xl bg-muted/80" />
 					</CardContent>
 				</Card>
 			</div>
@@ -219,17 +213,27 @@ function ProfileEditorInner() {
 
 	if (!isSignedIn || !user) {
 		return (
-			<div className="container mx-auto max-w-md px-4 py-16 text-center">
-				<Card className="overflow-hidden rounded-3xl bg-card/90 border-border/70 shadow-xl">
-					<CardContent className="pt-8 pb-8 flex flex-col items-center gap-4">
-						<div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-							<User className="h-6 w-6" />
+			<div className="container mx-auto max-w-md px-4 py-8 animate-in fade-in duration-500">
+				<Card className="overflow-hidden rounded-3xl bg-card/60 backdrop-blur-xl border border-border/80 shadow-2xl relative text-center">
+					{/* Gradient Accent Strip */}
+					<div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500" />
+					
+					{/* Dotted background overlay */}
+					<div className="absolute inset-0 bg-[radial-gradient(#ff9900_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-10 -z-10 pointer-events-none" />
+					
+					<CardContent className="pt-10 pb-10 flex flex-col items-center gap-5">
+						<div className="h-14 w-14 rounded-2xl bg-gradient-to-r from-orange-500 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20">
+							<User className="h-7 w-7" />
 						</div>
-						<h2 className="text-xl font-bold">Sign In Required</h2>
-						<p className="text-sm text-muted-foreground">
-							Sign in to manage your community profile.
-						</p>
-						<GoogleSignInButton text="Sign In with Google" useDialog={false} />
+						<div className="space-y-2">
+							<h2 className="text-2xl font-extrabold tracking-tight text-foreground">Sign In Required</h2>
+							<p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+								Sign in with your Google account to create and manage your public AWS community profile.
+							</p>
+						</div>
+						<div className="w-full max-w-[240px] pt-2">
+							<GoogleSignInButton text="Sign In with Google" useDialog={false} />
+						</div>
 					</CardContent>
 				</Card>
 			</div>
@@ -238,17 +242,30 @@ function ProfileEditorInner() {
 
 	if (loadFailed) {
 		return (
-			<div className="container mx-auto max-w-md px-4 py-16 text-center">
-				<Card className="overflow-hidden rounded-3xl border-destructive/30 bg-card/90 shadow-xl">
-					<CardContent className="flex flex-col items-center gap-4 px-6 py-8">
-						<div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-							<User className="h-6 w-6" />
+			<div className="container mx-auto max-w-md px-4 py-8 text-center animate-in fade-in duration-500">
+				<Card className="overflow-hidden rounded-3xl border-destructive/30 bg-card/60 backdrop-blur-xl shadow-2xl relative">
+					{/* Red accent strip */}
+					<div className="h-1.5 w-full bg-destructive" />
+					
+					{/* Dotted background overlay */}
+					<div className="absolute inset-0 bg-[radial-gradient(#ff9900_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-5 -z-10 pointer-events-none" />
+
+					<CardContent className="flex flex-col items-center gap-5 px-6 py-10">
+						<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive shadow-lg shadow-destructive/5">
+							<User className="h-7 w-7" />
 						</div>
-						<h2 className="text-xl font-bold">Profile unavailable</h2>
-						<p className="text-sm text-muted-foreground">
-							{error || "We could not load your profile. Please try again before editing."}
-						</p>
-						<Button type="button" variant="outline" onClick={() => window.location.reload()}>
+						<div className="space-y-2">
+							<h2 className="text-2xl font-extrabold tracking-tight text-foreground">Profile Unavailable</h2>
+							<p className="text-sm text-muted-foreground leading-relaxed">
+								{error || "We could not load your profile. Please check your network connection and try again."}
+							</p>
+						</div>
+						<Button 
+							type="button" 
+							variant="outline" 
+							onClick={() => window.location.reload()}
+							className="h-10 px-6 rounded-xl border-border/80 hover:bg-muted font-semibold transition-all"
+						>
 							Try Again
 						</Button>
 					</CardContent>
@@ -368,15 +385,21 @@ function ProfileEditorInner() {
 	);
 
 	return (
-		<div className="container mx-auto max-w-2xl px-4 py-8 sm:py-12">
-			<Card className="overflow-hidden rounded-3xl bg-card/90 border-border/70 shadow-2xl shadow-black/20">
-				<CardHeader className="border-b border-border/50 bg-linear-to-r from-primary/10 via-card to-card p-6 sm:p-8">
+		<div className="container mx-auto max-w-2xl px-4 py-2 animate-in fade-in duration-500 delay-100 fill-mode-both">
+			<Card className="overflow-hidden rounded-3xl bg-card/60 backdrop-blur-xl border border-border/80 shadow-2xl relative">
+				{/* Gradient Accent Strip */}
+				<div className="h-1.5 w-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500" />
+				
+				{/* Dotted background overlay */}
+				<div className="absolute inset-0 bg-[radial-gradient(#ff9900_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-10 -z-10 pointer-events-none" />
+
+				<CardHeader className="border-b border-border/50 bg-gradient-to-r from-orange-500/10 via-pink-500/5 to-purple-500/10 p-6 sm:p-8 relative z-10">
 					<div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
 						{/* Avatar with hover badge / camera button */}
-						<div className="relative group shrink-0">
+						<div className="relative group shrink-0 rounded-full p-[3px] bg-gradient-to-br from-orange-500/70 via-pink-500/40 to-purple-500/20 shadow-md transition-transform duration-300 hover:scale-105">
 							<div
 								onClick={() => !uploadingAvatar && !revertingAvatar && fileInputRef.current?.click()}
-								className="relative flex h-20 w-20 sm:h-24 sm:w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-border/80 bg-muted shadow-md transition-all group-hover:border-primary/60 group-hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+								className="relative flex h-20 w-20 sm:h-24 sm:w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-background bg-muted shadow-inner focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
 								role="button"
 								tabIndex={0}
 								aria-label="Change profile photo"
@@ -419,7 +442,7 @@ function ProfileEditorInner() {
 								type="button"
 								onClick={() => !uploadingAvatar && !revertingAvatar && fileInputRef.current?.click()}
 								disabled={uploadingAvatar || revertingAvatar}
-								className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+								className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-background bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
 								aria-label="Change photo"
 							>
 								<Camera className="h-3.5 w-3.5" />
@@ -429,8 +452,8 @@ function ProfileEditorInner() {
 						{/* Details & controls */}
 						<div className="flex-1 space-y-2.5 text-center sm:text-left">
 							<div>
-								<CardTitle className="text-xl font-bold">My Profile</CardTitle>
-								<CardDescription className="text-xs">
+								<CardTitle className="text-xl font-bold tracking-tight text-foreground">My Profile</CardTitle>
+								<CardDescription className="text-xs text-muted-foreground">
 									Signed in as {user.email}
 								</CardDescription>
 							</div>
@@ -452,7 +475,7 @@ function ProfileEditorInner() {
 									size="sm"
 									onClick={() => fileInputRef.current?.click()}
 									disabled={uploadingAvatar || revertingAvatar}
-									className="h-8 gap-1.5 text-xs font-medium"
+									className="h-8 gap-1.5 text-xs font-semibold rounded-lg border-border/80 hover:bg-muted/80 cursor-pointer"
 								>
 									{uploadingAvatar ? (
 										<Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -469,7 +492,7 @@ function ProfileEditorInner() {
 										size="sm"
 										onClick={handleResetAvatar}
 										disabled={uploadingAvatar || revertingAvatar}
-										className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+										className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
 									>
 										{revertingAvatar ? (
 											<Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -481,15 +504,15 @@ function ProfileEditorInner() {
 								)}
 							</div>
 
-							<p className="text-[11px] text-muted-foreground">
+							<p className="text-[11px] text-muted-foreground/80">
 								JPEG, PNG, or WebP. Max 2MB.
 							</p>
 						</div>
 					</div>
 				</CardHeader>
-				<CardContent className="space-y-6 p-6 sm:p-8">
+				<CardContent className="space-y-6 p-6 sm:p-8 relative z-10">
 					<div className="space-y-2">
-						<Label htmlFor="username">Username</Label>
+						<Label htmlFor="username" className="text-sm font-semibold text-foreground">Username</Label>
 						<div className="relative flex items-center">
 							<span className="pointer-events-none absolute left-3 text-sm font-semibold text-muted-foreground">
 								@
@@ -502,134 +525,143 @@ function ProfileEditorInner() {
 								}
 								placeholder="username"
 								maxLength={30}
-								className="pl-8"
+								className="pl-8 bg-background/50 border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 rounded-xl h-11 transition-all"
 							/>
 						</div>
-						<p className="text-xs text-muted-foreground">
+						<p className="text-xs text-muted-foreground/80">
 							3-30 lowercase characters (letters, numbers, hyphens, underscores).
 						</p>
 					</div>
 
 					<div className="space-y-2">
-						<Label htmlFor="displayName">Display Name</Label>
+						<Label htmlFor="displayName" className="text-sm font-semibold text-foreground">Display Name</Label>
 						<Input
 							id="displayName"
 							value={displayName}
 							onChange={(e) => setDisplayName(e.target.value)}
 							placeholder="Your public name"
 							maxLength={80}
+							className="bg-background/50 border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 rounded-xl h-11 transition-all"
 						/>
 					</div>
 
 					<div className="space-y-2">
-						<Label htmlFor="title">Title</Label>
+						<Label htmlFor="title" className="text-sm font-semibold text-foreground">Title / Role</Label>
 						<Input
 							id="title"
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
-							placeholder="e.g. AWS User Group Leader"
+							placeholder="e.g. Cloud Architect / Community Builder"
 							maxLength={100}
+							className="bg-background/50 border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 rounded-xl h-11 transition-all"
 						/>
 					</div>
 
-          <div className="space-y-3">
-            <Label>Links</Label>
-            {links.map((link, i) => (
-              <div key={i} className="rounded-2xl border border-border/60 bg-muted/20 p-3 sm:p-4 space-y-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Select
-                    value={link.kind}
-                    onValueChange={(kind) => updateLink(i, { kind: kind as ProfileLinkKind })}
-                  >
-                    <SelectTrigger className="w-full sm:w-[150px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {KIND_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex min-w-0 flex-1 gap-2">
-                    <Input
-                      value={link.url}
-                      onChange={(e) => updateLink(i, { url: e.target.value })}
-                      placeholder="https://"
-                      inputMode="url"
-                      className="min-w-0 flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setLinks((prev) => prev.filter((_, j) => j !== i))}
-                      aria-label={`Remove link ${i + 1}`}
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                {link.kind === "other" && (
-                  <Input
-                    value={link.label ?? ""}
-                    onChange={(e) => updateLink(i, { label: e.target.value })}
-                    placeholder="Label (e.g. Blog)"
-                    maxLength={32}
-                  />
-                )}
-              </div>
-            ))}
-            {links.length < MAX_LINKS && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLinks((prev) => [...prev, { kind: "website", url: "" }])}
-                className="w-full border-dashed"
-              >
-                <Plus className="h-4 w-4" /> Add link
-              </Button>
-            )}
-          </div>
+					<div className="space-y-3">
+						<Label className="text-sm font-semibold text-foreground">Social & Contact Links</Label>
+						<div className="space-y-3">
+							{links.map((link, i) => (
+								<div key={i} className="rounded-2xl border border-border/50 bg-background/30 p-3 sm:p-4 space-y-3 relative group/link transition-colors hover:border-border/80">
+									<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+										<Select
+											value={link.kind}
+											onValueChange={(kind) => updateLink(i, { kind: kind as ProfileLinkKind })}
+										>
+											<SelectTrigger className="w-full sm:w-[150px] bg-background/50 border-border/50 rounded-xl h-11 transition-all">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												{KIND_OPTIONS.map((opt) => (
+													<SelectItem key={opt.value} value={opt.value}>
+														{opt.label}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+										<div className="flex min-w-0 flex-1 gap-2">
+											<Input
+												value={link.url}
+												onChange={(e) => updateLink(i, { url: e.target.value })}
+												placeholder="https://"
+												inputMode="url"
+												className="min-w-0 flex-1 bg-background/50 border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 rounded-xl h-11 transition-all"
+											/>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => setLinks((prev) => prev.filter((_, j) => j !== i))}
+												aria-label={`Remove link ${i + 1}`}
+												className="shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl h-11 w-11 transition-colors cursor-pointer"
+											>
+												<Trash2 className="h-4 w-4" />
+											</Button>
+										</div>
+									</div>
+									{link.kind === "other" && (
+										<Input
+											value={link.label ?? ""}
+											onChange={(e) => updateLink(i, { label: e.target.value })}
+											placeholder="Label (e.g. Personal Blog)"
+											maxLength={32}
+											className="bg-background/50 border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 rounded-xl h-11 transition-all"
+										/>
+									)}
+								</div>
+							))}
+						</div>
+						{links.length < MAX_LINKS && (
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setLinks((prev) => [...prev, { kind: "website", url: "" }])}
+								className="w-full border-dashed border-border/80 hover:border-orange-500/50 hover:text-orange-400 hover:bg-orange-500/5 transition-all rounded-xl h-11 cursor-pointer font-medium"
+							>
+								<Plus className="h-4 w-4 mr-2" /> Add Social/Website Link
+							</Button>
+						)}
+					</div>
 
-					<div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+					<div className="flex items-start gap-3 rounded-2xl border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-pink-500/5 p-4 relative overflow-hidden">
 						<Checkbox
 							id="isPublic"
 							checked={isPublic}
 							onCheckedChange={(checked) => setIsPublic(checked === true)}
-							className="mt-0.5"
+							className="mt-0.5 border-orange-500/30 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:ring-primary"
 						/>
 						<div className="space-y-1">
-							<Label htmlFor="isPublic" className="cursor-pointer">
-								Public profile
+							<Label htmlFor="isPublic" className="cursor-pointer text-sm font-semibold text-foreground">
+								Publish my profile to community pages
 							</Label>
-							<p className="text-xs text-muted-foreground">
-								When public, this profile can appear on community pages that include
-								your username. Username, display name, and title are required to publish.
+							<p className="text-xs text-muted-foreground/80 leading-relaxed">
+								When checked, your display name, title/role, custom avatar, and social links can appear on community directories (such as organizers and volunteers lists).
 							</p>
 						</div>
 					</div>
 
 					{error && (
-						<p className="text-sm text-destructive" role="alert">
-							{error}
+						<p className="text-sm font-medium text-destructive" role="alert">
+							⚠️ {error}
 						</p>
 					)}
 					{success && (
-						<p className="text-sm text-green-500" role="status">
-							{success}
+						<p className="text-sm font-medium text-green-500" role="status">
+							✓ {success}
 						</p>
 					)}
 
-					<Button type="button" onClick={handleSave} disabled={saving} className="h-11 w-full font-semibold shadow-lg shadow-primary/10">
+					<Button 
+						type="button" 
+						onClick={handleSave} 
+						disabled={saving} 
+						className="h-12 w-full font-bold tracking-wide bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 hover:from-orange-600 hover:to-purple-600 text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 active:scale-95 transition-all rounded-xl gap-2 cursor-pointer"
+					>
 						{saving ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
 						) : (
 							<Save className="h-4 w-4" />
 						)}
-						Save Profile
+						Save Community Profile
 					</Button>
 				</CardContent>
 			</Card>

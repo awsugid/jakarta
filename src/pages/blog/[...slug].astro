@@ -18,7 +18,8 @@ const { Content } = await render(post);
 ---
 
 <Layout title={`${post.data.title} - AWS User Group Jakarta`}>
-    <div class="bg-muted/30 py-12 md:py-20">
+    <div class="bg-muted/30 pt-28 sm:pt-36 pb-16 md:pb-20 border-b border-border/40">
+
         <div class="container max-w-4xl mx-auto px-4 md:px-6">
             <Button
                 variant="ghost"
@@ -31,18 +32,21 @@ const { Content } = await render(post);
             </Button>
 
             <div class="space-y-4">
-                <div class="flex flex-wrap gap-2">
-                    {
-                        post.data.tags?.map((tag) => (
-                            <Badge
-                                variant="secondary"
-                                className="bg-background/80 backdrop-blur"
-                            >
-                                {tag}
-                            </Badge>
-                        ))
-                    }
-                </div>
+                {
+                    post.data.tags && post.data.tags.length > 0 && (
+                        <div class="flex flex-wrap gap-2">
+                            {post.data.tags.map((tag) => (
+                                <Badge
+                                    variant="secondary"
+                                    className="bg-background/80 backdrop-blur"
+                                >
+                                    {tag}
+                                </Badge>
+                            ))}
+                        </div>
+                    )
+                }
+
 
                 <h1
                     class="text-4xl font-extrabold tracking-tight lg:text-5xl text-foreground"
@@ -85,10 +89,15 @@ const { Content } = await render(post);
             )
         }
 
-        <article
-            class="prose prose-lg prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-img:rounded-xl"
-        >
-            <Content />
-        </article>
+        {
+            post.body && post.body.trim().length > 0 && (
+                <article
+                    class="prose prose-lg prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-img:rounded-xl"
+                >
+                    <Content />
+                </article>
+            )
+        }
+
     </div>
 </Layout>

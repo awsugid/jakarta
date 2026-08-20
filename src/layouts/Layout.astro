@@ -9,14 +9,19 @@ import "../styles/global.css";
 interface Props {
 	title?: string;
 	description?: string;
+	image?: string;
 }
 
 const {
 	title = "AWS User Group Jakarta",
-	description = "Join the AWS User Group Jakarta community.",
+	description = "Join the AWS User Group Jakarta community for meetups, workshops, and Community Day.",
+	image = "/android-chrome-192x192.png",
 } = Astro.props;
 
 const site = Astro.site?.origin ?? "https://jakarta.awscommunity.id";
+const canonicalURL = new URL(Astro.url.pathname, site);
+const imageUrl = new URL(image, site).href;
+
 const siteNav = navItems.map((item) => ({
 	"@type": "SiteNavigationElement",
 	name: item.name,
@@ -28,10 +33,29 @@ const siteNav = navItems.map((item) => ({
 <html lang="en" class="dark">
 	<head>
 		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="robots" content="index, follow" />
 		<meta name="description" content={description} />
-		<meta name="viewport" content="width=device-width" />
+		<link rel="canonical" href={canonicalURL} />
+
+		{/* OpenGraph / Facebook */}
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="AWS User Group Jakarta" />
+		<meta property="og:url" content={canonicalURL} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:image" content={imageUrl} />
+
+		{/* Twitter */}
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:url" content={canonicalURL} />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={imageUrl} />
+
 		<GoogleAnalytics />
 		<FormbricksSDK />
+
 		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
 		<link
 			rel="icon"

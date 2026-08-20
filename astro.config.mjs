@@ -14,7 +14,16 @@ export default defineConfig({
     "/volunteers": "/volunteer",
     "/sponsors": "/sponsor",
   },
-  integrations: [react(), mdx(), sitemap()],
+  integrations: [
+    react(),
+    mdx(),
+    sitemap({
+      filter: (page) =>
+        !page.includes("/events/community-day-2026") &&
+        !page.includes("/volunteers") &&
+        !page.includes("/sponsors"),
+    }),
+  ],
 
   vite: {
     plugins: [tailwindcss()],

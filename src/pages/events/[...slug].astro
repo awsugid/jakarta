@@ -157,11 +157,16 @@ if (event.data.pretixUrl) {
             )
         }
 
-        <article
-            class="prose prose-lg prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-img:rounded-xl"
-        >
-            <Content />
-        </article>
+        {
+            event.body && event.body.trim().length > 0 && (
+                <article
+                    class="prose prose-lg prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-img:rounded-xl"
+                >
+                    <Content />
+                </article>
+            )
+        }
+
 
         {
             peopleGroups.length > 0 && (

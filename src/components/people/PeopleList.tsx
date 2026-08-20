@@ -70,9 +70,11 @@ function safeLinks(person: PersonItem, profile?: Profile): ProfileLink[] {
 
   return source.filter(
     (link): link is ProfileLink =>
-      Boolean(link?.url) && LINK_META[link?.kind as ProfileLinkKind] != null
+      Boolean(link?.url?.trim()) && LINK_META[link?.kind as ProfileLinkKind] != null
   );
 }
+
+
 
 
 const SOCIAL_ROW_CLASSES =

@@ -32,18 +32,21 @@ const { Content } = await render(post);
             </Button>
 
             <div class="space-y-4">
-                <div class="flex flex-wrap gap-2">
-                    {
-                        post.data.tags?.map((tag) => (
-                            <Badge
-                                variant="secondary"
-                                className="bg-background/80 backdrop-blur"
-                            >
-                                {tag}
-                            </Badge>
-                        ))
-                    }
-                </div>
+                {
+                    post.data.tags && post.data.tags.length > 0 && (
+                        <div class="flex flex-wrap gap-2">
+                            {post.data.tags.map((tag) => (
+                                <Badge
+                                    variant="secondary"
+                                    className="bg-background/80 backdrop-blur"
+                                >
+                                    {tag}
+                                </Badge>
+                            ))}
+                        </div>
+                    )
+                }
+
 
                 <h1
                     class="text-4xl font-extrabold tracking-tight lg:text-5xl text-foreground"
@@ -86,10 +89,15 @@ const { Content } = await render(post);
             )
         }
 
-        <article
-            class="prose prose-lg prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-img:rounded-xl"
-        >
-            <Content />
-        </article>
+        {
+            post.body && post.body.trim().length > 0 && (
+                <article
+                    class="prose prose-lg prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary prose-img:rounded-xl"
+                >
+                    <Content />
+                </article>
+            )
+        }
+
     </div>
 </Layout>

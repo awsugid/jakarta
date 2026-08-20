@@ -80,13 +80,12 @@ function MobileNavInner({ items }: MobileNavProps) {
     <div className="lg:hidden">
       <Button
         variant="outline"
-        size="sm"
+        size="icon"
         onClick={() => setOpen(true)}
         aria-label="Open menu"
         className="relative z-50 h-9 px-3 gap-2 rounded-xl bg-card/80 backdrop-blur-md border-border/80 text-foreground hover:bg-muted font-bold text-xs shadow-xs cursor-pointer"
       >
         <Menu className="h-4 w-4 text-primary" />
-        <span>Menu</span>
       </Button>
 
       {open &&

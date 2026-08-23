@@ -11,9 +11,9 @@ import {
   Heart,
   Users,
   HelpCircle,
-  Menu,
   X,
   Sparkles,
+  Presentation,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +36,12 @@ const SECTION_ITEMS: SectionItem[] = [
   { id: "volunteers", label: "Volunteers", icon: Heart },
   { id: "team", label: "Team & Organizers", icon: Users },
   { id: "faq", label: "FAQ", icon: HelpCircle },
+];
+
+const SPONSOR_MOBILE_SECTION_ITEMS: SectionItem[] = [
+  { id: "comday", label: "Community Day 2026", icon: Presentation, badge: "Oct 31" },
+  { id: "monthly", label: "Monthly Meetup", icon: Handshake, badge: "Open" },
+  { id: "contact", label: "Get in Touch", icon: HelpCircle },
 ];
 
 export function ComDaySectionNav() {
@@ -101,7 +107,6 @@ export function ComDaySectionNav() {
 
   return (
     <div className="hidden lg:block sticky top-20 z-40 w-full bg-background/90 backdrop-blur-md border-y border-border/60 shadow-xs select-none">
-
       <div className="container max-w-7xl mx-auto px-4">
         <nav
           className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-2.5 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none]"
@@ -136,12 +141,18 @@ export function ComDaySectionNav() {
 
 /**
  * Mobile Section Hamburger Button & Drawer
- * ONLY renders when user is on the ComDay '26 page (/comday-26).
- * Positioned above/next to the main header navigation on mobile.
+ * Renders on /comday and /sponsor pages.
  */
 export function ComDayMobileSectionNav() {
   const [open, setOpen] = useState(false);
+  const [currentPath, setCurrentPath] = useState("");
   const [activeId, setActiveId] = useState("overview");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCurrentPath(window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -151,30 +162,45 @@ export function ComDayMobileSectionNav() {
     }
   }, [open]);
 
+  const isSponsorPage = currentPath.startsWith("/sponsor");
+  const items = isSponsorPage ? SPONSOR_MOBILE_SECTION_ITEMS : SECTION_ITEMS;
+  const titleText = isSponsorPage ? "Sponsorship Sections" : "ComDay Sections";
+
   const scrollToSection = (id: string) => {
     setActiveId(id);
     setOpen(false);
-    const element = document.getElementById(id);
-    if (!element) return;
 
-    const navOffset = 130;
-    const elementPosition = element.getBoundingClientRect().top + window.scrollY;
-    const offsetPosition = elementPosition - navOffset;
+    if (isSponsorPage) {
+      if (id === "comday") {
+        window.dispatchEvent(new CustomEvent("sponsor-tab-change", { detail: "community" }));
+      } else if (id === "monthly") {
+        window.dispatchEvent(new CustomEvent("sponsor-tab-change", { detail: "monthly" }));
+      }
+    }
 
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: "smooth",
-    });
+    setTimeout(() => {
+      const element = document.getElementById(id);
+      if (!element) return;
+
+      const navOffset = 90;
+      const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+      const offsetPosition = elementPosition - navOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth",
+      });
+    }, 50);
   };
 
   return (
     <div className="lg:hidden">
-      {/* ComDay '26 Mobile Hamburger Button */}
+      {/* Mobile Hamburger Button */}
       <Button
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        aria-label="Open ComDay '26 section menu"
+        aria-label="Open section menu"
         className="h-9 px-3 gap-1.5 rounded-xl bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20 font-bold text-xs shadow-xs cursor-pointer"
       >
         <Sparkles className="h-3.5 w-3.5 text-orange-400 animate-pulse" />
@@ -197,7 +223,7 @@ export function ComDayMobileSectionNav() {
                 <div className="flex items-center justify-between pb-4 border-b border-border/40">
                   <div className="flex items-center gap-2 text-orange-400 font-extrabold text-sm tracking-tight">
                     <Sparkles className="h-4 w-4" />
-                    <span>ComDay '26 Sections</span>
+                    <span>{titleText}</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -215,7 +241,7 @@ export function ComDayMobileSectionNav() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 px-1 mb-1">
                     Jump to Section
                   </p>
-                  {SECTION_ITEMS.map((item) => {
+                  {items.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeId === item.id;
 
@@ -260,9 +286,11 @@ export function ComDayMobileSectionNav() {
 
               {/* Drawer Footer */}
               <div className="pt-4 border-t border-border/40 shrink-0">
-                <p className="text-xs font-bold text-foreground">AWS Community Day Jakarta 2026</p>
+                <p className="text-xs font-bold text-foreground">
+                  {isSponsorPage ? "Sponsorship & Collaboration" : "AWS Community Day Jakarta 2026"}
+                </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  October 31, 2026 &bull; BINUS Anggrek Jakarta
+                  AWS User Group Jakarta
                 </p>
               </div>
             </div>

@@ -6,7 +6,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { name: "Home", href: "/", iconName: "Home" },
-  { name: "ComDay '26", href: "/comday-26", iconName: "Sparkles" },
+  { name: "ComDay", href: "/comday", iconName: "Sparkles" },
   { name: "Events", href: "/events", iconName: "Calendar" },
   { name: "Blog", href: "/blog", iconName: "BookOpen" },
   { name: "Volunteer", href: "/volunteer", iconName: "HandHeart" },

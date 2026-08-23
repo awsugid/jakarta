@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Presentation, Calculator, Handshake, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { communityDayEvent } from "@/components/sponsor/communityDayConfig";
@@ -20,6 +20,73 @@ interface SponsorshipTabsProps {
 export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
   const [tab, setTab] = useState<TabId>("community");
 
+  useEffect(() => {
+    const scrollToTarget = (targetId: string) => {
+      setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          const navOffset = 90;
+          const elementPosition = el.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo({
+            top: Math.max(0, elementPosition - navOffset),
+            behavior: "smooth",
+          });
+        }
+      }, 120);
+    };
+
+    const syncFromHash = () => {
+      if (typeof window === "undefined") return;
+      const hash = window.location.hash.toLowerCase();
+      if (hash === "#monthly") {
+        setTab("monthly");
+        scrollToTarget("monthly");
+      } else if (hash === "#comday" || hash === "#community") {
+        setTab("community");
+        scrollToTarget("comday");
+      } else if (hash === "#contact") {
+        scrollToTarget("contact");
+      }
+    };
+
+    const handleCustomTabChange = (e: Event) => {
+      const customEvent = e as CustomEvent<TabId>;
+      if (customEvent.detail === "community" || customEvent.detail === "monthly") {
+        const targetId = customEvent.detail === "community" ? "comday" : "monthly";
+        setTab(customEvent.detail);
+        scrollToTarget(targetId);
+      }
+    };
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    window.addEventListener("sponsor-tab-change", handleCustomTabChange);
+
+    return () => {
+      window.removeEventListener("hashchange", syncFromHash);
+      window.removeEventListener("sponsor-tab-change", handleCustomTabChange);
+    };
+  }, []);
+
+  const handleTabClick = (id: TabId) => {
+    setTab(id);
+    const targetId = id === "community" ? "comday" : "monthly";
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `#${targetId}`);
+      setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          const navOffset = 90;
+          const elementPosition = el.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo({
+            top: Math.max(0, elementPosition - navOffset),
+            behavior: "smooth",
+          });
+        }
+      }, 100);
+    }
+  };
+
   return (
     <div>
       <div className="container mx-auto px-4 md:px-6 pt-16 sm:pt-20">
@@ -37,7 +104,7 @@ export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
                 aria-selected={active}
                 aria-controls={`sponsor-panel-${id}`}
                 id={`sponsor-tab-${id}`}
-                onClick={() => setTab(id)}
+                onClick={() => handleTabClick(id)}
                 className={cn(
                   "flex-1 inline-flex items-center justify-center gap-2 rounded-xl sm:rounded-full px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer",
                   active
@@ -56,8 +123,9 @@ export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
       {tab === "community" ? (
         <div
           role="tabpanel"
-          id="sponsor-panel-community"
+          id="comday"
           aria-labelledby="sponsor-tab-community"
+          className="scroll-mt-24 sm:scroll-mt-28"
         >
           <section className="py-16 sm:py-20 relative overflow-hidden bg-background">
             {/* Background glowing effects to match Home page */}
@@ -149,8 +217,9 @@ export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
       ) : (
         <div
           role="tabpanel"
-          id="sponsor-panel-monthly"
+          id="monthly"
           aria-labelledby="sponsor-tab-monthly"
+          className="scroll-mt-24 sm:scroll-mt-28"
         >
           <section className="py-16 sm:py-20 bg-muted/30">
             <div className="container mx-auto px-4 md:px-6">

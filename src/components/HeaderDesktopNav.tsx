@@ -10,6 +10,7 @@ import {
   Heart,
   Users,
   HelpCircle,
+  Presentation,
   type LucideIcon,
 } from "lucide-react";
 import type { NavItem } from "@/lib/navigation";
@@ -21,7 +22,7 @@ interface SectionItem {
   icon: LucideIcon;
 }
 
-const SECTION_ITEMS: SectionItem[] = [
+const COMDAY_SECTION_ITEMS: SectionItem[] = [
   { id: "overview", label: "Overview", icon: Compass },
   { id: "cfp", label: "Speakers (CFP)", icon: Mic },
   { id: "tickets", label: "Tickets", icon: Ticket },
@@ -32,18 +33,29 @@ const SECTION_ITEMS: SectionItem[] = [
   { id: "faq", label: "FAQ", icon: HelpCircle },
 ];
 
+const SPONSOR_SECTION_ITEMS: SectionItem[] = [
+  { id: "comday", label: "Community Day", icon: Presentation },
+  { id: "monthly", label: "Monthly Meetup", icon: Handshake },
+  { id: "contact", label: "Get in Touch", icon: HelpCircle },
+];
+
 interface HeaderDesktopNavProps {
   currentPath: string;
   items: NavItem[];
 }
 
 export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) {
-  const isComDayPage = currentPath === "/comday-26" || currentPath === "/comday-26/";
+  const isComDayPage = currentPath === "/comday" || currentPath === "/comday/";
+  const isSponsorPage = currentPath === "/sponsor" || currentPath === "/sponsor/";
+  const isSectionNavPage = isComDayPage || isSponsorPage;
+
+  const sectionItems = isSponsorPage ? SPONSOR_SECTION_ITEMS : COMDAY_SECTION_ITEMS;
+
   const [showSectionNav, setShowSectionNav] = useState(false);
-  const [activeId, setActiveId] = useState<string>("overview");
+  const [activeId, setActiveId] = useState<string>(isSponsorPage ? "comday" : "overview");
 
   useEffect(() => {
-    if (!isComDayPage) return;
+    if (!isSectionNavPage) return;
 
     const handleScroll = () => {
       // Toggle section nav when scrolled past hero (180px)
@@ -52,8 +64,8 @@ export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) 
 
       if (scrolled) {
         const scrollPosition = window.scrollY + 120;
-        for (let i = SECTION_ITEMS.length - 1; i >= 0; i--) {
-          const item = SECTION_ITEMS[i];
+        for (let i = sectionItems.length - 1; i >= 0; i--) {
+          const item = sectionItems[i];
           const element = document.getElementById(item.id);
           if (element) {
             const top = element.offsetTop;
@@ -70,21 +82,32 @@ export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) 
     handleScroll();
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isComDayPage]);
+  }, [isSectionNavPage, sectionItems]);
 
   const scrollToSection = (id: string) => {
     setActiveId(id);
-    const element = document.getElementById(id);
-    if (!element) return;
 
-    const navOffset = 85;
-    const elementPosition = element.getBoundingClientRect().top + window.scrollY;
-    const offsetPosition = elementPosition - navOffset;
+    if (isSponsorPage) {
+      if (id === "comday") {
+        window.dispatchEvent(new CustomEvent("sponsor-tab-change", { detail: "community" }));
+      } else if (id === "monthly") {
+        window.dispatchEvent(new CustomEvent("sponsor-tab-change", { detail: "monthly" }));
+      }
+    }
 
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: "smooth",
-    });
+    setTimeout(() => {
+      const element = document.getElementById(id);
+      if (!element) return;
+
+      const navOffset = 85;
+      const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+      const offsetPosition = elementPosition - navOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth",
+      });
+    }, 50);
   };
 
   return (
@@ -93,7 +116,7 @@ export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) 
       <div
         className={cn(
           "flex items-center gap-6 xl:gap-8 transition-all duration-300 ease-in-out",
-          showSectionNav && isComDayPage
+          showSectionNav && isSectionNavPage
             ? "opacity-0 pointer-events-none -translate-y-2 scale-95 absolute inset-0"
             : "opacity-100 pointer-events-auto translate-y-0 scale-100 relative"
         )}
@@ -103,7 +126,7 @@ export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) 
             currentPath === item.href ||
             currentPath === `${item.href}/` ||
             (item.href !== "/" && currentPath.startsWith(item.href));
-          const isComday = item.href === "/comday-26";
+          const isComday = item.href === "/comday";
 
           return (
             <a
@@ -129,8 +152,8 @@ export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) 
         })}
       </div>
 
-      {/* 2. ComDay '26 Section Navigation Links (Swaps into main nav spot when active) */}
-      {isComDayPage && (
+      {/* 2. Dynamic Section Navigation Links (Swaps into main nav spot when active) */}
+      {isSectionNavPage && (
         <div
           className={cn(
             "flex items-center gap-1 xl:gap-1.5 transition-all duration-300 ease-in-out",
@@ -139,7 +162,7 @@ export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) 
               : "opacity-0 pointer-events-none translate-y-2 scale-95 absolute inset-0"
           )}
         >
-          {SECTION_ITEMS.map((item) => {
+          {sectionItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeId === item.id;
 
@@ -151,11 +174,11 @@ export function HeaderDesktopNav({ currentPath, items }: HeaderDesktopNavProps) 
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs xl:text-sm font-semibold transition-all duration-200 shrink-0 border cursor-pointer",
                   isActive
-                    ? "bg-orange-500/20 text-orange-400 border-orange-500/50 shadow-xs font-bold"
+                    ? "bg-primary/20 text-primary border-primary/50 shadow-xs font-bold"
                     : "text-foreground/80 border-transparent hover:text-foreground hover:bg-muted/60 hover:border-border/40"
                 )}
               >
-                <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-orange-400" : "text-muted-foreground")} />
+                <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
                 <span>{item.label}</span>
               </button>
             );

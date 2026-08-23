@@ -81,7 +81,7 @@ export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
               </div>
             </div>
             <a 
-              href="https://maps.app.goo.gl/B5sKfT9QCf4Bdzsx9" 
+              href="https://maps.app.goo.gl/m2wtqy2gTTNwc7fj7" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center space-x-3 bg-card/70 backdrop-blur-md border border-border rounded-xl p-3.5 hover:bg-accent transition-colors group"

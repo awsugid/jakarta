@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export function SponsorCTA() {
     return (
-        <section className="py-24 bg-muted/30">
+        <section id="contact" className="py-24 bg-muted/30">
+
             <div className="container mx-auto px-4 md:px-6">
                 <Card className="relative overflow-hidden rounded-3xl border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background text-center md:text-left shadow-2xl">
                     <div className="absolute inset-0 bg-[radial-gradient(#ff9900_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 -z-10"></div>

@@ -6,7 +6,7 @@ import { HeaderDesktopNav } from "./HeaderDesktopNav";
 import { ComDayMobileSectionNav } from "./community-day/ComDaySectionNav";
 
 const currentPath = Astro.url.pathname;
-const isComDayPage = currentPath === "/comday-26" || currentPath === "/comday-26/";
+const isSectionNavPage = currentPath.startsWith("/comday") || currentPath.startsWith("/sponsor");
 ---
 
 <header
@@ -29,15 +29,15 @@ const isComDayPage = currentPath === "/comday-26" || currentPath === "/comday-26
                 />
             </a>
 
-            {/* Header Desktop Navigation (Morphs between Site Nav and ComDay Section Nav on scroll) */}
+            {/* Header Desktop Navigation (Morphs between Site Nav and Section Nav on scroll) */}
             <HeaderDesktopNav client:load currentPath={currentPath} items={navItems} />
         </div>
 
         <div class="flex items-center gap-2.5 sm:gap-4 shrink-0">
             <HeaderAuth client:load />
 
-            {/* ComDay '26 Mobile Section Hamburger (ONLY renders when on /comday-26 page) */}
-            {isComDayPage && <ComDayMobileSectionNav client:load />}
+            {/* Mobile Section Hamburger (ONLY renders on /comday and /sponsor pages) */}
+            {isSectionNavPage && <ComDayMobileSectionNav client:load />}
 
             {/* Main Mobile Navigation */}
             <MobileNav client:load items={navItems} />

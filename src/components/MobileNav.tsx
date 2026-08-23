@@ -151,7 +151,8 @@ function MobileNavInner({ items }: MobileNavProps) {
                       currentPath === item.href ||
                       currentPath === `${item.href}/` ||
                       (item.href !== "/" && currentPath.startsWith(item.href));
-                    const isComday = item.href === "/comday-26";
+                    const isComday = item.href === "/comday";
+
                     const Icon = NAV_ICONS[item.iconName] || ChevronRight;
 
                     return (

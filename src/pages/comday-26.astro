@@ -1,8 +1,8 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { ComDayHero } from "../components/community-day/ComDayHero";
-import { ComDaySectionNav } from "../components/community-day/ComDaySectionNav";
 import { MetricsBar } from "../components/community-day/MetricsBar";
+
 import { CFPSection } from "../components/community-day/CFPSection";
 import { SponsorSection } from "../components/community-day/SponsorSection";
 import { ComDaySponsors } from "../components/community-day/ComDaySponsors";
@@ -29,11 +29,8 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
     <!-- Hero Section -->
     <ComDayHero client:load kioskUrl={kioskUrl} />
 
-    <!-- Sticky Section Navigation -->
-    <ComDaySectionNav client:load />
-
-
     <!-- Metrics Stats Section -->
+
     <MetricsBar client:visible />
 
     <!-- Speaker CFP Section -->

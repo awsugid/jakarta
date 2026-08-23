@@ -2,8 +2,11 @@
 import { navItems } from "../lib/navigation";
 import { MobileNav } from "./MobileNav";
 import { HeaderAuth } from "./auth/HeaderAuth";
+import { HeaderDesktopNav } from "./HeaderDesktopNav";
+import { ComDayMobileSectionNav } from "./community-day/ComDaySectionNav";
 
 const currentPath = Astro.url.pathname;
+const isComDayPage = currentPath === "/comday-26" || currentPath === "/comday-26/";
 ---
 
 <header
@@ -13,7 +16,7 @@ const currentPath = Astro.url.pathname;
     <div
         class="container mx-auto max-w-7xl flex h-16 sm:h-20 items-center justify-between px-4 sm:px-8"
     >
-        <div class="flex items-center gap-8 xl:gap-10">
+        <div class="flex items-center gap-6 xl:gap-10">
             <a
                 href="/"
                 class="flex items-center space-x-2 font-bold text-xl tracking-tight transition-transform hover:scale-105 active:scale-95 shrink-0 drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]"
@@ -26,38 +29,17 @@ const currentPath = Astro.url.pathname;
                 />
             </a>
 
-            {/* Enhanced font size (15px/16px) + Drop Shadow for high readability */}
-            <nav class="hidden lg:flex gap-6 xl:gap-8 text-[15px] xl:text-base font-bold items-center tracking-tight">
-                {
-                    navItems.map((item) => {
-                        const isActive = currentPath === item.href || currentPath === `${item.href}/` || (item.href !== '/' && currentPath.startsWith(item.href));
-                        const isComday = item.href === '/comday-26';
-                        return (
-                            <a
-                                href={item.href}
-                                class={`transition-all duration-200 flex items-center gap-1.5 drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] ${
-                                    isComday
-                                        ? "text-orange-400 font-extrabold hover:text-orange-300"
-                                        : isActive
-                                            ? "text-primary font-extrabold underline underline-offset-8 decoration-primary decoration-2"
-                                            : "text-foreground hover:text-primary font-bold"
-                                }`}
-                            >
-                                <span>{item.name}</span>
-                                {isComday && (
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-500/25 text-orange-400 border border-orange-500/40 shadow-xs">
-                                        2026
-                                    </span>
-                                )}
-                            </a>
-                        );
-                    })
-                }
-            </nav>
+            {/* Header Desktop Navigation (Morphs between Site Nav and ComDay Section Nav on scroll) */}
+            <HeaderDesktopNav client:load currentPath={currentPath} items={navItems} />
         </div>
 
-        <div class="flex items-center gap-4 sm:gap-6 shrink-0">
+        <div class="flex items-center gap-2.5 sm:gap-4 shrink-0">
             <HeaderAuth client:load />
+
+            {/* ComDay '26 Mobile Section Hamburger (ONLY renders when on /comday-26 page) */}
+            {isComDayPage && <ComDayMobileSectionNav client:load />}
+
+            {/* Main Mobile Navigation */}
             <MobileNav client:load items={navItems} />
         </div>
     </div>

@@ -89,7 +89,7 @@ export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
               <MapPin className="h-5 w-5 text-pink-500 shrink-0 group-hover:scale-110 transition-transform" />
               <div className="text-left text-sm">
                 <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Binus @Anggrek</p>
-                <p className="text-muted-foreground text-xs">Auditorium, Jakarta Barat</p>
+                <p className="text-muted-foreground text-xs">Atrium, Jakarta Barat</p>
               </div>
             </a>
           </div>

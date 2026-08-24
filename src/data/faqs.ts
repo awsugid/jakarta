@@ -110,7 +110,7 @@ export const comday26Faqs: FAQItem[] = [
   {
     question: "Where is the event located and how do I get there?",
     answer:
-      "The event will take place physically at the <strong>Auditorium Binus @Anggrek</strong>, Jakarta Barat, Indonesia. You can easily access the location via public transit or private vehicles. Click the map location in the Hero section for Google Maps directions.",
+      "The event will take place physically at the <strong>Atrium Binus @Anggrek</strong>, Jakarta Barat, Indonesia. You can easily access the location via public transit or private vehicles. Click the map location in the Hero section for Google Maps directions.",
   },
   {
     question: "Is there a commitment fee, and is it refundable?",

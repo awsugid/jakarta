@@ -11,7 +11,6 @@ export default defineConfig({
   site: process.env.SITE_URL || "https://jakarta.awscommunity.id",
   redirects: {
     "/events/community-day-2026": "/comday",
-    "/comday": "/comday",
     "/volunteers": "/volunteer",
     "/sponsors": "/sponsor",
   },

@@ -5,8 +5,8 @@ export const SESSIONIZE_CONFIG = {
   venue: "BINUS Anggrek, Jakarta Barat",
   dates: {
     opens: "2026-05-01",
-    deadline: "2026-09-17",
-    deadlineDisplay: "September 17, 2026",
+    deadline: "2026-09-25",
+    deadlineDisplay: "September 25, 2026",
     deadlineTimeDisplay: "23:59 WIB",
     eventDate: "2026-10-31",
     eventDateDisplay: "October 31, 2026",

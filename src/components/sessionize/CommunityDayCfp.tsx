@@ -100,7 +100,7 @@ export function CommunityDayCfp({ className = "", compact = false }: CommunityDa
             className="w-full"
           >
             <Button className="w-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-slate-950 font-bold py-5 rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all text-sm justify-center group">
-              <Mic className="mr-2 h-4 w-4" /> Share Your Story on Sessionize
+              <Mic className="mr-2 h-4 w-4" /> Submit your Paper Here
               <ArrowUpRight className="ml-1.5 h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </Button>
           </a>

@@ -101,7 +101,7 @@ export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
               size="lg"
               className="w-full sm:w-auto bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 hover:from-orange-600 hover:to-purple-600 text-primary-foreground font-bold tracking-wide shadow-lg shadow-orange-500/25 active:scale-95 transition-all py-6 px-8 rounded-xl"
             >
-              <a href="https://sessionize.com/AWSComDayJakarta26/" target="_blank" rel="noopener noreferrer">
+              <a href="#cfp">
                 <Mic className="mr-2 h-5 w-5" /> Share Your Story
               </a>
             </Button>

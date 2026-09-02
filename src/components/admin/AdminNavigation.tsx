@@ -3,11 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type AdminTab = "responses" | "links";
+export type AdminTab = "responses" | "links" | "sponsors";
 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: "responses", label: "Responses" },
   { id: "links", label: "Links" },
+  { id: "sponsors", label: "ComDay Sponsors" },
 ];
 
 export function AdminNavigation({

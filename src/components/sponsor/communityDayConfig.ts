@@ -1,81 +1,18 @@
-// ponytail: inline config; migrate to astro:content collection when a second event adopts this model.
+// ponytail: display copy, tier thresholds, and selection helpers are static here;
+// package definitions/prices/unlock state come from the backend at runtime via
+// fetchSponsorPackages — see plan/comday_sponsor_admin_configuration.
 
-export type SponsorAssetCategory = "digital" | "onsite";
+import type { SponsorPackageGroup } from "@/lib/types";
 
-export interface SponsorAsset {
-  id: string;
-  name: string;
-  price: number;
-  advantage: string;
-  category: SponsorAssetCategory;
-}
+export const COMMUNITY_DAY_EVENT_SLUG = "community-day-2026";
 
 export const communityDayEvent = {
   name: "AWS Community Day Jakarta 2026",
-  date: "TBD",
   location: "Jakarta, Indonesia",
+  date: "TBD",
 } as const;
 
 export const sponsorContactEmail = "awsugjakarta@gmail.com";
-
-export const sponsorAssets: SponsorAsset[] = [
-  {
-    id: "web-logo",
-    name: "Website Logo",
-    price: 2_500_000,
-    advantage: "High-intent brand exposure on jakarta.awscommunity.id",
-    category: "digital",
-  },
-  {
-    id: "social-blast",
-    name: "Social Blast",
-    price: 2_500_000,
-    advantage: "Direct amplification of products or hiring to digital community",
-    category: "digital",
-  },
-  {
-    id: "video-ad",
-    name: "Video Ad",
-    price: 5_000_000,
-    advantage: "30–60 second narrative slot or platform demo during breaks",
-    category: "digital",
-  },
-  {
-    id: "email-footer",
-    name: "Email Footer",
-    price: 8_000_000,
-    advantage: "Brand placement on ticket confirmations, logistics, and post-event email",
-    category: "digital",
-  },
-  {
-    id: "tshirt",
-    name: "T-Shirt",
-    price: 6_000_000,
-    advantage: "Long-tail visual marketing through event merchandise",
-    category: "onsite",
-  },
-  {
-    id: "lanyard",
-    name: "Lanyard",
-    price: 7_500_000,
-    advantage: "Eye-level presence worn by participants",
-    category: "onsite",
-  },
-  {
-    id: "backdrop",
-    name: "Backdrop",
-    price: 4_000_000,
-    advantage: "Branding in official and participant event photos",
-    category: "onsite",
-  },
-  {
-    id: "mc-mention",
-    name: "MC Mention",
-    price: 3_500_000,
-    advantage: "Verbal sponsor callouts during breaks",
-    category: "onsite",
-  },
-];
 
 export type SponsorTierId = "platinum" | "gold" | "silver" | "supporter" | "none";
 
@@ -105,6 +42,26 @@ export function formatIDR(amount: number): string {
 
 export const STORAGE_KEY = "awsugj-community-day-sponsor-selection-v1";
 
+/**
+ * Restore raw selection from storage without discarding IDs: temporarily locked
+ * packages must survive so they re-count if unlocked later, and sanitizeSelection
+ * trims unknown IDs only once fetched package IDs are known.
+ */
+export function parseStoredSelection(saved: string | null): Record<string, boolean> {
+  let parsed: unknown;
+  try {
+    parsed = saved ? JSON.parse(saved) : null;
+  } catch {
+    return {};
+  }
+  if (typeof parsed !== "object" || parsed === null) return {};
+  const result: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    if (value === true) result[key] = true;
+  }
+  return result;
+}
+
 export function sanitizeSelection(
   saved: unknown,
   validIds: string[],
@@ -116,4 +73,124 @@ export function sanitizeSelection(
     if (validSet.has(key) && value === true) result[key] = true;
   }
   return result;
+}
+
+/**
+ * Minimal package shape for spend-threshold and capacity logic; structurally
+ * compatible with SponsorPackage before and after it gains minimumSpendIdr,
+ * maxSponsors, and reservedSponsors in parallel.
+ */
+export interface SpendAwarePackage {
+  id: string;
+  priceIdr: number;
+  isUnlocked: boolean;
+  minimumSpendIdr?: number | null;
+  maxSponsors?: number | null;
+  reservedSponsors?: number;
+}
+
+export function minimumSpendOf(p: SpendAwarePackage): number | null {
+  return p.minimumSpendIdr ?? null;
+}
+
+export function maxSponsorsOf(p: SpendAwarePackage): number | null {
+  return p.maxSponsors ?? null;
+}
+
+export function reservedSponsorsOf(p: SpendAwarePackage): number {
+  return p.reservedSponsors ?? 0;
+}
+
+/** Sold out iff capacity is limited and reservations reached the cap. */
+export function isSoldOut(p: SpendAwarePackage): boolean {
+  const max = maxSponsorsOf(p);
+  return max !== null && reservedSponsorsOf(p) >= max;
+}
+
+/** Remaining selectable slots; null when capacity is unlimited. */
+export function remainingSponsorSlots(p: SpendAwarePackage): number | null {
+  const max = maxSponsorsOf(p);
+  return max === null ? null : Math.max(0, max - reservedSponsorsOf(p));
+}
+
+/**
+ * Minimal package shape for backend-driven grouping; groupId may be absent
+ * from SponsorPackage until the shared type gains it, hence optional.
+ */
+export interface GroupAwarePackage {
+  id: string;
+  displayOrder: number;
+  groupId?: string | null;
+}
+
+export interface SponsorSection<P extends GroupAwarePackage = GroupAwarePackage> {
+  id: string;
+  label: string;
+  packages: P[];
+}
+
+/**
+ * Sections from backend groups ordered by displayOrder; within each group
+ * packages are filtered by groupId and keep package displayOrder. Packages
+ * referencing an unknown (or missing) group fall into a final defensive
+ * "Other" section instead of disappearing. Empty groups are omitted.
+ */
+export function buildSponsorSections<P extends GroupAwarePackage>(
+  packages: P[],
+  groups: SponsorPackageGroup[] | null | undefined,
+): SponsorSection<P>[] {
+  const byDisplayOrder = (
+    a: { displayOrder: number },
+    b: { displayOrder: number },
+  ) => a.displayOrder - b.displayOrder;
+  const known = new Set((groups ?? []).map((g) => g.id));
+  const sections = [...(groups ?? [])]
+    .sort(byDisplayOrder)
+    .map((g) => ({
+      id: g.id,
+      label: g.label,
+      packages: packages.filter((p) => p.groupId === g.id).sort(byDisplayOrder),
+    }))
+    .filter((s) => s.packages.length > 0);
+  const other = packages
+    .filter((p) => p.groupId == null || !known.has(p.groupId))
+    .sort(byDisplayOrder);
+  if (other.length > 0) {
+    sections.push({ id: "__other__", label: "Other", packages: other });
+  }
+  return sections;
+}
+
+/**
+ * Fixed-point resolution of the raw selection: start from selected packages
+ * with no minimum requirement, then repeatedly include selected+unlocked
+ * packages whose minimumSpendIdr is met by the current effective subtotal.
+ * A package can never satisfy its own minimum, and chained thresholds resolve
+ * in dependency order. Sold-out packages are excluded so totals/tier/email
+ * reflect effective availability only; raw selection is never mutated, so a
+ * selection returns automatically if capacity reopens.
+ */
+export function resolveEffectiveSelection(
+  packages: SpendAwarePackage[],
+  rawSelection: Record<string, boolean>,
+): Record<string, boolean> {
+  const pending = packages.filter(
+    (p) => p.isUnlocked && !isSoldOut(p) && rawSelection[p.id] === true,
+  );
+  const effective: Record<string, boolean> = {};
+  let total = 0;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const p of pending) {
+      if (effective[p.id]) continue;
+      const minimum = minimumSpendOf(p);
+      if (minimum === null || total >= minimum) {
+        effective[p.id] = true;
+        total += p.priceIdr;
+        changed = true;
+      }
+    }
+  }
+  return effective;
 }

@@ -24,6 +24,10 @@ import type {
   LinkPageUpdate,
   LinkItemCreate,
   LinkItemUpdate,
+  SponsorPackagesResponse,
+  SponsorPackageBatchUpdate,
+  SponsorPackageCreate,
+  SponsorPackageGroupCreate,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -363,4 +367,58 @@ export async function reorderLinks(ids: string[]): Promise<LinksResponse> {
     headers: authHeaders(),
     body: JSON.stringify({ ids }),
   });
+}
+
+/** GET /api/events/:eventSlug/sponsor-packages — public listing incl. locked rows. */
+export async function fetchSponsorPackages(
+  eventSlug: string,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/events/${encodeURIComponent(eventSlug)}/sponsor-packages`,
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/sponsor-packages — batch price/unlock update. */
+export async function updateAdminSponsorPackages(
+  eventSlug: string,
+  input: SponsorPackageBatchUpdate,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-packages`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/sponsor-packages — create a package in a group. */
+export async function createSponsorPackage(
+  eventSlug: string,
+  input: SponsorPackageCreate,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-packages`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/sponsor-groups — create a package group. */
+export async function createSponsorPackageGroup(
+  eventSlug: string,
+  input: SponsorPackageGroupCreate,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-groups`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
 }

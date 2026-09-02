@@ -298,3 +298,84 @@ export interface LinkItemUpdate {
 export interface LinkReorderRequest {
   ids: string[];
 }
+
+/** Sponsor package category (Community Day assets). */
+export type SponsorPackageCategory = "digital" | "onsite";
+
+/** A sponsor package row (camelCase from backend serde rename_all). */
+export interface SponsorPackage {
+  id: string;
+  eventSlug: string;
+  /** Owning group; references SponsorPackageGroup.id. Null only for legacy/unassigned rows. */
+  groupId: string | null;
+  name: string;
+  advantage: string;
+  category: SponsorPackageCategory;
+  /** Whole rupiah; positive integer. */
+  priceIdr: number;
+  /** Optional whole-rupiah total-spend threshold to unlock this package; null = no requirement. */
+  minimumSpendIdr: number | null;
+  /** Optional slot capacity; null = unlimited. */
+  maxSponsors: number | null;
+  /** Manually maintained count of confirmed sponsors occupying maxSponsors. */
+  reservedSponsors: number;
+  isUnlocked: boolean;
+  displayOrder: number;
+  updatedAt: string;
+}
+
+/** A sponsor package group (Community Day). */
+export interface SponsorPackageGroup {
+  id: string;
+  eventSlug: string;
+  label: string;
+  displayOrder: number;
+  updatedAt: string;
+}
+
+/** Response envelope for GET /api/events/:eventSlug/sponsor-packages (includes locked rows). */
+export interface SponsorPackagesResponse {
+  eventSlug: string;
+  currency: string;
+  groups: SponsorPackageGroup[];
+  packages: SponsorPackage[];
+}
+
+/** A single changed group row in the admin batch update body. */
+export interface SponsorPackageGroupUpdate {
+  id: string;
+  label: string;
+  displayOrder: number;
+}
+
+/** A single changed row in the admin batch update body. */
+export interface SponsorPackageUpdate {
+  id: string;
+  groupId: string;
+  priceIdr: number;
+  /** null clears the spend requirement. */
+  minimumSpendIdr: number | null;
+  /** null clears the capacity limit (back to unlimited). */
+  maxSponsors: number | null;
+  reservedSponsors: number;
+  isUnlocked: boolean;
+}
+
+/** Body for POST /api/admin/events/:eventSlug/sponsor-groups. */
+export interface SponsorPackageGroupCreate {
+  label: string;
+}
+
+/** Body for POST /api/admin/events/:eventSlug/sponsor-packages. */
+export interface SponsorPackageCreate {
+  name: string;
+  advantage: string;
+  groupId: string;
+  priceIdr: number;
+}
+
+/** Body for PUT /api/admin/events/:eventSlug/sponsor-packages. */
+export interface SponsorPackageBatchUpdate {
+  groups: SponsorPackageGroupUpdate[];
+  packages: SponsorPackageUpdate[];
+}

@@ -8,6 +8,7 @@ import { AdminStatsCards } from "@/components/admin/AdminStatsCards";
 import { FormbricksResponsesTable } from "@/components/admin/FormbricksResponsesTable";
 import { ResponseDetailDrawer } from "@/components/admin/ResponseDetailDrawer";
 import { LinkManager } from "@/components/admin/LinkManager";
+import { SponsorPackageManager } from "@/components/admin/SponsorPackageManager";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -113,8 +114,11 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
 
       <AdminNavigation active={tab} onChange={setTab} />
 
+      {/* Explicit tab branches; responses remains the default */}
       {tab === "links" ? (
         <LinkManager />
+      ) : tab === "sponsors" ? (
+        <SponsorPackageManager />
       ) : (
         <>
           {/* Filter row */}

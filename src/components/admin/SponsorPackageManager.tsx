@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type DragEvent as ReactDragEvent,
+  type ReactNode,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,14 +34,18 @@ import {
 import {
   ChevronDown,
   ChevronUp,
+  GripVertical,
   Loader2,
   Plus,
   RotateCcw,
   Save,
+  Trash2,
 } from "lucide-react";
 import {
   createSponsorPackage,
   createSponsorPackageGroup,
+  deleteSponsorPackage,
+  deleteSponsorPackageGroup,
   fetchSponsorPackages,
   updateAdminSponsorPackages,
 } from "@/lib/api";
@@ -68,6 +78,11 @@ interface GroupDraft {
   label: string;
   displayOrder: number;
 }
+
+/** Which entity currently has an inline delete confirmation open. */
+type DeleteTarget =
+  | { kind: "package"; id: string; name: string }
+  | { kind: "group"; id: string; name: string };
 
 function toPackageDrafts(
   packages: SponsorPackage[],
@@ -240,6 +255,13 @@ export function SponsorPackageManager() {
   const [createPackageError, setCreatePackageError] = useState<string | null>(
     null,
   );
+  const [confirmDelete, setConfirmDelete] = useState<DeleteTarget | null>(null);
+  const [deletingItem, setDeletingItem] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [dragPackageId, setDragPackageId] = useState<string | null>(null);
+  const [dropTargetGroupId, setDropTargetGroupId] = useState<string | null>(
+    null,
+  );
 
   // Public GET is intentional here: it returns locked + unlocked rows, so the
   // admin token is only needed for the PUT.
@@ -253,6 +275,10 @@ export function SponsorPackageManager() {
       setGroups(data.groups ?? []);
       setGroupDrafts(toGroupDrafts(data.groups ?? []));
       setSaveError(null);
+      // A pending confirm can reference a row that no longer exists after a
+      // reload; clearing it keeps drag/delete from staying blocked.
+      setConfirmDelete(null);
+      setDeleteError(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load sponsor packages.");
     } finally {
@@ -347,6 +373,28 @@ export function SponsorPackageManager() {
     groups.some((g) => groupError(g) !== null) ||
     packages.some((p) => packageInvalid(p));
 
+  // Mirrors the create guards: deletes are immediate server mutations, so
+  // they are blocked while drafts are dirty or another form/request is active.
+  const deleteBlocked =
+    dirty ||
+    saving ||
+    creatingGroup ||
+    creatingPackage ||
+    deletingItem ||
+    showAddGroup ||
+    showAddPackageGroupId !== null;
+  const deleteBlockedHint = dirty
+    ? "Save or reset changes before deleting."
+    : showAddGroup || showAddPackageGroupId !== null
+      ? "Finish or cancel the create form first."
+      : null;
+  const dragDisabled =
+    saving ||
+    creatingGroup ||
+    creatingPackage ||
+    deletingItem ||
+    confirmDelete !== null;
+
   // --- draft mutators ------------------------------------------------------
 
   const setDraft = (id: string, patch: Partial<PackageDraft>) => {
@@ -381,6 +429,82 @@ export function SponsorPackageManager() {
     setDrafts(toPackageDrafts(packages));
     setGroupDrafts(toGroupDrafts(groups));
     setSaveError(null);
+    setConfirmDelete(null);
+    setDeleteError(null);
+  }
+
+  // --- delete (inline confirm; no window.confirm) --------------------------
+
+  function requestDelete(target: DeleteTarget) {
+    setDeleteError(null);
+    setConfirmDelete(target);
+  }
+
+  function cancelDelete() {
+    setConfirmDelete(null);
+    setDeleteError(null);
+  }
+
+  async function performDelete() {
+    if (!confirmDelete || deletingItem) return;
+    if (dirty || saving || creatingGroup || creatingPackage) return;
+    setDeletingItem(true);
+    setDeleteError(null);
+    try {
+      const data =
+        confirmDelete.kind === "package"
+          ? await deleteSponsorPackage(COMMUNITY_DAY_EVENT_SLUG, confirmDelete.id)
+          : await deleteSponsorPackageGroup(
+              COMMUNITY_DAY_EVENT_SLUG,
+              confirmDelete.id,
+            );
+      setPackages(data.packages ?? []);
+      setDrafts(toPackageDrafts(data.packages ?? []));
+      setGroups(data.groups ?? []);
+      setGroupDrafts(toGroupDrafts(data.groups ?? []));
+      setSaveError(null);
+      setConfirmDelete(null);
+    } catch (e: unknown) {
+      setDeleteError(e instanceof Error ? e.message : "Failed to delete.");
+    } finally {
+      setDeletingItem(false);
+    }
+  }
+
+  // --- drag to reassign group (pointer enhancement; Select stays a11y) -----
+
+  function handleDragStart(id: string, e: ReactDragEvent) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id); // required by Firefox
+    setDragPackageId(id);
+  }
+
+  function handleDragEnd() {
+    setDragPackageId(null);
+    setDropTargetGroupId(null);
+  }
+
+  function handleGroupDragOver(groupId: string, e: ReactDragEvent) {
+    if (!dragPackageId) return;
+    if ((drafts[dragPackageId]?.groupId ?? "") === groupId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetGroupId(groupId);
+  }
+
+  function handleGroupDragLeave(groupId: string, e: ReactDragEvent) {
+    if (dropTargetGroupId !== groupId) return;
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+      setDropTargetGroupId(null);
+    }
+  }
+
+  function handleGroupDrop(groupId: string, e: ReactDragEvent) {
+    e.preventDefault();
+    if (dragPackageId && (drafts[dragPackageId]?.groupId ?? "") !== groupId) {
+      setDraft(dragPackageId, { groupId });
+    }
+    handleDragEnd();
   }
 
   function toggleAddGroup(open: boolean) {
@@ -404,6 +528,8 @@ export function SponsorPackageManager() {
       setGroups(data.groups ?? []);
       setGroupDrafts(toGroupDrafts(data.groups ?? []));
       setSaveError(null);
+      setConfirmDelete(null);
+      setDeleteError(null);
       toggleAddGroup(false);
     } catch (e: unknown) {
       setCreateGroupError(
@@ -439,6 +565,8 @@ export function SponsorPackageManager() {
       setGroups(data.groups ?? []);
       setGroupDrafts(toGroupDrafts(data.groups ?? []));
       setSaveError(null);
+      setConfirmDelete(null);
+      setDeleteError(null);
       toggleAddPackage(false);
     } catch (e: unknown) {
       setCreatePackageError(
@@ -522,6 +650,31 @@ export function SponsorPackageManager() {
         }))}
         disabled={saving || creatingGroup || creatingPackage}
         onChange={(patch) => setDraft(p.id, patch)}
+        deleteControl={
+          <DeleteAction
+            label={`package ${p.name}`}
+            disabled={deleteBlocked}
+            hint={deleteBlockedHint}
+            confirming={
+              confirmDelete?.kind === "package" && confirmDelete.id === p.id
+            }
+            busy={deletingItem}
+            error={
+              confirmDelete?.kind === "package" && confirmDelete.id === p.id
+                ? deleteError
+                : null
+            }
+            onRequest={() =>
+              requestDelete({ kind: "package", id: p.id, name: p.name })
+            }
+            onConfirm={performDelete}
+            onCancel={cancelDelete}
+          />
+        }
+        dragDisabled={dragDisabled}
+        isDragging={dragPackageId === p.id}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       />
     );
   };
@@ -565,6 +718,11 @@ export function SponsorPackageManager() {
                 and sponsor capacity. Package definitions, order, and
                 descriptions are read-only.
               </CardDescription>
+              <p className="text-xs text-muted-foreground">
+                Drag a package onto another group to reassign it, or use its
+                Group selector — either way the move is saved with Save
+                changes.
+              </p>
             </div>
             <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
               <Button
@@ -673,6 +831,8 @@ export function SponsorPackageManager() {
                   (a, b) =>
                     a.displayOrder - b.displayOrder || a.name.localeCompare(b.name),
                 );
+              const groupLabel =
+                (groupDrafts[g.id]?.label ?? g.label).trim() || g.id;
               return (
                 <GroupSection
                   key={g.id}
@@ -697,6 +857,35 @@ export function SponsorPackageManager() {
                   addPackageHint={
                     dirty ? "Save or reset changes before adding a package." : null
                   }
+                  deleteControl={
+                    <DeleteAction
+                      label={`group ${groupLabel}`}
+                      disabled={deleteBlocked || rows.length > 0}
+                      hint={
+                        rows.length > 0
+                          ? `Move or delete its ${rows.length} package${rows.length === 1 ? "" : "s"} first.`
+                          : deleteBlockedHint
+                      }
+                      confirming={
+                        confirmDelete?.kind === "group" && confirmDelete.id === g.id
+                      }
+                      busy={deletingItem}
+                      error={
+                        confirmDelete?.kind === "group" && confirmDelete.id === g.id
+                          ? deleteError
+                          : null
+                      }
+                      onRequest={() =>
+                        requestDelete({ kind: "group", id: g.id, name: groupLabel })
+                      }
+                      onConfirm={performDelete}
+                      onCancel={cancelDelete}
+                    />
+                  }
+                  isDropTarget={dropTargetGroupId === g.id}
+                  onDragOver={(e) => handleGroupDragOver(g.id, e)}
+                  onDragLeave={(e) => handleGroupDragLeave(g.id, e)}
+                  onDrop={(e) => handleGroupDrop(g.id, e)}
                 >
                   {rows.length === 0 ? (
                     <p className="text-xs text-muted-foreground py-2">
@@ -708,9 +897,7 @@ export function SponsorPackageManager() {
                   {showAddPackageGroupId === g.id && (
                     <AddPackageForm
                       groupId={g.id}
-                      groupLabel={
-                        (groupDrafts[g.id]?.label ?? g.label).trim() || g.id
-                      }
+                      groupLabel={groupLabel}
                       value={newPackage}
                       errors={newPackageErrors}
                       serverError={createPackageError}
@@ -800,6 +987,11 @@ function GroupSection({
   onAddPackage,
   canAddPackage,
   addPackageHint,
+  deleteControl,
+  isDropTarget,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   children,
 }: {
   group: SponsorPackageGroup;
@@ -814,6 +1006,11 @@ function GroupSection({
   onAddPackage: () => void;
   canAddPackage: boolean;
   addPackageHint: string | null;
+  deleteControl: ReactNode;
+  isDropTarget: boolean;
+  onDragOver: (e: ReactDragEvent) => void;
+  onDragLeave: (e: ReactDragEvent) => void;
+  onDrop: (e: ReactDragEvent) => void;
   children: ReactNode;
 }) {
   const labelId = `group-label-${group.id}`;
@@ -822,8 +1019,15 @@ function GroupSection({
 
   return (
     <section
-      className="rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4 space-y-3"
+      className={`rounded-xl border p-3 sm:p-4 space-y-3 transition-colors ${
+        isDropTarget
+          ? "border-primary bg-primary/5 ring-2 ring-primary"
+          : "border-border/60 bg-background/40"
+      }`}
       aria-labelledby={labelId}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
         <div className="flex-1 min-w-0 space-y-1.5">
@@ -893,6 +1097,7 @@ function GroupSection({
       {!canAddPackage && addPackageHint && (
         <p className="text-xs text-muted-foreground">{addPackageHint}</p>
       )}
+      <div className="flex flex-wrap items-center gap-2">{deleteControl}</div>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -913,6 +1118,11 @@ function PackageRow({
   groupOptions,
   disabled,
   onChange,
+  deleteControl,
+  dragDisabled,
+  isDragging,
+  onDragStart,
+  onDragEnd,
 }: {
   pkg: SponsorPackage;
   draft: PackageDraft;
@@ -925,6 +1135,11 @@ function PackageRow({
   groupOptions: { id: string; label: string }[];
   disabled: boolean;
   onChange: (patch: Partial<PackageDraft>) => void;
+  deleteControl: ReactNode;
+  dragDisabled: boolean;
+  isDragging: boolean;
+  onDragStart: (id: string, e: ReactDragEvent) => void;
+  onDragEnd: () => void;
 }) {
   const priceId = `pkg-price-${pkg.id}`;
   const priceErrorId = `${priceId}-error`;
@@ -943,8 +1158,26 @@ function PackageRow({
   const parsedReserved = parseReservedSponsors(draft.reservedSponsors);
 
   return (
-    <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+    <div
+      className={`rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 ${
+        isDragging ? "opacity-50" : ""
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-2">
+        <span
+          aria-hidden="true"
+          draggable={!dragDisabled}
+          onDragStart={(e) => onDragStart(pkg.id, e)}
+          onDragEnd={onDragEnd}
+          title="Drag to another group"
+          className={`inline-flex shrink-0 touch-none ${
+            dragDisabled
+              ? "cursor-not-allowed opacity-40"
+              : "cursor-grab active:cursor-grabbing"
+          }`}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </span>
         <span className="font-medium text-foreground">{pkg.name}</span>
         <Badge variant="outline" className="capitalize">
           {pkg.category}
@@ -967,6 +1200,7 @@ function PackageRow({
         {dirty && (
           <span className="text-xs text-muted-foreground">Modified</span>
         )}
+        <div className="ml-auto">{deleteControl}</div>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{pkg.advantage}</p>
 
@@ -1141,6 +1375,93 @@ function PackageRow({
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DeleteAction — two-step inline confirm (no window.confirm)
+// ---------------------------------------------------------------------------
+function DeleteAction({
+  label,
+  disabled,
+  hint,
+  confirming,
+  busy,
+  error,
+  onRequest,
+  onConfirm,
+  onCancel,
+}: {
+  /** e.g. "package Gold" — used in the aria-label and confirm prompt. */
+  label: string;
+  disabled: boolean;
+  hint: string | null;
+  confirming: boolean;
+  busy: boolean;
+  error: string | null;
+  onRequest: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!confirming) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1.5"
+          aria-label={`Delete ${label}`}
+          onClick={onRequest}
+          disabled={disabled}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </Button>
+        {disabled && hint && (
+          <p className="text-xs text-muted-foreground">{hint}</p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2"
+      role="group"
+      aria-label={`Delete ${label}`}
+    >
+      <span className="text-sm font-medium text-destructive">
+        Delete {label}?
+      </span>
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        onClick={onConfirm}
+        disabled={busy || disabled}
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Trash2 className="h-4 w-4" />
+        )}
+        Confirm
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onCancel}
+        disabled={busy}
+      >
+        Cancel
+      </Button>
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

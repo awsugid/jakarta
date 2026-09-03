@@ -422,3 +422,31 @@ export async function createSponsorPackageGroup(
     },
   );
 }
+
+/** DELETE /api/admin/events/:eventSlug/sponsor-packages/:packageId — remove a package. Returns refreshed set. */
+export async function deleteSponsorPackage(
+  eventSlug: string,
+  packageId: string,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-packages/${encodeURIComponent(packageId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** DELETE /api/admin/events/:eventSlug/sponsor-groups/:groupId — remove a group. Returns refreshed set. */
+export async function deleteSponsorPackageGroup(
+  eventSlug: string,
+  groupId: string,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-groups/${encodeURIComponent(groupId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+}

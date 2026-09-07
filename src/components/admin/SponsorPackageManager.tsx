@@ -73,6 +73,8 @@ const MAX_TIER_LABEL = 60;
 const MAX_TIERS = 10;
 
 interface PackageDraft {
+  name: string;
+  advantage: string;
   groupId: string;
   price: string;
   /** Empty string = no spend requirement. */
@@ -115,6 +117,8 @@ function toPackageDrafts(
   const drafts: Record<string, PackageDraft> = {};
   for (const p of packages) {
     drafts[p.id] = {
+      name: p.name,
+      advantage: p.advantage,
       groupId: p.groupId ?? "",
       price: String(p.priceIdr),
       minSpend: p.minimumSpendIdr == null ? "" : String(p.minimumSpendIdr),
@@ -263,6 +267,8 @@ function isDirty(
 ): boolean {
   if (!draft) return false;
   return (
+    draft.name.trim() !== pkg.name.trim() ||
+    draft.advantage.trim() !== pkg.advantage.trim() ||
     draft.groupId !== (pkg.groupId ?? "") ||
     draft.price.trim() !== String(pkg.priceIdr) ||
     draft.minSpend.trim() !==
@@ -416,6 +422,14 @@ export function SponsorPackageManager() {
       );
   }
 
+  // Package name uniqueness tally across ALL packages (draft-aware).
+  const packageNameCounts = new Map<string, number>();
+  for (const p of packages) {
+    const name = (drafts[p.id]?.name ?? "").trim().toLowerCase();
+    if (name)
+      packageNameCounts.set(name, (packageNameCounts.get(name) ?? 0) + 1);
+  }
+
   const groupError = (g: SponsorPackageGroup): string | null => {
     const label = groupDrafts[g.id]?.label ?? "";
     const base = groupLabelError(label);
@@ -432,6 +446,16 @@ export function SponsorPackageManager() {
     return groupIdSet.has(groupId)
       ? null
       : "This package references a group that no longer exists.";
+  };
+
+  const packageNameRowError = (p: SponsorPackage): string | null => {
+    const name = drafts[p.id]?.name ?? "";
+    return (
+      packageNameError(name) ??
+      ((packageNameCounts.get(name.trim().toLowerCase()) ?? 0) > 1
+        ? "A package with this name already exists."
+        : null)
+    );
   };
 
   const tierLabelRowError = (t: SponsorTier): string | null => {
@@ -497,6 +521,8 @@ export function SponsorPackageManager() {
     : null;
 
   const packageInvalid = (p: SponsorPackage): boolean =>
+    packageNameRowError(p) !== null ||
+    advantageError(drafts[p.id]?.advantage ?? "") !== null ||
     priceError(drafts[p.id]?.price ?? "") !== null ||
     minimumSpendError(drafts[p.id]?.minSpend ?? "") !== null ||
     maxSponsorsError(drafts[p.id]?.maxSponsors ?? "") !== null ||
@@ -832,6 +858,8 @@ export function SponsorPackageManager() {
         return; // guarded by the disabled Save button
       packageUpdates.push({
         id,
+        name: drafts[id].name.trim(),
+        advantage: drafts[id].advantage.trim(),
         groupId: drafts[id].groupId,
         priceIdr,
         minimumSpendIdr: parseMinimumSpendIdr(drafts[id].minSpend),
@@ -917,6 +945,8 @@ export function SponsorPackageManager() {
         pkg={p}
         draft={draft}
         dirty={isDirty(p, draft)}
+        nameError={packageNameRowError(p)}
+        advantageError={advantageError(draft.advantage)}
         error={priceError(draft.price)}
         minSpendError={minimumSpendError(draft.minSpend)}
         maxError={maxSponsorsError(draft.maxSponsors)}
@@ -1501,6 +1531,8 @@ function PackageRow({
   draft,
   dirty,
   error,
+  nameError,
+  advantageError,
   minSpendError,
   maxError,
   reservedError,
@@ -1518,6 +1550,8 @@ function PackageRow({
   draft: PackageDraft;
   dirty: boolean;
   error: string | null;
+  nameError: string | null;
+  advantageError: string | null;
   minSpendError: string | null;
   maxError: string | null;
   reservedError: string | null;
@@ -1533,6 +1567,10 @@ function PackageRow({
 }) {
   const priceId = `pkg-price-${pkg.id}`;
   const priceErrorId = `${priceId}-error`;
+  const nameId = `pkg-name-${pkg.id}`;
+  const nameErrorId = `${nameId}-error`;
+  const advantageId = `pkg-advantage-${pkg.id}`;
+  const advantageErrorId = `${advantageId}-error`;
   const minSpendId = `pkg-minspend-${pkg.id}`;
   const minSpendErrorId = `${minSpendId}-error`;
   const maxId = `pkg-max-${pkg.id}`;
@@ -1568,7 +1606,6 @@ function PackageRow({
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </span>
-        <span className="font-medium text-foreground">{pkg.name}</span>
         <Badge variant="outline" className="capitalize">
           {pkg.category}
         </Badge>
@@ -1592,9 +1629,56 @@ function PackageRow({
         )}
         <div className="ml-auto">{deleteControl}</div>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">{pkg.advantage}</p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor={nameId}>Package name</Label>
+          <Input
+            id={nameId}
+            type="text"
+            autoComplete="off"
+            maxLength={MAX_PACKAGE_NAME}
+            className="bg-background"
+            value={draft.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+            disabled={disabled}
+            aria-invalid={nameError ? true : undefined}
+            aria-describedby={nameError ? nameErrorId : undefined}
+          />
+          {nameError ? (
+            <p id={nameErrorId} className="text-xs text-destructive">
+              {nameError}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              1–80 characters; must be unique among packages.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor={advantageId}>Benefit / description</Label>
+          <Textarea
+            id={advantageId}
+            rows={3}
+            autoComplete="off"
+            maxLength={MAX_ADVANTAGE}
+            className="bg-background resize-y"
+            value={draft.advantage}
+            onChange={(e) => onChange({ advantage: e.target.value })}
+            disabled={disabled}
+            aria-invalid={advantageError ? true : undefined}
+            aria-describedby={advantageError ? advantageErrorId : undefined}
+          />
+          {advantageError ? (
+            <p id={advantageErrorId} className="text-xs text-destructive">
+              {advantageError}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">1–500 characters.</p>
+          )}
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor={groupId}>Group</Label>
           <Select

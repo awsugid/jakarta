@@ -353,6 +353,10 @@ export interface SponsorPackageGroupUpdate {
 /** A single changed row in the admin batch update body. */
 export interface SponsorPackageUpdate {
   id: string;
+  /** Trimmed, 1..=80 chars, unique per event (case-insensitive). */
+  name: string;
+  /** Trimmed, 1..=500 chars. */
+  advantage: string;
   groupId: string;
   priceIdr: number;
   /** null clears the spend requirement. */

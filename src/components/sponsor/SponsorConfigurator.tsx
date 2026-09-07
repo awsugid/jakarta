@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Mail, Copy, Check, Globe, Megaphone, Video, Award, Camera, Mic, Shirt, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -141,6 +141,17 @@ export function SponsorConfigurator() {
     () => resolveSponsorTier(total, tiers ?? []),
     [total, tiers],
   );
+  const nextTier = useMemo(() => {
+    const ascending = [...(tiers ?? [])].sort((a, b) => a.thresholdIdr - b.thresholdIdr);
+    return ascending.find((t) => t.thresholdIdr > total) ?? null;
+  }, [tiers, total]);
+  const tierProgress = useMemo(() => {
+    if (!nextTier) return 0;
+    const start = tier?.thresholdIdr ?? 0;
+    const span = nextTier.thresholdIdr - start;
+    if (span <= 0) return 100;
+    return Math.min(100, Math.max(0, ((total - start) / span) * 100));
+  }, [nextTier, tier, total]);
 
   const minUnlockedPrice = useMemo(() => {
     const prices = (packages ?? [])
@@ -167,22 +178,35 @@ export function SponsorConfigurator() {
 
   const summaryText = useMemo(() => {
     const lines: string[] = [
-      `Sponsorship Package Request — ${trimmedCompany}`,
+      "Hello AWS User Group Jakarta team,",
       "",
-      `Event: ${communityDayEvent.name} (${communityDayEvent.date}, ${communityDayEvent.location})`,
+      `${trimmedCompany} would like to enquire about sponsoring ${communityDayEvent.name} (${communityDayEvent.date}, ${communityDayEvent.location}).`,
       "",
-      "Selected packages:",
-      ...selectedPackages.map((p) => `- ${p.name} — ${formatIDR(p.priceIdr)}`),
+      "Selected packages (indicative):",
+      ...selectedPackages.map(
+        (p, i) => `${i + 1}. ${p.name} — ${formatIDR(p.priceIdr)}\n   ${p.advantage}`,
+      ),
       "",
-      `Total: ${formatIDR(total)}`,
-      `Tier: ${tier?.label ?? "No tier"}`,
+      `Estimated total: ${formatIDR(total)}`,
+      `Indicative tier: ${tier?.label ?? "To be confirmed"}`,
       "",
-      `Company: ${trimmedCompany}`,
-      `Email: ${trimmedEmail}`,
-      `Goals: ${trimmedGoals || "(none provided)"}`,
+      `Contact email: ${trimmedEmail}`,
     ];
+    if (trimmedGoals !== "") {
+      lines.push("", `Sponsorship goals: ${trimmedGoals}`);
+    }
+    lines.push(
+      "",
+      "Could you confirm the availability of the selected packages, share a final quotation, and outline the next steps?",
+      "",
+      "Thank you,",
+      trimmedCompany,
+    );
     return lines.join("\n");
   }, [selectedPackages, total, tier, trimmedCompany, trimmedEmail, trimmedGoals]);
+
+  const mailSubject = `Sponsorship Enquiry — ${communityDayEvent.name} — ${trimmedCompany}`;
+  const mailHref = `mailto:${sponsorContactEmail}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(summaryText)}`;
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -199,9 +223,7 @@ export function SponsorConfigurator() {
       return;
     }
     setFormError(null);
-    const encSubject = encodeURIComponent(`Sponsorship Package Request — ${trimmedCompany}`);
-    const encBody = encodeURIComponent(summaryText);
-    window.location.href = `mailto:${sponsorContactEmail}?subject=${encSubject}&body=${encBody}`;
+    window.location.href = mailHref;
     setSubmitState("prepared");
   }
 
@@ -425,9 +447,40 @@ export function SponsorConfigurator() {
                         </Badge>
                       )}
                     </div>
-                    <CardDescription>
-                      {total === 0 ? "Select a package" : formatIDR(total)}
-                    </CardDescription>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {total === 0
+                          ? "Select a package"
+                          : `${selectedPackages.length} ${selectedPackages.length === 1 ? "package" : "packages"} selected`}
+                      </p>
+                      <p className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-foreground">
+                        {formatIDR(total)}
+                      </p>
+                      {tier && (
+                        <p className="text-xs text-muted-foreground">Indicative {tier.label} tier</p>
+                      )}
+                    </div>
+                    {nextTier && total > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span>{formatIDR(nextTier.thresholdIdr - total)} away from {nextTier.label}</span>
+                          <span className="tabular-nums">{Math.round(tierProgress)}%</span>
+                        </div>
+                        <div
+                          role="progressbar"
+                          aria-label={`Progress toward ${nextTier.label} tier`}
+                          aria-valuenow={Math.round(tierProgress)}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                        >
+                          <div
+                            className="h-full rounded-full bg-primary transition-all duration-500"
+                            style={{ width: `${tierProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-xs text-muted-foreground leading-relaxed">
@@ -520,7 +573,7 @@ export function SponsorConfigurator() {
                         <p className="text-xs text-muted-foreground">
                           Or email us directly:{" "}
                           <a
-                            href={`mailto:${sponsorContactEmail}`}
+                            href={mailHref}
                             className="text-primary underline underline-offset-4 break-all"
                           >
                             {sponsorContactEmail}
@@ -540,7 +593,7 @@ export function SponsorConfigurator() {
                   <div className="space-y-0.5">
                     <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-bold text-foreground">{formatIDR(total)}</span>
+                      <span className="text-lg font-bold tabular-nums text-foreground">{formatIDR(total)}</span>
                       {tier && (
                         <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>
                           {tier.label}

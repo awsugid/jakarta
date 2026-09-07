@@ -28,6 +28,8 @@ import type {
   SponsorPackageBatchUpdate,
   SponsorPackageCreate,
   SponsorPackageGroupCreate,
+  SponsorTierCreate,
+  SponsorTierBatchUpdate,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -444,6 +446,50 @@ export async function deleteSponsorPackageGroup(
 ): Promise<SponsorPackagesResponse> {
   return apiFetch<SponsorPackagesResponse>(
     `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-groups/${encodeURIComponent(groupId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/sponsor-tiers — create a tier. Returns refreshed set. */
+export async function createSponsorTier(
+  eventSlug: string,
+  input: SponsorTierCreate,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-tiers`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/sponsor-tiers — batch tier update. Returns refreshed set. */
+export async function updateSponsorTiers(
+  eventSlug: string,
+  input: SponsorTierBatchUpdate,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-tiers`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** DELETE /api/admin/events/:eventSlug/sponsor-tiers/:tierId — remove a tier. Returns refreshed set. */
+export async function deleteSponsorTier(
+  eventSlug: string,
+  tierId: string,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-tiers/${encodeURIComponent(tierId)}`,
     {
       method: "DELETE",
       headers: authHeaders(),

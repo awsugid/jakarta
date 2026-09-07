@@ -13,13 +13,14 @@ import { fetchSponsorPackages } from "@/lib/api";
 import type {
   SponsorPackage,
   SponsorPackageGroup,
+  SponsorTier,
+  SponsorTierAccent,
 } from "@/lib/types";
 
 import {
   COMMUNITY_DAY_EVENT_SLUG,
   buildSponsorSections,
   communityDayEvent,
-  computeSponsorTier,
   formatIDR,
   isSoldOut,
   maxSponsorsOf,
@@ -27,10 +28,10 @@ import {
   parseStoredSelection,
   remainingSponsorSlots,
   resolveEffectiveSelection,
+  resolveSponsorTier,
   sanitizeSelection,
   sponsorContactEmail,
   STORAGE_KEY,
-  type SponsorTierId,
 } from "@/components/sponsor/communityDayConfig";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -46,11 +47,12 @@ const ASSET_ICONS: Record<string, typeof Globe> = {
   "mc-mention": Mic,
 };
 
-const TIER_BADGE_CLASS: Record<Exclude<SponsorTierId, "none">, string> = {
+const TIER_BADGE_CLASS: Record<SponsorTierAccent, string> = {
   platinum: "bg-gradient-to-r from-slate-100 via-zinc-200 to-slate-200 text-slate-900 border-none shadow-[0_0_12px_rgba(255,255,255,0.15)] font-bold",
   gold: "bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-500 text-amber-950 border-none shadow-[0_0_12px_rgba(245,158,11,0.2)] font-bold",
   silver: "bg-gradient-to-r from-slate-300 via-zinc-400 to-slate-400 text-zinc-950 border-none font-bold",
-  supporter: "bg-gradient-to-r from-orange-400 via-primary to-orange-500 text-orange-950 border-none font-bold",
+  bronze: "bg-gradient-to-r from-orange-700 via-amber-700 to-orange-800 text-orange-50 border-none font-bold",
+  default: "bg-gradient-to-r from-orange-400 via-primary to-orange-500 text-orange-950 border-none font-bold",
 };
 
 type LoadStatus = "loading" | "ready" | "error";
@@ -59,6 +61,8 @@ export function SponsorConfigurator() {
   const [packages, setPackages] = useState<SponsorPackage[] | null>(null);
   // Fetched alongside packages; sections render from these runtime groups.
   const [groups, setGroups] = useState<SponsorPackageGroup[] | null>(null);
+  // Fetched alongside packages; badges render from these runtime tiers.
+  const [tiers, setTiers] = useState<SponsorTier[] | null>(null);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [retryTick, setRetryTick] = useState(0);
   const [selection, setSelection] = useState<Record<string, boolean>>(() => {
@@ -84,6 +88,7 @@ export function SponsorConfigurator() {
         if (cancelled) return;
         setPackages(response.packages);
         setGroups(response.groups);
+        setTiers(response.tiers);
         setStatus("ready");
       })
       .catch(() => {
@@ -132,7 +137,10 @@ export function SponsorConfigurator() {
     () => selectedPackages.reduce((sum, p) => sum + p.priceIdr, 0),
     [selectedPackages],
   );
-  const tier = useMemo(() => computeSponsorTier(total), [total]);
+  const tier = useMemo(
+    () => resolveSponsorTier(total, tiers ?? []),
+    [total, tiers],
+  );
 
   const minUnlockedPrice = useMemo(() => {
     const prices = (packages ?? [])
@@ -167,7 +175,7 @@ export function SponsorConfigurator() {
       ...selectedPackages.map((p) => `- ${p.name} — ${formatIDR(p.priceIdr)}`),
       "",
       `Total: ${formatIDR(total)}`,
-      `Tier: ${tier.label}`,
+      `Tier: ${tier?.label ?? "No tier"}`,
       "",
       `Company: ${trimmedCompany}`,
       `Email: ${trimmedEmail}`,
@@ -408,10 +416,10 @@ export function SponsorConfigurator() {
                   <CardHeader>
                     <div className="flex items-center justify-between gap-2">
                       <CardTitle className="text-lg">Your Sponsorship</CardTitle>
-                      {tier.id !== "none" && (
+                      {tier && (
                         <Badge
                           variant="outline"
-                          className={cn("bg-transparent", TIER_BADGE_CLASS[tier.id])}
+                          className={cn("bg-transparent", TIER_BADGE_CLASS[tier.accent])}
                         >
                           {tier.label}
                         </Badge>
@@ -533,8 +541,8 @@ export function SponsorConfigurator() {
                     <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-bold text-foreground">{formatIDR(total)}</span>
-                      {tier.id !== "none" && (
-                        <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.id])}>
+                      {tier && (
+                        <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>
                           {tier.label}
                         </Badge>
                       )}

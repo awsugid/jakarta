@@ -44,16 +44,23 @@ import {
 import {
   createSponsorPackage,
   createSponsorPackageGroup,
+  createSponsorTier,
   deleteSponsorPackage,
   deleteSponsorPackageGroup,
+  deleteSponsorTier,
   fetchSponsorPackages,
   updateAdminSponsorPackages,
+  updateSponsorTiers,
 } from "@/lib/api";
 import type {
   SponsorPackage,
   SponsorPackageGroup,
   SponsorPackageGroupUpdate,
   SponsorPackageUpdate,
+  SponsorPackagesResponse,
+  SponsorTier,
+  SponsorTierAccent,
+  SponsorTierUpdate,
 } from "@/lib/types";
 
 
@@ -62,6 +69,8 @@ const MAX_SPONSORS_LIMIT = 10_000;
 const MAX_GROUP_LABEL = 80;
 const MAX_PACKAGE_NAME = 80;
 const MAX_ADVANTAGE = 500;
+const MAX_TIER_LABEL = 60;
+const MAX_TIERS = 10;
 
 interface PackageDraft {
   groupId: string;
@@ -79,10 +88,26 @@ interface GroupDraft {
   displayOrder: number;
 }
 
+interface TierDraft {
+  label: string;
+  threshold: string;
+  accent: SponsorTierAccent;
+}
+
+/** Fixed accent allowlist mirrored from the backend. */
+const TIER_ACCENTS: SponsorTierAccent[] = [
+  "platinum",
+  "gold",
+  "silver",
+  "bronze",
+  "default",
+];
+
 /** Which entity currently has an inline delete confirmation open. */
 type DeleteTarget =
   | { kind: "package"; id: string; name: string }
-  | { kind: "group"; id: string; name: string };
+  | { kind: "group"; id: string; name: string }
+  | { kind: "tier"; id: string; name: string };
 
 function toPackageDrafts(
   packages: SponsorPackage[],
@@ -107,6 +132,18 @@ function toGroupDrafts(
   const drafts: Record<string, GroupDraft> = {};
   for (const g of groups) {
     drafts[g.id] = { label: g.label, displayOrder: g.displayOrder };
+  }
+  return drafts;
+}
+
+function toTierDrafts(tiers: SponsorTier[]): Record<string, TierDraft> {
+  const drafts: Record<string, TierDraft> = {};
+  for (const t of tiers) {
+    drafts[t.id] = {
+      label: t.label,
+      threshold: String(t.thresholdIdr),
+      accent: t.accent,
+    };
   }
   return drafts;
 }
@@ -202,6 +239,24 @@ function advantageError(value: string): string | null {
   return null;
 }
 
+function tierLabelError(value: string): string | null {
+  const v = value.trim();
+  if (!v) return "Tier label is required.";
+  if (v.length > MAX_TIER_LABEL)
+    return "Tier label must be 60 characters or fewer.";
+  return null;
+}
+
+function tierThresholdError(value: string): string | null {
+  const v = value.trim();
+  if (!v) return "Threshold is required.";
+  if (!/^\d+$/.test(v)) return "Enter whole rupiah digits only.";
+  const n = Number(v);
+  if (n < 1) return "Threshold must be at least IDR 1.";
+  if (n > MAX_IDR) return "Threshold cannot exceed IDR 1,000,000,000.";
+  return null;
+}
+
 function isDirty(
   pkg: SponsorPackage,
   draft: PackageDraft | undefined,
@@ -227,6 +282,18 @@ function isGroupDirty(
   return draft.label !== group.label || draft.displayOrder !== group.displayOrder;
 }
 
+function isTierDirty(
+  tier: SponsorTier,
+  draft: TierDraft | undefined,
+): boolean {
+  if (!draft) return false;
+  return (
+    draft.label !== tier.label ||
+    draft.threshold.trim() !== String(tier.thresholdIdr) ||
+    draft.accent !== tier.accent
+  );
+}
+
 // ---------------------------------------------------------------------------
 // SponsorPackageManager
 // ---------------------------------------------------------------------------
@@ -235,6 +302,8 @@ export function SponsorPackageManager() {
   const [groups, setGroups] = useState<SponsorPackageGroup[]>([]);
   const [drafts, setDrafts] = useState<Record<string, PackageDraft>>({});
   const [groupDrafts, setGroupDrafts] = useState<Record<string, GroupDraft>>({});
+  const [tiers, setTiers] = useState<SponsorTier[]>([]);
+  const [tierDrafts, setTierDrafts] = useState<Record<string, TierDraft>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -255,6 +324,14 @@ export function SponsorPackageManager() {
   const [createPackageError, setCreatePackageError] = useState<string | null>(
     null,
   );
+  const [showAddTier, setShowAddTier] = useState(false);
+  const [newTier, setNewTier] = useState<NewTierInput>({
+    label: "",
+    threshold: "",
+    accent: "default",
+  });
+  const [creatingTier, setCreatingTier] = useState(false);
+  const [createTierError, setCreateTierError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<DeleteTarget | null>(null);
   const [deletingItem, setDeletingItem] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -274,6 +351,8 @@ export function SponsorPackageManager() {
       setDrafts(toPackageDrafts(data.packages ?? []));
       setGroups(data.groups ?? []);
       setGroupDrafts(toGroupDrafts(data.groups ?? []));
+      setTiers(data.tiers ?? []);
+      setTierDrafts(toTierDrafts(data.tiers ?? []));
       setSaveError(null);
       // A pending confirm can reference a row that no longer exists after a
       // reload; clearing it keeps drag/delete from staying blocked.
@@ -299,6 +378,18 @@ export function SponsorPackageManager() {
     (a, b) => groupOrder(a) - groupOrder(b) || a.id.localeCompare(b.id),
   );
 
+  // Draft-aware threshold (parsed from the input, falling back to the stored
+  // value) drives both display order and duplicate detection.
+  const tierThresholdValue = (t: SponsorTier) =>
+    parsePriceIdr(tierDrafts[t.id]?.threshold ?? "") ?? t.thresholdIdr;
+
+  // Rows render in threshold-descending order — the same order tiers are
+  // evaluated in (highest matching threshold wins).
+  const sortedTiers = [...tiers].sort(
+    (a, b) =>
+      tierThresholdValue(b) - tierThresholdValue(a) || a.id.localeCompare(b.id),
+  );
+
   const groupIdSet = new Set(groups.map((g) => g.id));
 
   // Uniqueness tallies across ALL groups (draft-aware, not just dirty ones).
@@ -309,6 +400,20 @@ export function SponsorPackageManager() {
     if (label) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
     const order = groupOrder(g);
     orderCounts.set(order, (orderCounts.get(order) ?? 0) + 1);
+  }
+
+  // Tier uniqueness tallies across ALL tiers (draft-aware, valid parses only).
+  const tierLabelCounts = new Map<string, number>();
+  const tierThresholdCounts = new Map<number, number>();
+  for (const t of tiers) {
+    const label = (tierDrafts[t.id]?.label ?? "").trim().toLowerCase();
+    if (label) tierLabelCounts.set(label, (tierLabelCounts.get(label) ?? 0) + 1);
+    const threshold = parsePriceIdr(tierDrafts[t.id]?.threshold ?? "");
+    if (threshold !== null)
+      tierThresholdCounts.set(
+        threshold,
+        (tierThresholdCounts.get(threshold) ?? 0) + 1,
+      );
   }
 
   const groupError = (g: SponsorPackageGroup): string | null => {
@@ -327,6 +432,26 @@ export function SponsorPackageManager() {
     return groupIdSet.has(groupId)
       ? null
       : "This package references a group that no longer exists.";
+  };
+
+  const tierLabelRowError = (t: SponsorTier): string | null => {
+    const label = tierDrafts[t.id]?.label ?? "";
+    return (
+      tierLabelError(label) ??
+      ((tierLabelCounts.get(label.trim().toLowerCase()) ?? 0) > 1
+        ? "Tier labels must be unique."
+        : null)
+    );
+  };
+
+  const tierThresholdRowError = (t: SponsorTier): string | null => {
+    const value = tierDrafts[t.id]?.threshold ?? "";
+    const base = tierThresholdError(value);
+    if (base) return base;
+    const parsed = parsePriceIdr(value);
+    return parsed !== null && (tierThresholdCounts.get(parsed) ?? 0) > 1
+      ? "Thresholds must be unique — a duplicate makes tier assignment ambiguous."
+      : null;
   };
 
   // Draft-aware uniqueness makes the new-label duplicate check case-insensitive.
@@ -352,6 +477,25 @@ export function SponsorPackageManager() {
       }
     : null;
 
+  const existingTierLabels = new Set(
+    tiers.map((t) => t.label.trim().toLowerCase()),
+  );
+  const existingTierThresholds = new Set(tiers.map((t) => t.thresholdIdr));
+  const newTierErrors = showAddTier
+    ? {
+        label:
+          tierLabelError(newTier.label) ??
+          (existingTierLabels.has(newTier.label.trim().toLowerCase())
+            ? "A tier with this label already exists."
+            : null),
+        threshold:
+          tierThresholdError(newTier.threshold) ??
+          (existingTierThresholds.has(parsePriceIdr(newTier.threshold) ?? -1)
+            ? "Thresholds must be unique."
+            : null),
+      }
+    : null;
+
   const packageInvalid = (p: SponsorPackage): boolean =>
     priceError(drafts[p.id]?.price ?? "") !== null ||
     minimumSpendError(drafts[p.id]?.minSpend ?? "") !== null ||
@@ -368,10 +512,28 @@ export function SponsorPackageManager() {
   const dirtyIds = packages
     .filter((p) => isDirty(p, drafts[p.id]))
     .map((p) => p.id);
-  const dirty = dirtyIds.length > 0 || dirtyGroupIds.length > 0;
+  const dirtyTierIds = tiers
+    .filter((t) => isTierDirty(t, tierDrafts[t.id]))
+    .map((t) => t.id);
+  const dirty =
+    dirtyIds.length > 0 || dirtyGroupIds.length > 0 || dirtyTierIds.length > 0;
   const anyInvalid =
     groups.some((g) => groupError(g) !== null) ||
-    packages.some((p) => packageInvalid(p));
+    packages.some((p) => packageInvalid(p)) ||
+    tiers.some(
+      (t) => tierLabelRowError(t) !== null || tierThresholdRowError(t) !== null,
+    );
+  const modifiedParts = [
+    dirtyGroupIds.length > 0
+      ? `${dirtyGroupIds.length} group${dirtyGroupIds.length === 1 ? "" : "s"}`
+      : null,
+    dirtyIds.length > 0
+      ? `${dirtyIds.length} package${dirtyIds.length === 1 ? "" : "s"}`
+      : null,
+    dirtyTierIds.length > 0
+      ? `${dirtyTierIds.length} tier${dirtyTierIds.length === 1 ? "" : "s"}`
+      : null,
+  ].filter((part): part is string => part !== null);
 
   // Mirrors the create guards: deletes are immediate server mutations, so
   // they are blocked while drafts are dirty or another form/request is active.
@@ -380,18 +542,21 @@ export function SponsorPackageManager() {
     saving ||
     creatingGroup ||
     creatingPackage ||
+    creatingTier ||
     deletingItem ||
     showAddGroup ||
-    showAddPackageGroupId !== null;
+    showAddPackageGroupId !== null ||
+    showAddTier;
   const deleteBlockedHint = dirty
     ? "Save or reset changes before deleting."
-    : showAddGroup || showAddPackageGroupId !== null
+    : showAddGroup || showAddPackageGroupId !== null || showAddTier
       ? "Finish or cancel the create form first."
       : null;
   const dragDisabled =
     saving ||
     creatingGroup ||
     creatingPackage ||
+    creatingTier ||
     deletingItem ||
     confirmDelete !== null;
 
@@ -406,6 +571,13 @@ export function SponsorPackageManager() {
 
   const setGroupDraft = (id: string, patch: Partial<GroupDraft>) => {
     setGroupDrafts((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], ...patch },
+    }));
+  };
+
+  const setTierDraft = (id: string, patch: Partial<TierDraft>) => {
+    setTierDrafts((prev) => ({
       ...prev,
       [id]: { ...prev[id], ...patch },
     }));
@@ -428,9 +600,34 @@ export function SponsorPackageManager() {
   function reset() {
     setDrafts(toPackageDrafts(packages));
     setGroupDrafts(toGroupDrafts(groups));
+    setTierDrafts(toTierDrafts(tiers));
     setSaveError(null);
     setConfirmDelete(null);
     setDeleteError(null);
+  }
+
+  /**
+   * Apply a refreshed response from any sponsor mutation endpoint.
+   *
+   * `keepDrafts` preserves the edits on one side of a partial save failure:
+   * packages and tiers save through separate endpoints, so when one succeeds
+   * and the other is rejected, resetting every draft would silently discard
+   * the rejected edits the admin still needs to correct.
+   */
+  function applyData(
+    data: SponsorPackagesResponse,
+    keepDrafts?: { packages?: boolean; tiers?: boolean },
+  ) {
+    setPackages(data.packages ?? []);
+    setGroups(data.groups ?? []);
+    setTiers(data.tiers ?? []);
+    if (!keepDrafts?.packages) {
+      setDrafts(toPackageDrafts(data.packages ?? []));
+      setGroupDrafts(toGroupDrafts(data.groups ?? []));
+    }
+    if (!keepDrafts?.tiers) {
+      setTierDrafts(toTierDrafts(data.tiers ?? []));
+    }
   }
 
   // --- delete (inline confirm; no window.confirm) --------------------------
@@ -447,21 +644,21 @@ export function SponsorPackageManager() {
 
   async function performDelete() {
     if (!confirmDelete || deletingItem) return;
-    if (dirty || saving || creatingGroup || creatingPackage) return;
+    if (dirty || saving || creatingGroup || creatingPackage || creatingTier)
+      return;
     setDeletingItem(true);
     setDeleteError(null);
     try {
       const data =
         confirmDelete.kind === "package"
           ? await deleteSponsorPackage(COMMUNITY_DAY_EVENT_SLUG, confirmDelete.id)
-          : await deleteSponsorPackageGroup(
-              COMMUNITY_DAY_EVENT_SLUG,
-              confirmDelete.id,
-            );
-      setPackages(data.packages ?? []);
-      setDrafts(toPackageDrafts(data.packages ?? []));
-      setGroups(data.groups ?? []);
-      setGroupDrafts(toGroupDrafts(data.groups ?? []));
+          : confirmDelete.kind === "group"
+            ? await deleteSponsorPackageGroup(
+                COMMUNITY_DAY_EVENT_SLUG,
+                confirmDelete.id,
+              )
+            : await deleteSponsorTier(COMMUNITY_DAY_EVENT_SLUG, confirmDelete.id);
+      applyData(data);
       setSaveError(null);
       setConfirmDelete(null);
     } catch (e: unknown) {
@@ -515,7 +712,13 @@ export function SponsorPackageManager() {
 
   async function createGroup() {
     if (newGroupLabelError || creatingGroup || dirty) return;
-    if (showAddPackageGroupId !== null || creatingPackage) return;
+    if (
+      showAddPackageGroupId !== null ||
+      creatingPackage ||
+      showAddTier ||
+      creatingTier
+    )
+      return;
     setCreatingGroup(true);
     setCreateGroupError(null);
     try {
@@ -523,10 +726,7 @@ export function SponsorPackageManager() {
         COMMUNITY_DAY_EVENT_SLUG,
         { label: newGroupLabel.trim() },
       );
-      setPackages(data.packages ?? []);
-      setDrafts(toPackageDrafts(data.packages ?? []));
-      setGroups(data.groups ?? []);
-      setGroupDrafts(toGroupDrafts(data.groups ?? []));
+      applyData(data);
       setSaveError(null);
       setConfirmDelete(null);
       setDeleteError(null);
@@ -549,6 +749,7 @@ export function SponsorPackageManager() {
   async function createPackage() {
     const groupId = showAddPackageGroupId;
     if (!groupId || !newPackageErrors || creatingPackage || dirty) return;
+    if (showAddGroup || creatingGroup || showAddTier || creatingTier) return;
     const priceIdr = parsePriceIdr(newPackage.price);
     if (priceIdr === null) return; // guarded by the disabled Create button
     setCreatingPackage(true);
@@ -560,10 +761,7 @@ export function SponsorPackageManager() {
         groupId,
         priceIdr,
       });
-      setPackages(data.packages ?? []);
-      setDrafts(toPackageDrafts(data.packages ?? []));
-      setGroups(data.groups ?? []);
-      setGroupDrafts(toGroupDrafts(data.groups ?? []));
+      applyData(data);
       setSaveError(null);
       setConfirmDelete(null);
       setDeleteError(null);
@@ -574,6 +772,41 @@ export function SponsorPackageManager() {
       );
     } finally {
       setCreatingPackage(false);
+    }
+  }
+
+  function toggleAddTier(open: boolean) {
+    setShowAddTier(open);
+    setNewTier({ label: "", threshold: "", accent: "default" });
+    setCreateTierError(null);
+  }
+
+  async function createTier() {
+    if (!newTierErrors || creatingTier || dirty || tiers.length >= MAX_TIERS)
+      return;
+    if (showAddGroup || creatingGroup || showAddPackageGroupId !== null || creatingPackage)
+      return;
+    const thresholdIdr = parsePriceIdr(newTier.threshold);
+    if (thresholdIdr === null) return; // guarded by the disabled Create button
+    setCreatingTier(true);
+    setCreateTierError(null);
+    try {
+      const data = await createSponsorTier(COMMUNITY_DAY_EVENT_SLUG, {
+        label: newTier.label.trim(),
+        thresholdIdr,
+        accent: newTier.accent,
+      });
+      applyData(data);
+      setSaveError(null);
+      setConfirmDelete(null);
+      setDeleteError(null);
+      toggleAddTier(false);
+    } catch (e: unknown) {
+      setCreateTierError(
+        e instanceof Error ? e.message : "Failed to create tier.",
+      );
+    } finally {
+      setCreatingTier(false);
     }
   }
 
@@ -608,21 +841,66 @@ export function SponsorPackageManager() {
       });
     }
 
-    if (groupUpdates.length === 0 && packageUpdates.length === 0) return;
+    const tierUpdates: SponsorTierUpdate[] = [];
+    for (const id of dirtyTierIds) {
+      const thresholdIdr = parsePriceIdr(tierDrafts[id]?.threshold ?? "");
+      if (thresholdIdr === null) return; // guarded by the disabled Save button
+      tierUpdates.push({
+        id,
+        label: (tierDrafts[id]?.label ?? "").trim(),
+        thresholdIdr,
+        accent: tierDrafts[id]?.accent ?? "default",
+      });
+    }
+
+    if (
+      groupUpdates.length === 0 &&
+      packageUpdates.length === 0 &&
+      tierUpdates.length === 0
+    )
+      return;
 
     setSaving(true);
     setSaveError(null);
     try {
-      const data = await updateAdminSponsorPackages(COMMUNITY_DAY_EVENT_SLUG, {
-        groups: groupUpdates,
-        packages: packageUpdates,
-      });
-      setPackages(data.packages ?? []);
-      setDrafts(toPackageDrafts(data.packages ?? []));
-      setGroups(data.groups ?? []);
-      setGroupDrafts(toGroupDrafts(data.groups ?? []));
-    } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Failed to save changes.");
+      // Tiers live on a separate endpoint from the packages/groups batch;
+      // call whichever is dirty and surface whichever errors occur.
+      const failures: string[] = [];
+      let refreshed: SponsorPackagesResponse | null = null;
+      let packagesFailed = false;
+      let tiersFailed = false;
+      if (groupUpdates.length > 0 || packageUpdates.length > 0) {
+        try {
+          refreshed = await updateAdminSponsorPackages(
+            COMMUNITY_DAY_EVENT_SLUG,
+            { groups: groupUpdates, packages: packageUpdates },
+          );
+        } catch (e: unknown) {
+          packagesFailed = true;
+          failures.push(
+            e instanceof Error ? e.message : "Failed to save package changes.",
+          );
+        }
+      }
+      if (tierUpdates.length > 0) {
+        try {
+          refreshed = await updateSponsorTiers(COMMUNITY_DAY_EVENT_SLUG, {
+            tiers: tierUpdates,
+          });
+        } catch (e: unknown) {
+          tiersFailed = true;
+          failures.push(
+            e instanceof Error ? e.message : "Failed to save tier changes.",
+          );
+        }
+      }
+      if (refreshed) {
+        applyData(refreshed, {
+          packages: packagesFailed,
+          tiers: tiersFailed,
+        });
+      }
+      if (failures.length > 0) setSaveError(failures.join(" "));
     } finally {
       setSaving(false);
     }
@@ -648,7 +926,7 @@ export function SponsorPackageManager() {
           id: g.id,
           label: (groupDrafts[g.id]?.label ?? g.label).trim() || g.id,
         }))}
-        disabled={saving || creatingGroup || creatingPackage}
+        disabled={saving || creatingGroup || creatingPackage || creatingTier}
         onChange={(patch) => setDraft(p.id, patch)}
         deleteControl={
           <DeleteAction
@@ -736,17 +1014,22 @@ export function SponsorPackageManager() {
                   saving ||
                   creatingGroup ||
                   creatingPackage ||
-                  showAddPackageGroupId !== null
+                  creatingTier ||
+                  showAddPackageGroupId !== null ||
+                  showAddTier
                 }
               >
                 <Plus className="h-4 w-4" />
                 Add group
               </Button>
-              {dirty && !showAddGroup && showAddPackageGroupId === null && (
-                <p className="text-xs text-muted-foreground">
-                  Save or reset changes before adding a group.
-                </p>
-              )}
+              {dirty &&
+                !showAddGroup &&
+                showAddPackageGroupId === null &&
+                !showAddTier && (
+                  <p className="text-xs text-muted-foreground">
+                    Save or reset changes before adding a group.
+                  </p>
+                )}
             </div>
           </div>
         </CardHeader>
@@ -842,7 +1125,7 @@ export function SponsorPackageManager() {
                   error={groupError(g)}
                   canMoveUp={i > 0}
                   canMoveDown={i < sortedGroups.length - 1}
-                  disabled={saving || creatingGroup || creatingPackage}
+                  disabled={saving || creatingGroup || creatingPackage || creatingTier}
                   onLabelChange={(label) => setGroupDraft(g.id, { label })}
                   onMove={(dir) => moveGroup(g.id, dir)}
                   onAddPackage={() => toggleAddPackage(true, g.id)}
@@ -851,7 +1134,9 @@ export function SponsorPackageManager() {
                     !saving &&
                     !creatingGroup &&
                     !creatingPackage &&
+                    !creatingTier &&
                     !showAddGroup &&
+                    !showAddTier &&
                     showAddPackageGroupId === null
                   }
                   addPackageHint={
@@ -928,12 +1213,117 @@ export function SponsorPackageManager() {
         </CardContent>
       </Card>
 
-      {(packages.length > 0 || groups.length > 0) && (
+      <Card className="bg-card border-border/80">
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <CardTitle className="text-lg">Sponsorship tiers</CardTitle>
+              <CardDescription>
+                Event-wide tiers evaluated by total sponsorship amount. A
+                sponsorship reaches a tier when its total is at or above that
+                tier&apos;s threshold; the highest matching tier wins.
+              </CardDescription>
+            </div>
+            <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1.5"
+                onClick={() => toggleAddTier(true)}
+                disabled={
+                  dirty ||
+                  saving ||
+                  creatingGroup ||
+                  creatingPackage ||
+                  creatingTier ||
+                  showAddGroup ||
+                  showAddPackageGroupId !== null ||
+                  tiers.length >= MAX_TIERS
+                }
+              >
+                <Plus className="h-4 w-4" />
+                Add tier
+              </Button>
+              {dirty && !showAddTier && (
+                <p className="text-xs text-muted-foreground">
+                  Save or reset changes before adding a tier.
+                </p>
+              )}
+              {tiers.length >= MAX_TIERS && !showAddTier && (
+                <p className="text-xs text-muted-foreground">
+                  Maximum of {MAX_TIERS} tiers.
+                </p>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {showAddTier && (
+            <AddTierForm
+              value={newTier}
+              errors={newTierErrors}
+              serverError={createTierError}
+              busy={creatingTier}
+              blocked={dirty || saving}
+              onChange={(patch) => setNewTier((prev) => ({ ...prev, ...patch }))}
+              onCancel={() => toggleAddTier(false)}
+              onSubmit={createTier}
+            />
+          )}
+          {tiers.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No sponsorship tiers configured for this event.
+            </p>
+          ) : (
+            sortedTiers.map((t) => {
+              const draft = tierDrafts[t.id];
+              if (!draft) return null;
+              const tierLabel = draft.label.trim() || t.label;
+              return (
+                <TierRow
+                  key={t.id}
+                  tier={t}
+                  draft={draft}
+                  dirty={isTierDirty(t, draft)}
+                  labelError={tierLabelRowError(t)}
+                  thresholdError={tierThresholdRowError(t)}
+                  disabled={saving || creatingGroup || creatingPackage || creatingTier}
+                  onChange={(patch) => setTierDraft(t.id, patch)}
+                  deleteControl={
+                    <DeleteAction
+                      label={`tier ${tierLabel}`}
+                      disabled={deleteBlocked}
+                      hint={deleteBlockedHint}
+                      confirming={
+                        confirmDelete?.kind === "tier" && confirmDelete.id === t.id
+                      }
+                      busy={deletingItem}
+                      error={
+                        confirmDelete?.kind === "tier" && confirmDelete.id === t.id
+                          ? deleteError
+                          : null
+                      }
+                      onRequest={() =>
+                        requestDelete({ kind: "tier", id: t.id, name: t.label })
+                      }
+                      onConfirm={performDelete}
+                      onCancel={cancelDelete}
+                    />
+                  }
+                />
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {(packages.length > 0 || groups.length > 0 || tiers.length > 0) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <div>
             <p className="text-sm text-foreground">
               {dirty
-                ? `${dirtyGroupIds.length} group${dirtyGroupIds.length === 1 ? "" : "s"} and ${dirtyIds.length} package${dirtyIds.length === 1 ? "" : "s"} modified`
+                ? `${modifiedParts.join(", ")} modified`
                 : "No unsaved changes"}
             </p>
             {saveError && (
@@ -1636,6 +2026,300 @@ function AddPackageForm({
         {blocked && (
           <p className="text-xs text-muted-foreground">
             Save or reset changes before creating a package.
+          </p>
+        )}
+        {serverError && (
+          <p id={formErrorId} role="alert" className="text-xs text-destructive">
+            {serverError}
+          </p>
+        )}
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TierRow — editable sponsorship tier (label / threshold / accent)
+// ---------------------------------------------------------------------------
+function TierRow({
+  tier,
+  draft,
+  dirty,
+  labelError,
+  thresholdError,
+  disabled,
+  onChange,
+  deleteControl,
+}: {
+  tier: SponsorTier;
+  draft: TierDraft;
+  dirty: boolean;
+  labelError: string | null;
+  thresholdError: string | null;
+  disabled: boolean;
+  onChange: (patch: Partial<TierDraft>) => void;
+  deleteControl: ReactNode;
+}) {
+  const labelId = `tier-label-${tier.id}`;
+  const labelErrorId = `${labelId}-error`;
+  const thresholdId = `tier-threshold-${tier.id}`;
+  const thresholdErrorId = `${thresholdId}-error`;
+  const accentId = `tier-accent-${tier.id}`;
+  const parsedThreshold = parsePriceIdr(draft.threshold);
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="capitalize">
+          {draft.accent}
+        </Badge>
+        {dirty && (
+          <span className="text-xs text-muted-foreground">Modified</span>
+        )}
+        <div className="ml-auto">{deleteControl}</div>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={labelId}>Label</Label>
+          <Input
+            id={labelId}
+            type="text"
+            autoComplete="off"
+            maxLength={MAX_TIER_LABEL}
+            className="bg-background"
+            value={draft.label}
+            onChange={(e) => onChange({ label: e.target.value })}
+            disabled={disabled}
+            aria-invalid={labelError ? true : undefined}
+            aria-describedby={labelError ? labelErrorId : undefined}
+          />
+          {labelError ? (
+            <p id={labelErrorId} className="text-xs text-destructive">
+              {labelError}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground font-mono truncate">
+              {tier.id}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={thresholdId}>Threshold (IDR)</Label>
+          <Input
+            id={thresholdId}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
+            className="bg-background"
+            value={draft.threshold}
+            onChange={(e) => onChange({ threshold: e.target.value })}
+            disabled={disabled}
+            aria-invalid={thresholdError ? true : undefined}
+            aria-describedby={thresholdError ? thresholdErrorId : undefined}
+          />
+          {thresholdError ? (
+            <p id={thresholdErrorId} className="text-xs text-destructive">
+              {thresholdError}
+            </p>
+          ) : (
+            parsedThreshold !== null && (
+              <p className="text-xs text-muted-foreground">
+                Reaches this tier at {formatIDR(parsedThreshold)} or more
+              </p>
+            )
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={accentId}>Accent</Label>
+          <Select
+            value={draft.accent}
+            onValueChange={(v) => onChange({ accent: v as SponsorTierAccent })}
+            disabled={disabled}
+          >
+            <SelectTrigger id={accentId} className="bg-background">
+              <SelectValue placeholder="Select an accent" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIER_ACCENTS.map((a) => (
+                <SelectItem key={a} value={a}>
+                  <span className="capitalize">{a}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Badge color used on the public sponsor page.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AddTierForm — inline create form for a new sponsorship tier
+// ---------------------------------------------------------------------------
+interface NewTierInput {
+  label: string;
+  threshold: string;
+  accent: SponsorTierAccent;
+}
+
+interface TierFormErrors {
+  label: string | null;
+  threshold: string | null;
+}
+
+function AddTierForm({
+  value,
+  errors,
+  serverError,
+  busy,
+  blocked,
+  onChange,
+  onCancel,
+  onSubmit,
+}: {
+  value: NewTierInput;
+  errors: TierFormErrors | null;
+  serverError: string | null;
+  busy: boolean;
+  /** True when existing drafts are dirty or a save is in flight. */
+  blocked: boolean;
+  onChange: (patch: Partial<NewTierInput>) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  const labelId = "new-tier-label";
+  const labelErrorId = `${labelId}-error`;
+  const thresholdId = "new-tier-threshold";
+  const thresholdErrorId = `${thresholdId}-error`;
+  const accentId = "new-tier-accent";
+  const formErrorId = "new-tier-error";
+  const headingId = "new-tier-heading";
+  const parsedThreshold = parsePriceIdr(value.threshold);
+  const invalid =
+    errors !== null && (errors.label !== null || errors.threshold !== null);
+  const createDisabled = busy || blocked || invalid;
+
+  return (
+    <form
+      aria-labelledby={headingId}
+      className="rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4 space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+    >
+      <p id={headingId} className="text-sm font-medium text-foreground">
+        New sponsorship tier
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor={labelId}>Tier label</Label>
+          <Input
+            id={labelId}
+            type="text"
+            autoComplete="off"
+            maxLength={MAX_TIER_LABEL}
+            className="bg-background"
+            value={value.label}
+            onChange={(e) => onChange({ label: e.target.value })}
+            disabled={busy}
+            aria-invalid={errors?.label ? true : undefined}
+            aria-describedby={errors?.label ? labelErrorId : undefined}
+          />
+          {errors?.label ? (
+            <p id={labelErrorId} className="text-xs text-destructive">
+              {errors.label}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              1–60 characters; must be unique among tiers.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={thresholdId}>Threshold (IDR)</Label>
+          <Input
+            id={thresholdId}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
+            className="bg-background"
+            value={value.threshold}
+            onChange={(e) => onChange({ threshold: e.target.value })}
+            disabled={busy}
+            aria-invalid={errors?.threshold ? true : undefined}
+            aria-describedby={errors?.threshold ? thresholdErrorId : undefined}
+          />
+          {errors?.threshold ? (
+            <p id={thresholdErrorId} className="text-xs text-destructive">
+              {errors.threshold}
+            </p>
+          ) : (
+            parsedThreshold !== null && (
+              <p className="text-xs text-muted-foreground">
+                {formatIDR(parsedThreshold)}
+              </p>
+            )
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={accentId}>Accent</Label>
+          <Select
+            value={value.accent}
+            onValueChange={(v) => onChange({ accent: v as SponsorTierAccent })}
+            disabled={busy}
+          >
+            <SelectTrigger id={accentId} className="bg-background">
+              <SelectValue placeholder="Select an accent" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIER_ACCENTS.map((a) => (
+                <SelectItem key={a} value={a}>
+                  <span className="capitalize">{a}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Badge color used on the public sponsor page.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="submit"
+          size="sm"
+          className="flex items-center gap-1.5"
+          disabled={createDisabled}
+        >
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          Create
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          disabled={busy}
+        >
+          Cancel
+        </Button>
+        {blocked && (
+          <p className="text-xs text-muted-foreground">
+            Save or reset changes before creating a tier.
           </p>
         )}
         {serverError && (

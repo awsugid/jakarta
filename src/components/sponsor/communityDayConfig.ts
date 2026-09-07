@@ -1,8 +1,9 @@
-// ponytail: display copy, tier thresholds, and selection helpers are static here;
-// package definitions/prices/unlock state come from the backend at runtime via
-// fetchSponsorPackages — see plan/comday_sponsor_admin_configuration.
+// ponytail: display copy and selection helpers are static here;
+// package definitions/prices/unlock state and sponsor tiers come from the
+// backend at runtime via fetchSponsorPackages — see
+// plan/comday_sponsor_admin_configuration.
 
-import type { SponsorPackageGroup } from "@/lib/types";
+import type { SponsorPackageGroup, SponsorTier } from "@/lib/types";
 
 export const COMMUNITY_DAY_EVENT_SLUG = "community-day-2026";
 
@@ -14,26 +15,21 @@ export const communityDayEvent = {
 
 export const sponsorContactEmail = "awsugjakarta@gmail.com";
 
-export type SponsorTierId = "platinum" | "gold" | "silver" | "supporter" | "none";
-
-export interface SponsorTier {
-  id: SponsorTierId;
-  label: string;
-}
-
-export const sponsorTiers: SponsorTier[] = [
-  { id: "platinum", label: "Platinum" },
-  { id: "gold", label: "Gold" },
-  { id: "silver", label: "Silver" },
-  { id: "supporter", label: "Community Supporter" },
-];
-
-export function computeSponsorTier(total: number): SponsorTier {
-  if (total >= 40_000_000) return { id: "platinum", label: "Platinum" };
-  if (total >= 25_000_000) return { id: "gold", label: "Gold" };
-  if (total >= 10_000_000) return { id: "silver", label: "Silver" };
-  if (total > 0) return { id: "supporter", label: "Community Supporter" };
-  return { id: "none", label: "No tier" };
+/**
+ * Highest admin-configured tier whose thresholdIdr is met by the total;
+ * null when nothing is reached (replaces the old "none" sentinel).
+ * Response claims descending order but sorting defensively anyway.
+ */
+export function resolveSponsorTier(
+  total: number,
+  tiers: SponsorTier[],
+): SponsorTier | null {
+  if (total <= 0) return null;
+  return (
+    [...tiers]
+      .sort((a, b) => b.thresholdIdr - a.thresholdIdr)
+      .find((t) => t.thresholdIdr <= total) ?? null
+  );
 }
 
 export function formatIDR(amount: number): string {

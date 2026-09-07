@@ -339,6 +339,8 @@ export interface SponsorPackagesResponse {
   currency: string;
   groups: SponsorPackageGroup[];
   packages: SponsorPackage[];
+  /** Ordered by thresholdIdr descending; tier order IS threshold order (no displayOrder). */
+  tiers: SponsorTier[];
 }
 
 /** A single changed group row in the admin batch update body. */
@@ -378,4 +380,38 @@ export interface SponsorPackageCreate {
 export interface SponsorPackageBatchUpdate {
   groups: SponsorPackageGroupUpdate[];
   packages: SponsorPackageUpdate[];
+}
+
+/** Visual accent for a tier badge; fixed allowlist mirrored from the backend. */
+export type SponsorTierAccent = "platinum" | "gold" | "silver" | "bronze" | "default";
+
+/** A sponsor tier row (Community Day). */
+export interface SponsorTier {
+  id: string;
+  eventSlug: string;
+  label: string;
+  /** Whole rupiah; a sponsorship total at or above this reaches the tier. */
+  thresholdIdr: number;
+  accent: SponsorTierAccent;
+  updatedAt: string;
+}
+
+/** Body for POST /api/admin/events/:eventSlug/sponsor-tiers. */
+export interface SponsorTierCreate {
+  label: string;
+  thresholdIdr: number;
+  accent: SponsorTierAccent;
+}
+
+/** A single changed tier row in the admin batch update body. */
+export interface SponsorTierUpdate {
+  id: string;
+  label: string;
+  thresholdIdr: number;
+  accent: SponsorTierAccent;
+}
+
+/** Body for PUT /api/admin/events/:eventSlug/sponsor-tiers. */
+export interface SponsorTierBatchUpdate {
+  tiers: SponsorTierUpdate[];
 }

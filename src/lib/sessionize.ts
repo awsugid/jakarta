@@ -34,10 +34,10 @@ export const SESSIONIZE_CONFIG = {
     },
   ],
   guidelines: [
-    "Sessions are 30 or 45 minutes long, including Q&A.",
-    "Content must be highly technical or customer-focused (no marketing pitches).",
-    "Speakers must be present physically at the venue in BINUS Anggrek, Jakarta Barat.",
-    "You may submit up to 3 different proposals.",
+    "Deep technical insights or real-world use cases (no marketing or sales pitches).",
+    "30 or 45 minutes per session, including live Q&A.",
+    "In-person presentation required at BINUS Anggrek, Jakarta Barat.",
+    "Maximum 1 proposal per speaker (submit your strongest topic).",
   ],
 } as const;
 

@@ -24,6 +24,7 @@ export type { PersonItem, PeopleGroup };
 
 export interface PeopleListProps {
   groups: PeopleGroup[];
+  preferContentTitle?: boolean;
 }
 
 
@@ -51,14 +52,18 @@ function getDisplayName(person: PersonItem, profile?: Profile): string {
   return "Community Member";
 }
 
-/** Published title -> transitional fallbackTitle/role -> undefined (pill omitted). */
+/** Resolve the title from event content or the published profile. */
 function getDisplayTitle(
   person: PersonItem,
-  profile?: Profile
+  profile?: Profile,
+  preferContentTitle = false
 ): string | undefined {
+  const contentTitle = (person.fallbackTitle ?? person.role)?.trim();
   const publishedTitle = profile?.title?.trim();
-  if (publishedTitle) return publishedTitle;
-  return (person.fallbackTitle ?? person.role)?.trim() || undefined;
+
+  return preferContentTitle
+    ? contentTitle || publishedTitle || undefined
+    : publishedTitle || contentTitle || undefined;
 }
 
 
@@ -80,7 +85,7 @@ function safeLinks(person: PersonItem, profile?: Profile): ProfileLink[] {
 const SOCIAL_ROW_CLASSES =
   "flex items-center justify-center flex-wrap gap-2 w-full";
 
-export const PeopleList: React.FC<PeopleListProps> = ({ groups }) => {
+export const PeopleList: React.FC<PeopleListProps> = ({ groups, preferContentTitle = false }) => {
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -173,7 +178,7 @@ export const PeopleList: React.FC<PeopleListProps> = ({ groups }) => {
                 .toLowerCase();
               const profile = userKey ? profilesMap[userKey] : undefined;
               const displayName = getDisplayName(person, profile);
-              const displayTitle = getDisplayTitle(person, profile);
+              const displayTitle = getDisplayTitle(person, profile, preferContentTitle);
               const pictureUrl = profile?.picture;
               const imageFailed = failedImages[userKey];
               const links = safeLinks(person, profile);

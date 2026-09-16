@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Mail, Copy, Check, Globe, Megaphone, Video, Award, Camera, Mic, Shirt, RefreshCw } from "lucide-react";
+import {
+  Mail,
+  Copy,
+  Check,
+  Globe,
+  Megaphone,
+  Video,
+  Award,
+  Camera,
+  Mic,
+  Shirt,
+  RefreshCw,
+  Calculator,
+  AlertTriangle,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +33,12 @@ import type {
 
 import {
   COMMUNITY_DAY_EVENT_SLUG,
+  DEFAULT_USD_EXCHANGE_RATE,
   buildSponsorSections,
   communityDayEvent,
+  formatAmount,
   formatIDR,
+  formatUSD,
   isSoldOut,
   maxSponsorsOf,
   minimumSpendOf,
@@ -59,12 +76,15 @@ type LoadStatus = "loading" | "ready" | "error";
 
 export function SponsorConfigurator() {
   const [packages, setPackages] = useState<SponsorPackage[] | null>(null);
-  // Fetched alongside packages; sections render from these runtime groups.
   const [groups, setGroups] = useState<SponsorPackageGroup[] | null>(null);
-  // Fetched alongside packages; badges render from these runtime tiers.
   const [tiers, setTiers] = useState<SponsorTier[] | null>(null);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [retryTick, setRetryTick] = useState(0);
+
+  // Currency & Budget state
+  const [currency, setCurrency] = useState<"IDR" | "USD">("IDR");
+  const [budgetInput, setBudgetInput] = useState<string>("");
+
   const [selection, setSelection] = useState<Record<string, boolean>>(() => {
     try {
       return parseStoredSelection(localStorage.getItem(STORAGE_KEY));
@@ -100,8 +120,6 @@ export function SponsorConfigurator() {
     };
   }, [retryTick]);
 
-  // Drop only unknown IDs once fetched IDs are known; keep locked IDs in raw
-  // selection so they return if unlocked later.
   useEffect(() => {
     if (status !== "ready" || !packages) return;
     setSelection((prev) => sanitizeSelection(prev, packages.map((p) => p.id)));
@@ -116,14 +134,10 @@ export function SponsorConfigurator() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(selection));
     } catch {
-      // storage unavailable — keep in-memory state only
+      // storage unavailable
     }
   }, [selection]);
 
-  // Effective selection via fixed-point resolution (see communityDayConfig):
-  // raw-selected packages count only when unlocked and their minimumSpendIdr
-  // (if any) is met by the effective subtotal. Raw selection stays untouched
-  // so temporarily excluded packages return once eligibility returns.
   const effectiveSelection = useMemo(
     () => resolveEffectiveSelection(packages ?? [], selection),
     [packages, selection],
@@ -145,6 +159,7 @@ export function SponsorConfigurator() {
     const ascending = [...(tiers ?? [])].sort((a, b) => a.thresholdIdr - b.thresholdIdr);
     return ascending.find((t) => t.thresholdIdr > total) ?? null;
   }, [tiers, total]);
+
   const tierProgress = useMemo(() => {
     if (!nextTier) return 0;
     const start = tier?.thresholdIdr ?? 0;
@@ -165,8 +180,30 @@ export function SponsorConfigurator() {
     return prices.length > 0 ? Math.min(...prices) : null;
   }, [packages]);
 
-  // Sections come from backend groups (runtime-configurable); unknown-group
-  // packages fall into a final defensive "Other" section via buildSponsorSections.
+  // Budget calculations (normalized to IDR for comparison)
+  const targetBudgetNum = useMemo(() => {
+    const raw = budgetInput.trim();
+    if (!raw) return null;
+    const val = parseFloat(raw.replace(/,/g, ""));
+    if (isNaN(val) || val <= 0) return null;
+    return currency === "USD" ? val * DEFAULT_USD_EXCHANGE_RATE : val;
+  }, [budgetInput, currency]);
+
+  const budgetRemaining = useMemo(() => {
+    if (targetBudgetNum === null) return null;
+    return targetBudgetNum - total;
+  }, [targetBudgetNum, total]);
+
+  const budgetProgress = useMemo(() => {
+    if (targetBudgetNum === null || targetBudgetNum <= 0) return 0;
+    return Math.min(100, Math.max(0, (total / targetBudgetNum) * 100));
+  }, [targetBudgetNum, total]);
+
+  const isOverBudget = useMemo(() => {
+    if (targetBudgetNum === null) return false;
+    return total > targetBudgetNum;
+  }, [targetBudgetNum, total]);
+
   const sections = useMemo(
     () => buildSponsorSections(packages ?? [], groups),
     [packages, groups],
@@ -184,10 +221,10 @@ export function SponsorConfigurator() {
       "",
       "Selected packages (indicative):",
       ...selectedPackages.map(
-        (p, i) => `${i + 1}. ${p.name} — ${formatIDR(p.priceIdr)}\n   ${p.advantage}`,
+        (p, i) => `${i + 1}. ${p.name} — ${formatIDR(p.priceIdr)} (~${formatUSD(p.priceIdr)})\n   ${p.advantage}`,
       ),
       "",
-      `Estimated total: ${formatIDR(total)}`,
+      `Estimated total: ${formatIDR(total)} (~${formatUSD(total)})`,
       `Indicative tier: ${tier?.label ?? "To be confirmed"}`,
       "",
       `Contact email: ${trimmedEmail}`,
@@ -243,15 +280,181 @@ export function SponsorConfigurator() {
   return (
     <section className="py-16 sm:py-20">
       <div className="container mx-auto px-4 md:px-6">
-        <header className="max-w-2xl mb-8 space-y-3">
-          <h3 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Build Your Package
-          </h3>
-          <p className="text-muted-foreground">
-            {minUnlockedPrice !== null && `Start from ${formatIDR(minUnlockedPrice)}. `}
-            Every partner earns a badge.
-          </p>
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div className="space-y-2 max-w-2xl">
+            <h3 className="text-2xl sm:text-3xl font-bold text-foreground">
+              Build Your Package
+            </h3>
+            <p className="text-muted-foreground text-sm">
+              {minUnlockedPrice !== null && (
+                <>Start from {formatAmount(minUnlockedPrice, currency)}. </>
+              )}
+              Every partner earns a badge.
+            </p>
+          </div>
+
+          {/* Currency Switcher */}
+          <div className="flex items-center gap-2 bg-card border border-border/80 rounded-xl p-1.5 shrink-0 self-start sm:self-auto">
+            <span className="text-xs text-muted-foreground pl-2 font-medium flex items-center gap-1">
+              <Globe className="h-3.5 w-3.5" />
+              Currency:
+            </span>
+            <div className="flex rounded-lg bg-muted/60 p-0.5">
+              <button
+                type="button"
+                onClick={() => setCurrency("IDR")}
+                className={cn(
+                  "px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer",
+                  currency === "IDR"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                IDR (Rp)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrency("USD")}
+                className={cn(
+                  "px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer",
+                  currency === "USD"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                USD ($)
+              </button>
+            </div>
+          </div>
         </header>
+
+        {/* Sponsor Budget Calculator Banner */}
+        {showConfigurator && (
+          <div className="mb-8 rounded-xl border border-border bg-card/60 p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                  <Calculator className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    Sponsor Budget Tracker
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal">
+                      1 USD ≈ {new Intl.NumberFormat("id-ID").format(DEFAULT_USD_EXCHANGE_RATE)} IDR
+                    </Badge>
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Specify your target budget to track remaining funds and optimize package selection.
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 self-start md:self-auto">
+                <span className="text-xs text-muted-foreground mr-1">Presets:</span>
+                {currency === "USD" ? (
+                  <>
+                    {[500, 1000, 2500, 5000].map((preset) => (
+                      <Button
+                        key={preset}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBudgetInput(String(preset))}
+                        className={cn(
+                          "h-7 text-xs px-2.5 cursor-pointer",
+                          budgetInput === String(preset) && "border-primary bg-primary/10 text-primary font-bold"
+                        )}
+                      >
+                        ${preset}
+                      </Button>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {[
+                      { label: "10M", val: "10000000" },
+                      { label: "25M", val: "25000000" },
+                      { label: "40M", val: "40000000" },
+                      { label: "80M", val: "80000000" },
+                    ].map((p) => (
+                      <Button
+                        key={p.val}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBudgetInput(p.val)}
+                        className={cn(
+                          "h-7 text-xs px-2.5 cursor-pointer",
+                          budgetInput === p.val && "border-primary bg-primary/10 text-primary font-bold"
+                        )}
+                      >
+                        IDR {p.label}
+                      </Button>
+                    ))}
+                  </>
+                )}
+                {budgetInput && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setBudgetInput("")}
+                    className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1 max-w-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">
+                  {currency === "USD" ? "$" : "IDR"}
+                </span>
+                <Input
+                  type="number"
+                  placeholder={currency === "USD" ? "Target Budget (USD)" : "Target Budget (IDR)"}
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  className="pl-11 h-9 text-xs bg-background"
+                />
+              </div>
+
+              {targetBudgetNum !== null && (
+                <div className="flex-1 flex flex-col justify-center space-y-1.5 bg-background border border-border/60 rounded-lg p-2.5 text-xs">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-muted-foreground">
+                      Target Budget: <strong className="text-foreground">{formatAmount(targetBudgetNum, currency, false)}</strong>
+                    </span>
+                    <span>
+                      {isOverBudget ? (
+                        <span className="text-destructive font-semibold flex items-center gap-1">
+                          <AlertTriangle className="h-3.5 w-3.5 inline shrink-0" />
+                          Exceeds budget by {formatAmount(total - targetBudgetNum, currency, false)}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-500 font-medium">
+                          Remaining: {formatAmount(budgetRemaining ?? 0, currency, false)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-300 rounded-full",
+                        isOverBudget ? "bg-destructive" : "bg-emerald-500"
+                      )}
+                      style={{ width: `${Math.min(100, budgetProgress)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {status === "loading" && (
           <div className="space-y-3 max-w-2xl" aria-label="Loading sponsorship packages">
@@ -325,15 +528,18 @@ export function SponsorConfigurator() {
                           const minimumSpend = minimumSpendOf(p);
                           const maxSponsors = maxSponsorsOf(p);
                           const adminLocked = !p.isUnlocked;
-                          // State priority: admin-unavailable > sold out > spend-locked.
                           const soldOut = !adminLocked && isSoldOut(p);
-                          // Compare against the effective subtotal so a package
-                          // can never satisfy its own minimum.
                           const spendLocked =
                             !adminLocked && !soldOut && minimumSpend !== null && total < minimumSpend;
                           const locked = adminLocked || soldOut || spendLocked;
                           const isChecked = locked ? false : !!effectiveSelection[p.id];
                           const remaining = remainingSponsorSlots(p);
+                          const exceedsRemainingBudget =
+                            targetBudgetNum !== null &&
+                            !isChecked &&
+                            budgetRemaining !== null &&
+                            p.priceIdr > budgetRemaining;
+
                           return (
                             <li key={p.id}>
                               <Label
@@ -389,13 +595,18 @@ export function SponsorConfigurator() {
                                               className="text-xs"
                                             >
                                               {spendLocked
-                                                ? `Spend ${formatIDR(minimumSpend)} to unlock`
-                                                : `Unlock at ${formatIDR(minimumSpend)} spend`}
+                                                ? `Spend ${formatAmount(minimumSpend, currency, false)} to unlock`
+                                                : `Unlock at ${formatAmount(minimumSpend, currency, false)} spend`}
                                             </Badge>
                                           )}
                                           {!adminLocked && !soldOut && remaining !== null && (
                                             <Badge variant="outline" className="text-xs">
                                               {`${remaining} of ${maxSponsors} slots left`}
+                                            </Badge>
+                                          )}
+                                          {exceedsRemainingBudget && (
+                                            <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-500">
+                                              Exceeds target budget
                                             </Badge>
                                           )}
                                         </span>
@@ -408,17 +619,22 @@ export function SponsorConfigurator() {
                                         "sm:hidden block text-sm font-semibold",
                                         isChecked ? "text-primary" : "text-muted-foreground"
                                       )}>
-                                        {formatIDR(p.priceIdr)}
+                                        {formatAmount(p.priceIdr, currency, true)}
                                       </span>
                                     </div>
                                   </div>
                                   {/* Price aligned to right on desktop */}
-                                  <span className={cn(
-                                    "hidden sm:inline-block text-sm font-semibold whitespace-nowrap self-center",
-                                    isChecked ? "text-primary" : "text-muted-foreground"
-                                  )}>
-                                    {formatIDR(p.priceIdr)}
-                                  </span>
+                                  <div className="hidden sm:flex flex-col items-end whitespace-nowrap self-center shrink-0">
+                                    <span className={cn(
+                                      "text-sm font-semibold",
+                                      isChecked ? "text-primary" : "text-muted-foreground"
+                                    )}>
+                                      {currency === "USD" ? formatUSD(p.priceIdr) : formatIDR(p.priceIdr)}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {currency === "USD" ? `~${formatIDR(p.priceIdr)}` : `~${formatUSD(p.priceIdr)}`}
+                                    </span>
+                                  </div>
                                 </div>
                               </Label>
                             </li>
@@ -454,7 +670,12 @@ export function SponsorConfigurator() {
                           : `${selectedPackages.length} ${selectedPackages.length === 1 ? "package" : "packages"} selected`}
                       </p>
                       <p className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-foreground">
-                        {formatIDR(total)}
+                        {currency === "USD" ? formatUSD(total) : formatIDR(total)}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {currency === "USD"
+                          ? `Equivalent: ${formatIDR(total)}`
+                          : `Equivalent: ${formatUSD(total)}`}
                       </p>
                       {tier && (
                         <p className="text-xs text-muted-foreground">Indicative {tier.label} tier</p>
@@ -463,7 +684,7 @@ export function SponsorConfigurator() {
                     {nextTier && total > 0 && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span>{formatIDR(nextTier.thresholdIdr - total)} away from {nextTier.label}</span>
+                          <span>{formatAmount(nextTier.thresholdIdr - total, currency, false)} away from {nextTier.label}</span>
                           <span className="tabular-nums">{Math.round(tierProgress)}%</span>
                         </div>
                         <div
@@ -533,7 +754,7 @@ export function SponsorConfigurator() {
                         <p className="text-sm text-destructive">{formError}</p>
                       )}
 
-                      <Button type="submit" className="w-full">
+                      <Button type="submit" className="w-full cursor-pointer">
                         <Mail aria-hidden="true" />
                         Prepare Sponsorship Email
                       </Button>
@@ -550,7 +771,7 @@ export function SponsorConfigurator() {
                         <Button
                           type="button"
                           variant="outline"
-                          className="w-full"
+                          className="w-full cursor-pointer"
                           onClick={handleCopy}
                         >
                           {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
@@ -593,7 +814,9 @@ export function SponsorConfigurator() {
                   <div className="space-y-0.5">
                     <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-lg font-bold tabular-nums text-foreground">{formatIDR(total)}</span>
+                      <span className="text-lg font-bold tabular-nums text-foreground">
+                        {currency === "USD" ? formatUSD(total) : formatIDR(total)}
+                      </span>
                       {tier && (
                         <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>
                           {tier.label}

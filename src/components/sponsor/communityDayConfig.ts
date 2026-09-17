@@ -32,8 +32,36 @@ export function resolveSponsorTier(
   );
 }
 
+export const DEFAULT_USD_EXCHANGE_RATE = 17000;
+
 export function formatIDR(amount: number): string {
   return `IDR ${new Intl.NumberFormat("id-ID").format(amount)}`;
+}
+
+export function formatUSD(
+  amountIdr: number,
+  rate: number = DEFAULT_USD_EXCHANGE_RATE,
+): string {
+  const usd = amountIdr / rate;
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: usd % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(usd);
+  return `$${formatted} USD`;
+}
+
+export function formatAmount(
+  amountIdr: number,
+  currency: "IDR" | "USD" = "IDR",
+  showEquivalent: boolean = true,
+  rate: number = DEFAULT_USD_EXCHANGE_RATE,
+): string {
+  if (currency === "USD") {
+    const usdStr = formatUSD(amountIdr, rate);
+    return showEquivalent ? `${usdStr} (~${formatIDR(amountIdr)})` : usdStr;
+  }
+  const idrStr = formatIDR(amountIdr);
+  return showEquivalent ? `${idrStr} (~${formatUSD(amountIdr, rate)})` : idrStr;
 }
 
 export const STORAGE_KEY = "awsugj-community-day-sponsor-selection-v1";

@@ -51,6 +51,7 @@ import {
   fetchSponsorPackages,
   updateAdminSponsorPackages,
   updateSponsorTiers,
+  updateSponsorSettings,
 } from "@/lib/api";
 import type {
   SponsorPackage,
@@ -310,6 +311,11 @@ export function SponsorPackageManager() {
   const [groupDrafts, setGroupDrafts] = useState<Record<string, GroupDraft>>({});
   const [tiers, setTiers] = useState<SponsorTier[]>([]);
   const [tierDrafts, setTierDrafts] = useState<Record<string, TierDraft>>({});
+  const [exchangeRate, setExchangeRate] = useState<number>(17000);
+  const [exchangeRateInput, setExchangeRateInput] = useState<string>("17000");
+  const [savingSettings, setSavingSettings] = useState<boolean>(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -359,6 +365,9 @@ export function SponsorPackageManager() {
       setGroupDrafts(toGroupDrafts(data.groups ?? []));
       setTiers(data.tiers ?? []);
       setTierDrafts(toTierDrafts(data.tiers ?? []));
+      const rate = data.usdExchangeRate ?? 17000;
+      setExchangeRate(rate);
+      setExchangeRateInput(String(rate));
       setSaveError(null);
       // A pending confirm can reference a row that no longer exists after a
       // reload; clearing it keeps drag/delete from staying blocked.
@@ -370,6 +379,38 @@ export function SponsorPackageManager() {
       setLoading(false);
     }
   }, []);
+
+  const handleSaveExchangeRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = exchangeRateInput.trim();
+    if (!/^\d+$/.test(val)) {
+      setSettingsError("Enter whole rupiah digits only.");
+      return;
+    }
+    const num = Number(val);
+    if (num < 1000 || num > 1000000) {
+      setSettingsError("Exchange rate must be between IDR 1,000 and IDR 1,000,000.");
+      return;
+    }
+
+    setSavingSettings(true);
+    setSettingsError(null);
+    setSettingsSuccess(false);
+    try {
+      const refreshed = await updateSponsorSettings(COMMUNITY_DAY_EVENT_SLUG, {
+        usdExchangeRate: num,
+      });
+      const newRate = refreshed.usdExchangeRate ?? num;
+      setExchangeRate(newRate);
+      setExchangeRateInput(String(newRate));
+      setSettingsSuccess(true);
+      setTimeout(() => setSettingsSuccess(false), 3000);
+    } catch (err: any) {
+      setSettingsError(err?.message ?? "Failed to update exchange rate.");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -1015,6 +1056,60 @@ export function SponsorPackageManager() {
 
   return (
     <div className="space-y-4">
+      {/* Exchange Rate Configuration Card */}
+      <Card className="bg-card border-border/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Sponsorship Exchange Rate</CardTitle>
+          <CardDescription className="text-xs">
+            Configure the USD to IDR conversion rate for the Sponsor Configurator calculator. Requires admin authorization.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSaveExchangeRate} className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="space-y-1 flex-1 max-w-xs">
+              <Label htmlFor="admin-exchange-rate-input" className="text-xs font-medium">
+                USD Exchange Rate (IDR per 1 USD)
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">
+                  Rp
+                </span>
+                <Input
+                  id="admin-exchange-rate-input"
+                  type="number"
+                  min={1000}
+                  max={1000000}
+                  value={exchangeRateInput}
+                  onChange={(e) => {
+                    setExchangeRateInput(e.target.value);
+                    setSettingsError(null);
+                    setSettingsSuccess(false);
+                  }}
+                  className="pl-9 h-9 text-xs bg-background"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1 sm:pt-5">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={savingSettings || String(exchangeRate) === exchangeRateInput.trim()}
+                className="cursor-pointer h-9 text-xs"
+              >
+                {savingSettings && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                Save Exchange Rate
+              </Button>
+              {settingsSuccess && (
+                <span className="text-xs text-emerald-500 font-medium">Saved!</span>
+              )}
+            </div>
+          </form>
+          {settingsError && (
+            <p className="text-xs text-destructive mt-2">{settingsError}</p>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="bg-card border-border/80">
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

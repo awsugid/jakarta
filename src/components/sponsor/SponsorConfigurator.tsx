@@ -78,6 +78,7 @@ export function SponsorConfigurator() {
   const [packages, setPackages] = useState<SponsorPackage[] | null>(null);
   const [groups, setGroups] = useState<SponsorPackageGroup[] | null>(null);
   const [tiers, setTiers] = useState<SponsorTier[] | null>(null);
+  const [exchangeRate, setExchangeRate] = useState<number>(DEFAULT_USD_EXCHANGE_RATE);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [retryTick, setRetryTick] = useState(0);
 
@@ -109,6 +110,7 @@ export function SponsorConfigurator() {
         setPackages(response.packages);
         setGroups(response.groups);
         setTiers(response.tiers);
+        setExchangeRate(response.usdExchangeRate ?? DEFAULT_USD_EXCHANGE_RATE);
         setStatus("ready");
       })
       .catch(() => {
@@ -186,8 +188,8 @@ export function SponsorConfigurator() {
     if (!raw) return null;
     const val = parseFloat(raw.replace(/,/g, ""));
     if (isNaN(val) || val <= 0) return null;
-    return currency === "USD" ? val * DEFAULT_USD_EXCHANGE_RATE : val;
-  }, [budgetInput, currency]);
+    return currency === "USD" ? val * exchangeRate : val;
+  }, [budgetInput, currency, exchangeRate]);
 
   const budgetRemaining = useMemo(() => {
     if (targetBudgetNum === null) return null;
@@ -221,10 +223,10 @@ export function SponsorConfigurator() {
       "",
       "Selected packages (indicative):",
       ...selectedPackages.map(
-        (p, i) => `${i + 1}. ${p.name} — ${formatIDR(p.priceIdr)} (~${formatUSD(p.priceIdr)})\n   ${p.advantage}`,
+        (p, i) => `${i + 1}. ${p.name} — ${formatIDR(p.priceIdr)} (~${formatUSD(p.priceIdr, exchangeRate)})\n   ${p.advantage}`,
       ),
       "",
-      `Estimated total: ${formatIDR(total)} (~${formatUSD(total)})`,
+      `Estimated total: ${formatIDR(total)} (~${formatUSD(total, exchangeRate)})`,
       `Indicative tier: ${tier?.label ?? "To be confirmed"}`,
       "",
       `Contact email: ${trimmedEmail}`,
@@ -240,7 +242,7 @@ export function SponsorConfigurator() {
       trimmedCompany,
     );
     return lines.join("\n");
-  }, [selectedPackages, total, tier, trimmedCompany, trimmedEmail, trimmedGoals]);
+  }, [selectedPackages, total, tier, trimmedCompany, trimmedEmail, trimmedGoals, exchangeRate]);
 
   const mailSubject = `Sponsorship Enquiry — ${communityDayEvent.name} — ${trimmedCompany}`;
   const mailHref = `mailto:${sponsorContactEmail}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(summaryText)}`;
@@ -287,7 +289,7 @@ export function SponsorConfigurator() {
             </h3>
             <p className="text-muted-foreground text-sm">
               {minUnlockedPrice !== null && (
-                <>Start from {formatAmount(minUnlockedPrice, currency)}. </>
+                <>Start from {formatAmount(minUnlockedPrice, currency, true, exchangeRate)}. </>
               )}
               Every partner earns a badge.
             </p>
@@ -340,7 +342,7 @@ export function SponsorConfigurator() {
                   <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                     Sponsor Budget Tracker
                     <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal">
-                      1 USD ≈ {new Intl.NumberFormat("id-ID").format(DEFAULT_USD_EXCHANGE_RATE)} IDR
+                      1 USD ≈ {new Intl.NumberFormat("id-ID").format(exchangeRate)} IDR
                     </Badge>
                   </h4>
                   <p className="text-xs text-muted-foreground">
@@ -426,17 +428,17 @@ export function SponsorConfigurator() {
                 <div className="flex-1 flex flex-col justify-center space-y-1.5 bg-background border border-border/60 rounded-lg p-2.5 text-xs">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-muted-foreground">
-                      Target Budget: <strong className="text-foreground">{formatAmount(targetBudgetNum, currency, false)}</strong>
+                      Target Budget: <strong className="text-foreground">{formatAmount(targetBudgetNum, currency, false, exchangeRate)}</strong>
                     </span>
                     <span>
                       {isOverBudget ? (
                         <span className="text-destructive font-semibold flex items-center gap-1">
                           <AlertTriangle className="h-3.5 w-3.5 inline shrink-0" />
-                          Exceeds budget by {formatAmount(total - targetBudgetNum, currency, false)}
+                          Exceeds budget by {formatAmount(total - targetBudgetNum, currency, false, exchangeRate)}
                         </span>
                       ) : (
                         <span className="text-emerald-500 font-medium">
-                          Remaining: {formatAmount(budgetRemaining ?? 0, currency, false)}
+                          Remaining: {formatAmount(budgetRemaining ?? 0, currency, false, exchangeRate)}
                         </span>
                       )}
                     </span>
@@ -595,8 +597,8 @@ export function SponsorConfigurator() {
                                               className="text-xs"
                                             >
                                               {spendLocked
-                                                ? `Spend ${formatAmount(minimumSpend, currency, false)} to unlock`
-                                                : `Unlock at ${formatAmount(minimumSpend, currency, false)} spend`}
+                                                ? `Spend ${formatAmount(minimumSpend, currency, false, exchangeRate)} to unlock`
+                                                : `Unlock at ${formatAmount(minimumSpend, currency, false, exchangeRate)} spend`}
                                             </Badge>
                                           )}
                                           {!adminLocked && !soldOut && remaining !== null && (
@@ -619,7 +621,7 @@ export function SponsorConfigurator() {
                                         "sm:hidden block text-sm font-semibold",
                                         isChecked ? "text-primary" : "text-muted-foreground"
                                       )}>
-                                        {formatAmount(p.priceIdr, currency, true)}
+                                        {formatAmount(p.priceIdr, currency, true, exchangeRate)}
                                       </span>
                                     </div>
                                   </div>
@@ -629,10 +631,10 @@ export function SponsorConfigurator() {
                                       "text-sm font-semibold",
                                       isChecked ? "text-primary" : "text-muted-foreground"
                                     )}>
-                                      {currency === "USD" ? formatUSD(p.priceIdr) : formatIDR(p.priceIdr)}
+                                      {currency === "USD" ? formatUSD(p.priceIdr, exchangeRate) : formatIDR(p.priceIdr)}
                                     </span>
                                     <span className="text-[10px] text-muted-foreground">
-                                      {currency === "USD" ? `~${formatIDR(p.priceIdr)}` : `~${formatUSD(p.priceIdr)}`}
+                                      {currency === "USD" ? `~${formatIDR(p.priceIdr)}` : `~${formatUSD(p.priceIdr, exchangeRate)}`}
                                     </span>
                                   </div>
                                 </div>
@@ -670,12 +672,12 @@ export function SponsorConfigurator() {
                           : `${selectedPackages.length} ${selectedPackages.length === 1 ? "package" : "packages"} selected`}
                       </p>
                       <p className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-foreground">
-                        {currency === "USD" ? formatUSD(total) : formatIDR(total)}
+                        {currency === "USD" ? formatUSD(total, exchangeRate) : formatIDR(total)}
                       </p>
                       <p className="text-xs text-muted-foreground font-medium">
                         {currency === "USD"
                           ? `Equivalent: ${formatIDR(total)}`
-                          : `Equivalent: ${formatUSD(total)}`}
+                          : `Equivalent: ${formatUSD(total, exchangeRate)}`}
                       </p>
                       {tier && (
                         <p className="text-xs text-muted-foreground">Indicative {tier.label} tier</p>
@@ -684,7 +686,7 @@ export function SponsorConfigurator() {
                     {nextTier && total > 0 && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span>{formatAmount(nextTier.thresholdIdr - total, currency, false)} away from {nextTier.label}</span>
+                          <span>{formatAmount(nextTier.thresholdIdr - total, currency, false, exchangeRate)} away from {nextTier.label}</span>
                           <span className="tabular-nums">{Math.round(tierProgress)}%</span>
                         </div>
                         <div

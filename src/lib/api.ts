@@ -30,6 +30,7 @@ import type {
   SponsorPackageGroupCreate,
   SponsorTierCreate,
   SponsorTierBatchUpdate,
+  SponsorSettingsUpdate,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -496,3 +497,19 @@ export async function deleteSponsorTier(
     },
   );
 }
+
+/** PUT /api/admin/events/:eventSlug/sponsor-settings — update sponsor settings (exchange rate). */
+export async function updateSponsorSettings(
+  eventSlug: string,
+  input: SponsorSettingsUpdate,
+): Promise<SponsorPackagesResponse> {
+  return apiFetch<SponsorPackagesResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-settings`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+

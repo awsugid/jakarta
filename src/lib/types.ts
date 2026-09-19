@@ -337,10 +337,16 @@ export interface SponsorPackageGroup {
 export interface SponsorPackagesResponse {
   eventSlug: string;
   currency: string;
+  usdExchangeRate?: number;
   groups: SponsorPackageGroup[];
   packages: SponsorPackage[];
   /** Ordered by thresholdIdr descending; tier order IS threshold order (no displayOrder). */
   tiers: SponsorTier[];
+}
+
+/** Body for PUT /api/admin/events/:eventSlug/sponsor-settings. */
+export interface SponsorSettingsUpdate {
+  usdExchangeRate: number;
 }
 
 /** A single changed group row in the admin batch update body. */

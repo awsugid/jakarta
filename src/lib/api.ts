@@ -15,6 +15,7 @@ import type {
   UserPretixOrdersResponse,
   AdminMe,
   AdminFormSummary,
+  AdminFormStatusUpdate,
   AdminFormbricksResponseList,
   AdminFormbricksResponseDetail,
   CommunityStatistics,
@@ -273,6 +274,22 @@ export async function fetchAdminForms(): Promise<AdminFormSummary[]> {
   return apiFetch<AdminFormSummary[]>("/api/admin/forms", {
     headers: authHeaders(),
   });
+}
+
+/** PUT /api/admin/forms/:kind/:slug — update form active status (open/closed). */
+export async function updateAdminFormStatus(
+  kind: string,
+  slug: string,
+  input: AdminFormStatusUpdate,
+): Promise<AdminFormSummary> {
+  return apiFetch<AdminFormSummary>(
+    `/api/admin/forms/${encodeURIComponent(kind)}/${encodeURIComponent(slug)}`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 /** GET /api/admin/formbricks/responses — paginated responses for a survey. */

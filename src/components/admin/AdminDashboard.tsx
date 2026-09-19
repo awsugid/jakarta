@@ -9,6 +9,7 @@ import { FormbricksResponsesTable } from "@/components/admin/FormbricksResponses
 import { ResponseDetailDrawer } from "@/components/admin/ResponseDetailDrawer";
 import { LinkManager } from "@/components/admin/LinkManager";
 import { SponsorPackageManager } from "@/components/admin/SponsorPackageManager";
+import { FormStatusManager } from "@/components/admin/FormStatusManager";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -115,7 +116,9 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
       <AdminNavigation active={tab} onChange={setTab} />
 
       {/* Explicit tab branches; responses remains the default */}
-      {tab === "links" ? (
+      {tab === "forms" ? (
+        <FormStatusManager />
+      ) : tab === "links" ? (
         <LinkManager />
       ) : tab === "sponsors" ? (
         <SponsorPackageManager />

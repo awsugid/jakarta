@@ -173,6 +173,11 @@ export interface AdminFormSummary {
   response_count: number | null;
 }
 
+/** Body for PUT /api/admin/forms/:kind/:slug */
+export interface AdminFormStatusUpdate {
+  is_active: boolean;
+}
+
 /** Response summary in admin Formbricks listings. */
 export interface AdminFormbricksResponseSummary {
   id: string;

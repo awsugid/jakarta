@@ -123,6 +123,10 @@ export function FormStatusManager() {
   const allOpen = totalCount > 0 && openCount === totalCount;
   const allClosed = totalCount > 0 && closedCount === totalCount;
   const isBulkUpdating = forms.some((f) => updatingKey === f.slug);
+  const totalApplicants = forms.reduce(
+    (sum, f) => sum + (f.response_count ?? 0),
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -133,11 +137,14 @@ export function FormStatusManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Total Categories
+                  Total Applicants
                 </p>
                 <h3 className="text-2xl font-bold mt-1 text-foreground">
-                  {totalCount}
+                  {totalApplicants}
                 </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  across {totalCount} categor{totalCount === 1 ? "y" : "ies"}
+                </p>
               </div>
               <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
                 <Users className="h-5 w-5" />
@@ -380,6 +387,12 @@ export function FormStatusManager() {
                             {form.description}
                           </p>
                         )}
+                        <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                          <Users className="h-3 w-3 shrink-0" />
+                          {form.response_count != null
+                            ? `${form.response_count} applicant${form.response_count === 1 ? "" : "s"}`
+                            : "—"}
+                        </p>
                       </div>
                     </div>
 

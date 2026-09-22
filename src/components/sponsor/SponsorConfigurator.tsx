@@ -311,19 +311,18 @@ export function SponsorConfigurator() {
   const showConfigurator = status === "ready" && packages !== null && packages.length > 0;
 
   return (
-    <section className="py-16 sm:py-20">
+    <section className={cn("py-16 sm:py-20", total > 0 && "pb-28 lg:pb-20")}>
       <div className="container mx-auto px-4 md:px-6">
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="space-y-2 max-w-2xl">
             <h3 className="text-2xl sm:text-3xl font-bold text-foreground">
               Build Your Package
             </h3>
-            <p className="text-muted-foreground text-sm">
-              {startFromPackage !== null && (
-                <>Start from {formatPackagePrice(startFromPackage, currency, exchangeRate)}. </>
-              )}
-              Every partner earns a badge.
-            </p>
+            {startFromPackage !== null && (
+              <p className="text-muted-foreground text-sm">
+                Start from {formatPackagePrice(startFromPackage, currency, exchangeRate)}.
+              </p>
+            )}
           </div>
 
           {/* Currency Switcher */}
@@ -351,7 +350,7 @@ export function SponsorConfigurator() {
                 className={cn(
                   "px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer",
                   currency === "USD"
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -392,7 +391,7 @@ export function SponsorConfigurator() {
                         size="sm"
                         onClick={() => setBudgetInput(String(preset))}
                         className={cn(
-                          "h-7 text-xs px-2.5 cursor-pointer",
+                          "text-xs px-2.5 cursor-pointer",
                           budgetInput === String(preset) && "border-primary bg-primary/10 text-primary font-bold"
                         )}
                       >
@@ -427,7 +426,7 @@ export function SponsorConfigurator() {
                   placeholder={currency === "USD" ? "Target Budget (USD)" : "Target Budget (IDR)"}
                   value={budgetInput}
                   onChange={(e) => setBudgetInput(e.target.value)}
-                  className="pl-11 h-9 text-xs bg-background"
+                  className="pl-11 bg-background"
                 />
               </div>
 
@@ -628,7 +627,7 @@ export function SponsorConfigurator() {
                                       {/* Price stacked below description on mobile only */}
                                       <span className={cn(
                                         "sm:hidden block text-sm font-semibold",
-                                        isChecked ? "text-primary" : "text-muted-foreground"
+                                        isChecked ? "text-primary" : "text-foreground"
                                       )}>
                                         {formatPackagePrice(p, currency, exchangeRate)}
                                       </span>
@@ -642,7 +641,7 @@ export function SponsorConfigurator() {
                                     )}>
                                       {packagePriceParts(p, currency, exchangeRate).primary}
                                     </span>
-                                    <span className="text-[10px] text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground">
                                       {packagePriceParts(p, currency, exchangeRate).secondary}
                                     </span>
                                   </div>
@@ -774,7 +773,7 @@ export function SponsorConfigurator() {
                         <p className="text-sm text-destructive">{formError}</p>
                       )}
 
-                      <Button type="submit" className="w-full cursor-pointer">
+                      <Button type="submit" className="w-full h-11 cursor-pointer">
                         <Mail aria-hidden="true" />
                         Prepare Sponsorship Email
                       </Button>
@@ -832,13 +831,13 @@ export function SponsorConfigurator() {
               <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-md border-t border-border p-4 shadow-lg animate-in slide-in-from-bottom duration-300">
                 <div className="container mx-auto flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
-                    <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
+                    <span className="block text-xs text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-lg font-bold tabular-nums text-foreground">
                         {totalPrimaryText}
                       </span>
                       {tier && (
-                        <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>
+                        <Badge className={cn("text-[10px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>
                           {tier.label}
                         </Badge>
                       )}

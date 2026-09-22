@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Presentation, Calculator, Handshake, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { communityDayEvent } from "@/components/sponsor/communityDayConfig";
@@ -87,12 +87,23 @@ export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
     }
   };
 
+  const handleTablistKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const ids = TABS.map((t) => t.id);
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    const next = ids[(ids.indexOf(tab) + dir + ids.length) % ids.length];
+    handleTabClick(next);
+    document.getElementById(`sponsor-tab-${next}`)?.focus();
+  };
+
   return (
     <div>
       <div className="container mx-auto px-4 md:px-6 pt-16 sm:pt-20">
         <div
           role="tablist"
           aria-label="Sponsorship track"
+          onKeyDown={handleTablistKeyDown}
           className="mx-auto flex max-w-md w-full flex-col sm:flex-row gap-2 rounded-2xl sm:rounded-full border border-border bg-card/60 p-1.5 backdrop-blur-sm"
         >
           {TABS.map(({ id, label, icon: Icon }) => {
@@ -120,13 +131,13 @@ export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
         </div>
       </div>
 
-      {tab === "community" ? (
-        <div
-          role="tabpanel"
-          id="comday"
-          aria-labelledby="sponsor-tab-community"
-          className="scroll-mt-24 sm:scroll-mt-28"
-        >
+        <div id="comday" className="scroll-mt-24 sm:scroll-mt-28">
+          <div
+            role="tabpanel"
+            id="sponsor-panel-community"
+            aria-labelledby="sponsor-tab-community"
+            hidden={tab !== "community"}
+          >
           <section className="py-16 sm:py-20 relative overflow-hidden bg-background">
             {/* Background glowing effects to match Home page */}
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] sm:w-[700px] sm:h-[700px] bg-primary/10 rounded-full blur-[100px] -z-10 opacity-30 animate-pulse duration-[6000ms]" />
@@ -213,14 +224,15 @@ export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
           </section>
 
           <SponsorConfigurator />
+          </div>
         </div>
-      ) : (
-        <div
-          role="tabpanel"
-          id="monthly"
-          aria-labelledby="sponsor-tab-monthly"
-          className="scroll-mt-24 sm:scroll-mt-28"
-        >
+        <div id="monthly" className="scroll-mt-24 sm:scroll-mt-28">
+          <div
+            role="tabpanel"
+            id="sponsor-panel-monthly"
+            aria-labelledby="sponsor-tab-monthly"
+            hidden={tab !== "monthly"}
+          >
           <section className="py-16 sm:py-20 bg-muted/30">
             <div className="container mx-auto px-4 md:px-6">
               <header className="max-w-3xl mx-auto text-center space-y-4">
@@ -241,8 +253,8 @@ export function SponsorshipTabs({ deckUrl }: SponsorshipTabsProps) {
 
           <SponsorTiers />
           <SponsorBenefits />
+          </div>
         </div>
-      )}
     </div>
   );
 }

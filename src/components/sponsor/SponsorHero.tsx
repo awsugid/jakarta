@@ -47,7 +47,7 @@ export function SponsorHero({ kioskUrl }: SponsorHeroProps) {
               <span className="text-base sm:text-lg font-bold text-foreground">
                 {metric.value}
               </span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground text-center line-clamp-1 sm:line-clamp-none">
+              <span className="text-xs text-muted-foreground text-center leading-tight">
                 {metric.label}
               </span>
             </div>

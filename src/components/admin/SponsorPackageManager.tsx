@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import {
   COMMUNITY_DAY_EVENT_SLUG,
+  formatAmount,
   formatIDR,
 } from "@/components/sponsor/communityDayConfig";
 import {
@@ -997,6 +998,7 @@ export function SponsorPackageManager() {
           id: g.id,
           label: (groupDrafts[g.id]?.label ?? g.label).trim() || g.id,
         }))}
+        rate={exchangeRate}
         disabled={saving || creatingGroup || creatingPackage || creatingTier}
         onChange={(patch) => setDraft(p.id, patch)}
         deleteControl={
@@ -1061,7 +1063,7 @@ export function SponsorPackageManager() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Sponsorship Exchange Rate</CardTitle>
           <CardDescription className="text-xs">
-            Configure the USD to IDR conversion rate for the Sponsor Configurator calculator. Requires admin authorization.
+            Set the IDR per USD rate used for approximate USD amounts here and on the public sponsor page. Amounts update after saving; IDR prices remain unchanged.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1318,6 +1320,7 @@ export function SponsorPackageManager() {
                       }
                       onCancel={() => toggleAddPackage(false)}
                       onSubmit={createPackage}
+                      rate={exchangeRate}
                     />
                   )}
                 </GroupSection>
@@ -1394,6 +1397,7 @@ export function SponsorPackageManager() {
               onChange={(patch) => setNewTier((prev) => ({ ...prev, ...patch }))}
               onCancel={() => toggleAddTier(false)}
               onSubmit={createTier}
+              rate={exchangeRate}
             />
           )}
           {tiers.length === 0 ? (
@@ -1413,6 +1417,7 @@ export function SponsorPackageManager() {
                   dirty={isTierDirty(t, draft)}
                   labelError={tierLabelRowError(t)}
                   thresholdError={tierThresholdRowError(t)}
+                  rate={exchangeRate}
                   disabled={saving || creatingGroup || creatingPackage || creatingTier}
                   onChange={(patch) => setTierDraft(t.id, patch)}
                   deleteControl={
@@ -1633,6 +1638,7 @@ function PackageRow({
   reservedError,
   groupError,
   groupOptions,
+  rate,
   disabled,
   onChange,
   deleteControl,
@@ -1652,6 +1658,7 @@ function PackageRow({
   reservedError: string | null;
   groupError: string | null;
   groupOptions: { id: string; label: string }[];
+  rate: number;
   disabled: boolean;
   onChange: (patch: Partial<PackageDraft>) => void;
   deleteControl: ReactNode;
@@ -1830,7 +1837,7 @@ function PackageRow({
           ) : (
             parsed !== null && (
               <p className="text-xs text-muted-foreground">
-                {formatIDR(parsed)}
+                {formatAmount(parsed, "IDR", true, rate)}
               </p>
             )
           )}
@@ -1858,7 +1865,8 @@ function PackageRow({
             </p>
           ) : parsedMinSpend !== null ? (
             <p className="text-xs text-muted-foreground">
-              Unlocks at {formatIDR(parsedMinSpend)} total spend
+              Unlocks at {formatAmount(parsedMinSpend, "IDR", true, rate)} total
+              spend
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -2061,6 +2069,7 @@ function AddPackageForm({
   onChange,
   onCancel,
   onSubmit,
+  rate,
 }: {
   groupId: string;
   groupLabel: string;
@@ -2073,6 +2082,7 @@ function AddPackageForm({
   onChange: (patch: Partial<NewPackageInput>) => void;
   onCancel: () => void;
   onSubmit: () => void;
+  rate: number;
 }) {
   const nameId = `new-pkg-name-${groupId}`;
   const nameErrorId = `${nameId}-error`;
@@ -2173,7 +2183,7 @@ function AddPackageForm({
           ) : (
             parsedPrice !== null && (
               <p className="text-xs text-muted-foreground">
-                {formatIDR(parsedPrice)}
+                {formatAmount(parsedPrice, "IDR", true, rate)}
               </p>
             )
           )}
@@ -2226,6 +2236,7 @@ function TierRow({
   dirty,
   labelError,
   thresholdError,
+  rate,
   disabled,
   onChange,
   deleteControl,
@@ -2235,6 +2246,7 @@ function TierRow({
   dirty: boolean;
   labelError: string | null;
   thresholdError: string | null;
+  rate: number;
   disabled: boolean;
   onChange: (patch: Partial<TierDraft>) => void;
   deleteControl: ReactNode;
@@ -2305,7 +2317,7 @@ function TierRow({
           ) : (
             parsedThreshold !== null && (
               <p className="text-xs text-muted-foreground">
-                Reaches this tier at {formatIDR(parsedThreshold)} or more
+                Reaches this tier at {formatAmount(parsedThreshold, "IDR", true, rate)} or more
               </p>
             )
           )}
@@ -2361,6 +2373,7 @@ function AddTierForm({
   onChange,
   onCancel,
   onSubmit,
+  rate,
 }: {
   value: NewTierInput;
   errors: TierFormErrors | null;
@@ -2371,6 +2384,7 @@ function AddTierForm({
   onChange: (patch: Partial<NewTierInput>) => void;
   onCancel: () => void;
   onSubmit: () => void;
+  rate: number;
 }) {
   const labelId = "new-tier-label";
   const labelErrorId = `${labelId}-error`;
@@ -2444,7 +2458,7 @@ function AddTierForm({
           ) : (
             parsedThreshold !== null && (
               <p className="text-xs text-muted-foreground">
-                {formatIDR(parsedThreshold)}
+                {formatAmount(parsedThreshold, "IDR", true, rate)}
               </p>
             )
           )}

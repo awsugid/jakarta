@@ -817,7 +817,7 @@ export function SponsorConfigurator() {
                     <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-lg font-bold tabular-nums text-foreground">
-                        {currency === "USD" ? formatUSD(total) : formatIDR(total)}
+                        {currency === "USD" ? formatUSD(total, exchangeRate) : formatIDR(total)}
                       </span>
                       {tier && (
                         <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>

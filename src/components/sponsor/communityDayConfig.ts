@@ -39,6 +39,23 @@ export function tierThreshold(
 }
 
 /**
+ * Budget-tracker presets: effective tier thresholds in the active currency,
+ * ascending and deduped (USD derived values rounded to cents). Empty result
+ * hides the presets entirely.
+ */
+export function tierBudgetPresets(
+  tiers: UsdThresholdTier[],
+  currency: "IDR" | "USD",
+  rate: number,
+): number[] {
+  const values = tiers.map((t) => {
+    const v = tierThreshold(t, currency, rate);
+    return currency === "USD" ? Math.round(v * 100) / 100 : v;
+  });
+  return [...new Set(values)].sort((a, b) => a - b);
+}
+
+/**
  * Highest tier whose threshold in the active currency is met by the total
  * (given in the same currency); null when nothing is reached (replaces the
  * old "none" sentinel). USD totals compare against override-aware effective

@@ -13,6 +13,7 @@ import {
   packageUsdPrice,
   resolveSponsorTier,
   sumUsd,
+  tierBudgetPresets,
   tierThreshold,
   tierThresholdUsd,
 } from "./communityDayConfig";
@@ -152,6 +153,29 @@ const idrProgress =
 const usdProgress = (totalUsd2 - 500) / (tierThresholdUsd(legacyTier, RATE) - 500) * 100; // ≈4.1% Gold→Legacy
 assertClose(idrProgress, 0, "IDR progress at tier boundary");
 assertEq(usdProgress > 0 && usdProgress < 5, true, "USD progress uses effective thresholds");
+
+// 11. Budget-tracker presets: effective tier thresholds in the active
+//     currency, ascending + deduped; no tiers hides the presets entirely.
+assertEq(
+  tierBudgetPresets(tiers, "IDR", RATE),
+  [5_000_000, 10_000_000, 25_000_000, 50_000_000],
+  "IDR presets ascending from tier thresholds",
+);
+assertEq(
+  tierBudgetPresets(tiers, "USD", RATE),
+  [100, 294.12, 500, 2941.18],
+  "USD presets override-aware ascending (derived rounded to cents)",
+);
+assertEq(
+  tierBudgetPresets(
+    [silver, tier({ id: "s2", label: "Silver twin", thresholdIdr: 10_000_000, thresholdUsd: 100 })],
+    "USD",
+    RATE,
+  ),
+  [100],
+  "duplicate effective thresholds deduped",
+);
+assertEq(tierBudgetPresets([], "IDR", RATE), [], "no tiers = no presets");
 
 if (failures > 0) {
   throw new Error(`${failures} check(s) failed`);

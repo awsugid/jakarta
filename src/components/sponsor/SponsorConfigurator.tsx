@@ -53,6 +53,7 @@ import {
   sanitizeSelection,
   sponsorContactEmail,
   sumUsd,
+  tierBudgetPresets,
   tierThreshold,
   tierThresholdUsd,
   STORAGE_KEY,
@@ -221,6 +222,12 @@ export function SponsorConfigurator() {
     return totalInCurrency > targetBudget;
   }, [targetBudget, totalInCurrency]);
 
+  // Preset chips mirror the configured tier thresholds in the active currency.
+  const budgetPresets = useMemo(
+    () => tierBudgetPresets(tiers ?? [], currency, exchangeRate),
+    [tiers, currency, exchangeRate],
+  );
+
   const sections = useMemo(
     () => buildSponsorSections(packages ?? [], groups),
     [packages, groups],
@@ -363,11 +370,8 @@ export function SponsorConfigurator() {
                   <Calculator className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <h4 className="text-sm font-semibold text-foreground">
                     Sponsor Budget Tracker
-                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal">
-                      1 USD ≈ {new Intl.NumberFormat("id-ID").format(exchangeRate)} IDR
-                    </Badge>
                   </h4>
                   <p className="text-xs text-muted-foreground">
                     Specify your target budget to track remaining funds and optimize package selection.
@@ -377,10 +381,10 @@ export function SponsorConfigurator() {
 
               {/* Quick Presets */}
               <div className="flex flex-wrap items-center gap-1.5 self-start md:self-auto">
-                <span className="text-xs text-muted-foreground mr-1">Presets:</span>
-                {currency === "USD" ? (
+                {budgetPresets.length > 0 && (
                   <>
-                    {[500, 1000, 2500, 5000].map((preset) => (
+                    <span className="text-xs text-muted-foreground mr-1">Presets:</span>
+                    {budgetPresets.map((preset) => (
                       <Button
                         key={preset}
                         type="button"
@@ -392,30 +396,9 @@ export function SponsorConfigurator() {
                           budgetInput === String(preset) && "border-primary bg-primary/10 text-primary font-bold"
                         )}
                       >
-                        ${preset}
-                      </Button>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    {[
-                      { label: "10M", val: "10000000" },
-                      { label: "25M", val: "25000000" },
-                      { label: "40M", val: "40000000" },
-                      { label: "80M", val: "80000000" },
-                    ].map((p) => (
-                      <Button
-                        key={p.val}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setBudgetInput(p.val)}
-                        className={cn(
-                          "h-7 text-xs px-2.5 cursor-pointer",
-                          budgetInput === p.val && "border-primary bg-primary/10 text-primary font-bold"
-                        )}
-                      >
-                        IDR {p.label}
+                        {currency === "USD"
+                          ? `$${new Intl.NumberFormat("en-US").format(preset)}`
+                          : `IDR ${new Intl.NumberFormat("en-US", { notation: "compact" }).format(preset)}`}
                       </Button>
                     ))}
                   </>

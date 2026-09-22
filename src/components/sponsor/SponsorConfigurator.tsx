@@ -36,18 +36,22 @@ import {
   DEFAULT_USD_EXCHANGE_RATE,
   buildSponsorSections,
   communityDayEvent,
-  formatAmount,
   formatIDR,
-  formatUSD,
+  formatPackagePrice,
+  formatUsdAmount,
+  hasRateDerivedUsd,
   isSoldOut,
   maxSponsorsOf,
   minimumSpendOf,
+  packagePriceParts,
+  packageUsdPrice,
   parseStoredSelection,
   remainingSponsorSlots,
   resolveEffectiveSelection,
   resolveSponsorTier,
   sanitizeSelection,
   sponsorContactEmail,
+  sumUsd,
   STORAGE_KEY,
 } from "@/components/sponsor/communityDayConfig";
 
@@ -153,6 +157,11 @@ export function SponsorConfigurator() {
     () => selectedPackages.reduce((sum, p) => sum + p.priceIdr, 0),
     [selectedPackages],
   );
+  const totalUsd = useMemo(
+    () => sumUsd(selectedPackages, exchangeRate),
+    [selectedPackages, exchangeRate],
+  );
+  const totalUsdIsEstimate = hasRateDerivedUsd(selectedPackages);
   const tier = useMemo(
     () => resolveSponsorTier(total, tiers ?? []),
     [total, tiers],
@@ -170,41 +179,42 @@ export function SponsorConfigurator() {
     return Math.min(100, Math.max(0, ((total - start) / span) * 100));
   }, [nextTier, tier, total]);
 
-  const minUnlockedPrice = useMemo(() => {
-    const prices = (packages ?? [])
-      .filter(
-        (p) =>
-          p.isUnlocked &&
-          !isSoldOut(p) &&
-          minimumSpendOf(p) === null,
-      )
-      .map((p) => p.priceIdr);
-    return prices.length > 0 ? Math.min(...prices) : null;
-  }, [packages]);
+  const startFromPackage = useMemo(() => {
+    const eligible = (packages ?? []).filter(
+      (p) => p.isUnlocked && !isSoldOut(p) && minimumSpendOf(p) === null,
+    );
+    if (eligible.length === 0) return null;
+    const key = (p: (typeof eligible)[number]) =>
+      currency === "USD" ? packageUsdPrice(p, exchangeRate) : p.priceIdr;
+    return eligible.reduce((a, b) => (key(b) < key(a) ? b : a));
+  }, [packages, currency, exchangeRate]);
 
-  // Budget calculations (normalized to IDR for comparison)
-  const targetBudgetNum = useMemo(() => {
+  // Budget value in active-currency units (USD budgets compare against the
+  // override-aware USD total, not total/rate).
+  const targetBudget = useMemo(() => {
     const raw = budgetInput.trim();
     if (!raw) return null;
     const val = parseFloat(raw.replace(/,/g, ""));
     if (isNaN(val) || val <= 0) return null;
-    return currency === "USD" ? val * exchangeRate : val;
-  }, [budgetInput, currency, exchangeRate]);
+    return val;
+  }, [budgetInput]);
+
+  const totalInCurrency = currency === "USD" ? totalUsd : total;
 
   const budgetRemaining = useMemo(() => {
-    if (targetBudgetNum === null) return null;
-    return targetBudgetNum - total;
-  }, [targetBudgetNum, total]);
+    if (targetBudget === null) return null;
+    return targetBudget - totalInCurrency;
+  }, [targetBudget, totalInCurrency]);
 
   const budgetProgress = useMemo(() => {
-    if (targetBudgetNum === null || targetBudgetNum <= 0) return 0;
-    return Math.min(100, Math.max(0, (total / targetBudgetNum) * 100));
-  }, [targetBudgetNum, total]);
+    if (targetBudget === null || targetBudget <= 0) return 0;
+    return Math.min(100, Math.max(0, (totalInCurrency / targetBudget) * 100));
+  }, [targetBudget, totalInCurrency]);
 
   const isOverBudget = useMemo(() => {
-    if (targetBudgetNum === null) return false;
-    return total > targetBudgetNum;
-  }, [targetBudgetNum, total]);
+    if (targetBudget === null) return false;
+    return totalInCurrency > targetBudget;
+  }, [targetBudget, totalInCurrency]);
 
   const sections = useMemo(
     () => buildSponsorSections(packages ?? [], groups),
@@ -215,6 +225,14 @@ export function SponsorConfigurator() {
   const trimmedEmail = email.trim();
   const trimmedGoals = goals.trim();
 
+  const totalUsdText = totalUsdIsEstimate
+    ? `~${formatUsdAmount(totalUsd)} (est.)`
+    : formatUsdAmount(totalUsd);
+  const totalPrimaryText =
+    currency === "USD" ? totalUsdText : formatIDR(total);
+  const totalSecondaryText =
+    currency === "USD" ? formatIDR(total) : totalUsdText;
+
   const summaryText = useMemo(() => {
     const lines: string[] = [
       "Hello AWS User Group Jakarta team,",
@@ -222,11 +240,12 @@ export function SponsorConfigurator() {
       `${trimmedCompany} would like to enquire about sponsoring ${communityDayEvent.name} (${communityDayEvent.date}, ${communityDayEvent.location}).`,
       "",
       "Selected packages (indicative):",
-      ...selectedPackages.map(
-        (p, i) => `${i + 1}. ${p.name} — ${formatIDR(p.priceIdr)} (~${formatUSD(p.priceIdr, exchangeRate)})\n   ${p.advantage}`,
-      ),
+      ...selectedPackages.map((p, i) => {
+        const { primary, secondary } = packagePriceParts(p, "IDR", exchangeRate);
+        return `${i + 1}. ${p.name} — ${primary} · ${secondary}\n   ${p.advantage}`;
+      }),
       "",
-      `Estimated total: ${formatIDR(total)} (~${formatUSD(total, exchangeRate)})`,
+      `Estimated total: ${formatIDR(total)} · ${totalUsdText}`,
       `Indicative tier: ${tier?.label ?? "To be confirmed"}`,
       "",
       `Contact email: ${trimmedEmail}`,
@@ -242,7 +261,7 @@ export function SponsorConfigurator() {
       trimmedCompany,
     );
     return lines.join("\n");
-  }, [selectedPackages, total, tier, trimmedCompany, trimmedEmail, trimmedGoals, exchangeRate]);
+  }, [selectedPackages, total, totalUsdText, tier, trimmedCompany, trimmedEmail, trimmedGoals, exchangeRate]);
 
   const mailSubject = `Sponsorship Enquiry — ${communityDayEvent.name} — ${trimmedCompany}`;
   const mailHref = `mailto:${sponsorContactEmail}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(summaryText)}`;
@@ -288,8 +307,8 @@ export function SponsorConfigurator() {
               Build Your Package
             </h3>
             <p className="text-muted-foreground text-sm">
-              {minUnlockedPrice !== null && (
-                <>Start from {formatAmount(minUnlockedPrice, currency, true, exchangeRate)}. </>
+              {startFromPackage !== null && (
+                <>Start from {formatPackagePrice(startFromPackage, currency, exchangeRate)}. </>
               )}
               Every partner earns a badge.
             </p>
@@ -424,21 +443,21 @@ export function SponsorConfigurator() {
                 />
               </div>
 
-              {targetBudgetNum !== null && (
+              {targetBudget !== null && (
                 <div className="flex-1 flex flex-col justify-center space-y-1.5 bg-background border border-border/60 rounded-lg p-2.5 text-xs">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-muted-foreground">
-                      Target Budget: <strong className="text-foreground">{formatAmount(targetBudgetNum, currency, false, exchangeRate)}</strong>
+                      Target Budget: <strong className="text-foreground">{currency === "USD" ? formatUsdAmount(targetBudget) : formatIDR(targetBudget)}</strong>
                     </span>
                     <span>
                       {isOverBudget ? (
                         <span className="text-destructive font-semibold flex items-center gap-1">
                           <AlertTriangle className="h-3.5 w-3.5 inline shrink-0" />
-                          Exceeds budget by {formatAmount(total - targetBudgetNum, currency, false, exchangeRate)}
+                          Exceeds budget by {currency === "USD" ? formatUsdAmount(totalInCurrency - targetBudget) : formatIDR(totalInCurrency - targetBudget)}
                         </span>
                       ) : (
                         <span className="text-emerald-500 font-medium">
-                          Remaining: {formatAmount(budgetRemaining ?? 0, currency, false, exchangeRate)}
+                          Remaining: {currency === "USD" ? formatUsdAmount(budgetRemaining ?? 0) : formatIDR(budgetRemaining ?? 0)}
                         </span>
                       )}
                     </span>
@@ -537,10 +556,12 @@ export function SponsorConfigurator() {
                           const isChecked = locked ? false : !!effectiveSelection[p.id];
                           const remaining = remainingSponsorSlots(p);
                           const exceedsRemainingBudget =
-                            targetBudgetNum !== null &&
+                            targetBudget !== null &&
                             !isChecked &&
                             budgetRemaining !== null &&
-                            p.priceIdr > budgetRemaining;
+                            (currency === "USD"
+                              ? packageUsdPrice(p, exchangeRate)
+                              : p.priceIdr) > budgetRemaining;
 
                           return (
                             <li key={p.id}>
@@ -597,8 +618,8 @@ export function SponsorConfigurator() {
                                               className="text-xs"
                                             >
                                               {spendLocked
-                                                ? `Spend ${formatAmount(minimumSpend, currency, false, exchangeRate)} to unlock`
-                                                : `Unlock at ${formatAmount(minimumSpend, currency, false, exchangeRate)} spend`}
+                                                ? `Spend ${currency === "USD" ? `~${formatUsdAmount(minimumSpend / exchangeRate)} (est.)` : formatIDR(minimumSpend)} to unlock`
+                                                : `Unlock at ${currency === "USD" ? `~${formatUsdAmount(minimumSpend / exchangeRate)} (est.)` : formatIDR(minimumSpend)} spend`}
                                             </Badge>
                                           )}
                                           {!adminLocked && !soldOut && remaining !== null && (
@@ -621,7 +642,7 @@ export function SponsorConfigurator() {
                                         "sm:hidden block text-sm font-semibold",
                                         isChecked ? "text-primary" : "text-muted-foreground"
                                       )}>
-                                        {formatAmount(p.priceIdr, currency, true, exchangeRate)}
+                                        {formatPackagePrice(p, currency, exchangeRate)}
                                       </span>
                                     </div>
                                   </div>
@@ -631,10 +652,10 @@ export function SponsorConfigurator() {
                                       "text-sm font-semibold",
                                       isChecked ? "text-primary" : "text-muted-foreground"
                                     )}>
-                                      {currency === "USD" ? formatUSD(p.priceIdr, exchangeRate) : formatIDR(p.priceIdr)}
+                                      {packagePriceParts(p, currency, exchangeRate).primary}
                                     </span>
                                     <span className="text-[10px] text-muted-foreground">
-                                      {currency === "USD" ? `~${formatIDR(p.priceIdr)}` : `~${formatUSD(p.priceIdr, exchangeRate)}`}
+                                      {packagePriceParts(p, currency, exchangeRate).secondary}
                                     </span>
                                   </div>
                                 </div>
@@ -672,12 +693,10 @@ export function SponsorConfigurator() {
                           : `${selectedPackages.length} ${selectedPackages.length === 1 ? "package" : "packages"} selected`}
                       </p>
                       <p className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-foreground">
-                        {currency === "USD" ? formatUSD(total, exchangeRate) : formatIDR(total)}
+                        {totalPrimaryText}
                       </p>
                       <p className="text-xs text-muted-foreground font-medium">
-                        {currency === "USD"
-                          ? `Equivalent: ${formatIDR(total)}`
-                          : `Equivalent: ${formatUSD(total, exchangeRate)}`}
+                        {totalSecondaryText}
                       </p>
                       {tier && (
                         <p className="text-xs text-muted-foreground">Indicative {tier.label} tier</p>
@@ -686,7 +705,7 @@ export function SponsorConfigurator() {
                     {nextTier && total > 0 && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span>{formatAmount(nextTier.thresholdIdr - total, currency, false, exchangeRate)} away from {nextTier.label}</span>
+                          <span>{currency === "USD" ? `~${formatUsdAmount((nextTier.thresholdIdr - total) / exchangeRate)} (est.)` : formatIDR(nextTier.thresholdIdr - total)} away from {nextTier.label}</span>
                           <span className="tabular-nums">{Math.round(tierProgress)}%</span>
                         </div>
                         <div
@@ -817,7 +836,7 @@ export function SponsorConfigurator() {
                     <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-lg font-bold tabular-nums text-foreground">
-                        {currency === "USD" ? formatUSD(total, exchangeRate) : formatIDR(total)}
+                        {totalPrimaryText}
                       </span>
                       {tier && (
                         <Badge className={cn("text-[9px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>

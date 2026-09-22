@@ -31,6 +31,7 @@ import {
   COMMUNITY_DAY_EVENT_SLUG,
   formatAmount,
   formatIDR,
+  formatUSD,
 } from "@/components/sponsor/communityDayConfig";
 import {
   ChevronDown,
@@ -67,6 +68,8 @@ import type {
 
 
 const MAX_IDR = 1_000_000_000;
+const MAX_USD = 1_000_000;
+const MIN_USD = 0.01;
 const MAX_SPONSORS_LIMIT = 10_000;
 const MAX_GROUP_LABEL = 80;
 const MAX_PACKAGE_NAME = 80;
@@ -79,6 +82,8 @@ interface PackageDraft {
   advantage: string;
   groupId: string;
   price: string;
+  /** Empty string = derive USD from the exchange rate (null). */
+  priceUsd: string;
   /** Empty string = no spend requirement. */
   minSpend: string;
   /** Empty string = unlimited (null). */
@@ -123,6 +128,7 @@ function toPackageDrafts(
       advantage: p.advantage,
       groupId: p.groupId ?? "",
       price: String(p.priceIdr),
+      priceUsd: p.priceUsd == null ? "" : String(p.priceUsd),
       minSpend: p.minimumSpendIdr == null ? "" : String(p.minimumSpendIdr),
       maxSponsors: p.maxSponsors == null ? "" : String(p.maxSponsors),
       reservedSponsors: String(p.reservedSponsors ?? 0),
@@ -167,6 +173,23 @@ function priceError(value: string): string | null {
   const n = Number(v);
   if (n < 1) return "Price must be at least IDR 1.";
   if (n > MAX_IDR) return "Price cannot exceed IDR 1,000,000,000.";
+  return null;
+}
+
+/** Empty string means "derive from rate" (null); decimals allowed. */
+function parsePriceUsd(value: string): number | null {
+  const v = value.trim();
+  if (!v || !/^\d+(?:\.\d+)?$/.test(v)) return null;
+  return Number(v);
+}
+
+function priceUsdError(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null; // optional: empty = derived from exchange rate
+  if (!/^\d+(?:\.\d+)?$/.test(v)) return "Enter a USD amount like 88 or 88.50.";
+  const n = Number(v);
+  if (n < MIN_USD) return "USD price must be at least $0.01.";
+  if (n > MAX_USD) return "USD price cannot exceed $1,000,000.";
   return null;
 }
 
@@ -273,6 +296,8 @@ function isDirty(
     draft.advantage.trim() !== pkg.advantage.trim() ||
     draft.groupId !== (pkg.groupId ?? "") ||
     draft.price.trim() !== String(pkg.priceIdr) ||
+    draft.priceUsd.trim() !==
+      (pkg.priceUsd == null ? "" : String(pkg.priceUsd)) ||
     draft.minSpend.trim() !==
       (pkg.minimumSpendIdr == null ? "" : String(pkg.minimumSpendIdr)) ||
     draft.maxSponsors.trim() !==
@@ -328,10 +353,11 @@ export function SponsorPackageManager() {
   const [showAddPackageGroupId, setShowAddPackageGroupId] = useState<
     string | null
   >(null);
-  const [newPackage, setNewPackage] = useState({
+  const [newPackage, setNewPackage] = useState<NewPackageInput>({
     name: "",
     advantage: "",
     price: "",
+    priceUsd: "",
   });
   const [creatingPackage, setCreatingPackage] = useState(false);
   const [createPackageError, setCreatePackageError] = useState<string | null>(
@@ -540,6 +566,7 @@ export function SponsorPackageManager() {
             : null),
         advantage: advantageError(newPackage.advantage),
         price: priceError(newPackage.price),
+        priceUsd: priceUsdError(newPackage.priceUsd),
       }
     : null;
 
@@ -566,6 +593,7 @@ export function SponsorPackageManager() {
     packageNameRowError(p) !== null ||
     advantageError(drafts[p.id]?.advantage ?? "") !== null ||
     priceError(drafts[p.id]?.price ?? "") !== null ||
+    priceUsdError(drafts[p.id]?.priceUsd ?? "") !== null ||
     minimumSpendError(drafts[p.id]?.minSpend ?? "") !== null ||
     maxSponsorsError(drafts[p.id]?.maxSponsors ?? "") !== null ||
     reservedSponsorsError(
@@ -810,7 +838,7 @@ export function SponsorPackageManager() {
 
   function toggleAddPackage(open: boolean, groupId?: string) {
     setShowAddPackageGroupId(open ? (groupId ?? null) : null);
-    setNewPackage({ name: "", advantage: "", price: "" });
+    setNewPackage({ name: "", advantage: "", price: "", priceUsd: "" });
     setCreatePackageError(null);
   }
 
@@ -828,6 +856,7 @@ export function SponsorPackageManager() {
         advantage: newPackage.advantage.trim(),
         groupId,
         priceIdr,
+        priceUsd: parsePriceUsd(newPackage.priceUsd),
       });
       applyData(data);
       setSaveError(null);
@@ -904,6 +933,7 @@ export function SponsorPackageManager() {
         advantage: drafts[id].advantage.trim(),
         groupId: drafts[id].groupId,
         priceIdr,
+        priceUsd: parsePriceUsd(drafts[id].priceUsd),
         minimumSpendIdr: parseMinimumSpendIdr(drafts[id].minSpend),
         maxSponsors: parseMaxSponsors(drafts[id].maxSponsors),
         reservedSponsors: parseReservedSponsors(drafts[id].reservedSponsors),
@@ -990,6 +1020,7 @@ export function SponsorPackageManager() {
         nameError={packageNameRowError(p)}
         advantageError={advantageError(draft.advantage)}
         error={priceError(draft.price)}
+        priceUsdError={priceUsdError(draft.priceUsd)}
         minSpendError={minimumSpendError(draft.minSpend)}
         maxError={maxSponsorsError(draft.maxSponsors)}
         reservedError={reservedSponsorsError(draft.maxSponsors, draft.reservedSponsors)}
@@ -1631,6 +1662,7 @@ function PackageRow({
   draft,
   dirty,
   error,
+  priceUsdError,
   nameError,
   advantageError,
   minSpendError,
@@ -1651,6 +1683,7 @@ function PackageRow({
   draft: PackageDraft;
   dirty: boolean;
   error: string | null;
+  priceUsdError: string | null;
   nameError: string | null;
   advantageError: string | null;
   minSpendError: string | null;
@@ -1669,6 +1702,8 @@ function PackageRow({
 }) {
   const priceId = `pkg-price-${pkg.id}`;
   const priceErrorId = `${priceId}-error`;
+  const priceUsdId = `pkg-price-usd-${pkg.id}`;
+  const priceUsdErrorId = `${priceUsdId}-error`;
   const nameId = `pkg-name-${pkg.id}`;
   const nameErrorId = `${nameId}-error`;
   const advantageId = `pkg-advantage-${pkg.id}`;
@@ -1683,6 +1718,7 @@ function PackageRow({
   const groupId = `pkg-group-${pkg.id}`;
   const groupErrorId = `${groupId}-error`;
   const parsed = parsePriceIdr(draft.price);
+  const parsedPriceUsd = parsePriceUsd(draft.priceUsd);
   const parsedMinSpend = parseMinimumSpendIdr(draft.minSpend);
   const parsedMax = parseMaxSponsors(draft.maxSponsors);
   const parsedReserved = parseReservedSponsors(draft.reservedSponsors);
@@ -1840,6 +1876,39 @@ function PackageRow({
                 {formatAmount(parsed, "IDR", true, rate)}
               </p>
             )
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={priceUsdId}>Price (USD, optional)</Label>
+          <Input
+            id={priceUsdId}
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9.]*"
+            autoComplete="off"
+            placeholder="Auto from rate"
+            className="bg-background"
+            value={draft.priceUsd}
+            onChange={(e) => onChange({ priceUsd: e.target.value })}
+            disabled={disabled}
+            aria-invalid={priceUsdError ? true : undefined}
+            aria-describedby={priceUsdError ? priceUsdErrorId : undefined}
+          />
+          {priceUsdError ? (
+            <p id={priceUsdErrorId} className="text-xs text-destructive">
+              {priceUsdError}
+            </p>
+          ) : parsedPriceUsd !== null ? (
+            <p className="text-xs text-muted-foreground">
+              Fixed ${parsedPriceUsd} USD — independent of the IDR price and rate.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {parsed !== null
+                ? `Empty — shows the rate estimate (${formatUSD(parsed, rate)}).`
+                : "Optional — empty uses the exchange-rate estimate."}
+            </p>
           )}
         </div>
 
@@ -2050,12 +2119,14 @@ interface NewPackageInput {
   name: string;
   advantage: string;
   price: string;
+  priceUsd: string;
 }
 
 interface PackageFormErrors {
   name: string | null;
   advantage: string | null;
   price: string | null;
+  priceUsd: string | null;
 }
 
 function AddPackageForm({
@@ -2090,12 +2161,18 @@ function AddPackageForm({
   const advantageErrorId = `${advantageId}-error`;
   const priceId = `new-pkg-price-${groupId}`;
   const priceErrorId = `${priceId}-error`;
+  const priceUsdId = `new-pkg-price-usd-${groupId}`;
+  const priceUsdErrorId = `${priceUsdId}-error`;
   const formErrorId = `new-pkg-error-${groupId}`;
   const headingId = `new-pkg-heading-${groupId}`;
   const parsedPrice = parsePriceIdr(value.price);
+  const parsedPriceUsd = parsePriceUsd(value.priceUsd);
   const invalid =
     errors !== null &&
-    (errors.name !== null || errors.advantage !== null || errors.price !== null);
+    (errors.name !== null ||
+      errors.advantage !== null ||
+      errors.price !== null ||
+      errors.priceUsd !== null);
   const createDisabled = busy || blocked || invalid;
 
   return (
@@ -2186,6 +2263,39 @@ function AddPackageForm({
                 {formatAmount(parsedPrice, "IDR", true, rate)}
               </p>
             )
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={priceUsdId}>Price (USD, optional)</Label>
+          <Input
+            id={priceUsdId}
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9.]*"
+            autoComplete="off"
+            placeholder="Auto from rate"
+            className="bg-background"
+            value={value.priceUsd}
+            onChange={(e) => onChange({ priceUsd: e.target.value })}
+            disabled={busy}
+            aria-invalid={errors?.priceUsd ? true : undefined}
+            aria-describedby={errors?.priceUsd ? priceUsdErrorId : undefined}
+          />
+          {errors?.priceUsd ? (
+            <p id={priceUsdErrorId} className="text-xs text-destructive">
+              {errors.priceUsd}
+            </p>
+          ) : parsedPriceUsd !== null ? (
+            <p className="text-xs text-muted-foreground">
+              Fixed ${parsedPriceUsd} USD — independent of the IDR price and rate.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {parsedPrice !== null
+                ? `Empty — shows the rate estimate (${formatUSD(parsedPrice, rate)}).`
+                : "Optional — empty uses the exchange-rate estimate."}
+            </p>
           )}
         </div>
       </div>

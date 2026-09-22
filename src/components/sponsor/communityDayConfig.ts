@@ -38,16 +38,19 @@ export function formatIDR(amount: number): string {
   return `IDR ${new Intl.NumberFormat("id-ID").format(amount)}`;
 }
 
-export function formatUSD(
-  amountIdr: number,
-  rate: number = DEFAULT_USD_EXCHANGE_RATE,
-): string {
-  const usd = amountIdr / rate;
+export function formatUsdAmount(usd: number): string {
   const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: usd % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(usd);
   return `$${formatted} USD`;
+}
+
+export function formatUSD(
+  amountIdr: number,
+  rate: number = DEFAULT_USD_EXCHANGE_RATE,
+): string {
+  return formatUsdAmount(amountIdr / rate);
 }
 
 export function formatAmount(
@@ -62,6 +65,62 @@ export function formatAmount(
   }
   const idrStr = formatIDR(amountIdr);
   return showEquivalent ? `${idrStr} (~${formatUSD(amountIdr, rate)})` : idrStr;
+}
+
+/** Package with optional manual USD price; older responses may omit priceUsd. */
+export interface UsdPricedPackage {
+  priceIdr: number;
+  priceUsd?: number | null;
+}
+
+/** Effective USD price: manual override when set, else rate-derived estimate. */
+export function packageUsdPrice(p: UsdPricedPackage, rate: number): number {
+  return p.priceUsd ?? p.priceIdr / rate;
+}
+
+/** True when any package's USD is rate-derived (its USD figure is an estimate). */
+export function hasRateDerivedUsd(
+  pkgs: readonly UsdPricedPackage[],
+): boolean {
+  return pkgs.some((p) => p.priceUsd == null);
+}
+
+/** Override-aware USD total: sum of per-package effective USD prices. */
+export function sumUsd(
+  pkgs: readonly UsdPricedPackage[],
+  rate: number,
+): number {
+  return pkgs.reduce((sum, p) => sum + packageUsdPrice(p, rate), 0);
+}
+
+/**
+ * Price strings for one package in the active currency. The secondary currency
+ * is exact when a manual USD price exists, and marked "(est.)" when derived
+ * from the exchange rate. Never labeled "equivalent" — a manual USD price is
+ * an independent price, not a conversion.
+ */
+export function packagePriceParts(
+  p: UsdPricedPackage,
+  currency: "IDR" | "USD",
+  rate: number,
+): { primary: string; secondary: string } {
+  const idr = formatIDR(p.priceIdr);
+  const usd =
+    p.priceUsd != null
+      ? formatUsdAmount(p.priceUsd)
+      : `~${formatUsdAmount(p.priceIdr / rate)} (est.)`;
+  return currency === "USD"
+    ? { primary: usd, secondary: idr }
+    : { primary: idr, secondary: usd };
+}
+
+export function formatPackagePrice(
+  p: UsdPricedPackage,
+  currency: "IDR" | "USD",
+  rate: number,
+): string {
+  const { primary, secondary } = packagePriceParts(p, currency, rate);
+  return `${primary} · ${secondary}`;
 }
 
 export const STORAGE_KEY = "awsugj-community-day-sponsor-selection-v1";

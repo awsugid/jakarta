@@ -318,6 +318,8 @@ export interface SponsorPackage {
   category: SponsorPackageCategory;
   /** Whole rupiah; positive integer. */
   priceIdr: number;
+  /** Optional manual USD price; null = derived from usdExchangeRate. */
+  priceUsd: number | null;
   /** Optional whole-rupiah total-spend threshold to unlock this package; null = no requirement. */
   minimumSpendIdr: number | null;
   /** Optional slot capacity; null = unlimited. */
@@ -370,6 +372,8 @@ export interface SponsorPackageUpdate {
   advantage: string;
   groupId: string;
   priceIdr: number;
+  /** Omitted = unchanged; null = clear (back to rate estimate); number = set. 0.01..=1,000,000. */
+  priceUsd?: number | null;
   /** null clears the spend requirement. */
   minimumSpendIdr: number | null;
   /** null clears the capacity limit (back to unlimited). */
@@ -389,6 +393,8 @@ export interface SponsorPackageCreate {
   advantage: string;
   groupId: string;
   priceIdr: number;
+  /** Optional manual USD price; null/omitted = derived from rate. 0.01..=1,000,000. */
+  priceUsd?: number | null;
 }
 
 /** Body for PUT /api/admin/events/:eventSlug/sponsor-packages. */

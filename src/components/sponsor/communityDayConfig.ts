@@ -16,20 +16,60 @@ export const communityDayEvent = {
 export const sponsorContactEmail = "awsugjakarta@gmail.com";
 
 /**
- * Highest admin-configured tier whose thresholdIdr is met by the total;
- * null when nothing is reached (replaces the old "none" sentinel).
- * Response claims descending order but sorting defensively anyway.
+ * Minimal tier shape for threshold math; older responses may omit thresholdUsd
+ * entirely (runtime undefined), which the ?? fallback treats as rate-derived.
+ */
+export interface UsdThresholdTier {
+  thresholdIdr: number;
+  thresholdUsd?: number | null;
+}
+
+/** Effective USD threshold: manual override when set, else thresholdIdr/rate. */
+export function tierThresholdUsd(t: UsdThresholdTier, rate: number): number {
+  return t.thresholdUsd ?? t.thresholdIdr / rate;
+}
+
+/** Tier threshold in the active currency (USD = override-aware). */
+export function tierThreshold(
+  t: UsdThresholdTier,
+  currency: "IDR" | "USD",
+  rate: number,
+): number {
+  return currency === "USD" ? tierThresholdUsd(t, rate) : t.thresholdIdr;
+}
+
+/**
+ * Highest tier whose threshold in the active currency is met by the total
+ * (given in the same currency); null when nothing is reached (replaces the
+ * old "none" sentinel). USD totals compare against override-aware effective
+ * thresholds sorted by them, so a manual thresholdUsd can reorder tiers
+ * relative to IDR. Response claims descending order but sorting defensively.
  */
 export function resolveSponsorTier(
   total: number,
   tiers: SponsorTier[],
+  currency: "IDR" | "USD" = "IDR",
+  rate: number = DEFAULT_USD_EXCHANGE_RATE,
 ): SponsorTier | null {
   if (total <= 0) return null;
   return (
     [...tiers]
-      .sort((a, b) => b.thresholdIdr - a.thresholdIdr)
-      .find((t) => t.thresholdIdr <= total) ?? null
+      .sort((a, b) => tierThreshold(b, currency, rate) - tierThreshold(a, currency, rate))
+      .find((t) => tierThreshold(t, currency, rate) <= total) ?? null
   );
+}
+
+/** Lowest tier above the total in the active currency; null when at the top. */
+export function nextSponsorTier(
+  total: number,
+  tiers: SponsorTier[],
+  currency: "IDR" | "USD" = "IDR",
+  rate: number = DEFAULT_USD_EXCHANGE_RATE,
+): SponsorTier | null {
+  const ascending = [...tiers].sort(
+    (a, b) => tierThreshold(a, currency, rate) - tierThreshold(b, currency, rate),
+  );
+  return ascending.find((t) => tierThreshold(t, currency, rate) > total) ?? null;
 }
 
 export const DEFAULT_USD_EXCHANGE_RATE = 17000;

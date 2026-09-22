@@ -49,9 +49,12 @@ import {
   remainingSponsorSlots,
   resolveEffectiveSelection,
   resolveSponsorTier,
+  nextSponsorTier,
   sanitizeSelection,
   sponsorContactEmail,
   sumUsd,
+  tierThreshold,
+  tierThresholdUsd,
   STORAGE_KEY,
 } from "@/components/sponsor/communityDayConfig";
 
@@ -162,22 +165,26 @@ export function SponsorConfigurator() {
     [selectedPackages, exchangeRate],
   );
   const totalUsdIsEstimate = hasRateDerivedUsd(selectedPackages);
+  // Tier math runs in the active currency: USD compares the override-aware
+  // USD total against effective USD thresholds (manual thresholdUsd wins over
+  // thresholdIdr/rate); IDR is unchanged.
+  const totalInCurrency = currency === "USD" ? totalUsd : total;
   const tier = useMemo(
-    () => resolveSponsorTier(total, tiers ?? []),
-    [total, tiers],
+    () => resolveSponsorTier(totalInCurrency, tiers ?? [], currency, exchangeRate),
+    [totalInCurrency, tiers, currency, exchangeRate],
   );
-  const nextTier = useMemo(() => {
-    const ascending = [...(tiers ?? [])].sort((a, b) => a.thresholdIdr - b.thresholdIdr);
-    return ascending.find((t) => t.thresholdIdr > total) ?? null;
-  }, [tiers, total]);
+  const nextTier = useMemo(
+    () => nextSponsorTier(totalInCurrency, tiers ?? [], currency, exchangeRate),
+    [totalInCurrency, tiers, currency, exchangeRate],
+  );
 
   const tierProgress = useMemo(() => {
     if (!nextTier) return 0;
-    const start = tier?.thresholdIdr ?? 0;
-    const span = nextTier.thresholdIdr - start;
+    const start = tier ? tierThreshold(tier, currency, exchangeRate) : 0;
+    const span = tierThreshold(nextTier, currency, exchangeRate) - start;
     if (span <= 0) return 100;
-    return Math.min(100, Math.max(0, ((total - start) / span) * 100));
-  }, [nextTier, tier, total]);
+    return Math.min(100, Math.max(0, ((totalInCurrency - start) / span) * 100));
+  }, [nextTier, tier, totalInCurrency, currency, exchangeRate]);
 
   const startFromPackage = useMemo(() => {
     const eligible = (packages ?? []).filter(
@@ -198,8 +205,6 @@ export function SponsorConfigurator() {
     if (isNaN(val) || val <= 0) return null;
     return val;
   }, [budgetInput]);
-
-  const totalInCurrency = currency === "USD" ? totalUsd : total;
 
   const budgetRemaining = useMemo(() => {
     if (targetBudget === null) return null;
@@ -705,7 +710,18 @@ export function SponsorConfigurator() {
                     {nextTier && total > 0 && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span>{currency === "USD" ? `~${formatUsdAmount((nextTier.thresholdIdr - total) / exchangeRate)} (est.)` : formatIDR(nextTier.thresholdIdr - total)} away from {nextTier.label}</span>
+                          <span>
+                            {currency === "USD"
+                              ? nextTier.thresholdUsd != null
+                                ? formatUsdAmount(
+                                    tierThresholdUsd(nextTier, exchangeRate) - totalUsd,
+                                  )
+                                : `~${formatUsdAmount(
+                                    tierThresholdUsd(nextTier, exchangeRate) - totalUsd,
+                                  )} (est.)`
+                              : formatIDR(nextTier.thresholdIdr - total)}{" "}
+                            away from {nextTier.label}
+                          </span>
                           <span className="tabular-nums">{Math.round(tierProgress)}%</span>
                         </div>
                         <div

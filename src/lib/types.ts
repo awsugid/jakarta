@@ -413,6 +413,8 @@ export interface SponsorTier {
   label: string;
   /** Whole rupiah; a sponsorship total at or above this reaches the tier. */
   thresholdIdr: number;
+  /** Optional manual USD threshold; null = derived from usdExchangeRate (rate estimate). */
+  thresholdUsd: number | null;
   accent: SponsorTierAccent;
   updatedAt: string;
 }
@@ -421,6 +423,8 @@ export interface SponsorTier {
 export interface SponsorTierCreate {
   label: string;
   thresholdIdr: number;
+  /** Optional manual USD threshold; null/omitted = derived from rate. 0.01..=1,000,000. */
+  thresholdUsd?: number | null;
   accent: SponsorTierAccent;
 }
 
@@ -429,6 +433,8 @@ export interface SponsorTierUpdate {
   id: string;
   label: string;
   thresholdIdr: number;
+  /** Omitted = unchanged; null = clear (back to rate estimate); number = set. 0.01..=1,000,000. */
+  thresholdUsd?: number | null;
   accent: SponsorTierAccent;
 }
 

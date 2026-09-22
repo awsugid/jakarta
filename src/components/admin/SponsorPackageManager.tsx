@@ -100,6 +100,8 @@ interface GroupDraft {
 interface TierDraft {
   label: string;
   threshold: string;
+  /** Empty string = derive USD threshold from the exchange rate (null). */
+  thresholdUsd: string;
   accent: SponsorTierAccent;
 }
 
@@ -154,6 +156,7 @@ function toTierDrafts(tiers: SponsorTier[]): Record<string, TierDraft> {
     drafts[t.id] = {
       label: t.label,
       threshold: String(t.thresholdIdr),
+      thresholdUsd: t.thresholdUsd == null ? "" : String(t.thresholdUsd),
       accent: t.accent,
     };
   }
@@ -286,6 +289,17 @@ function tierThresholdError(value: string): string | null {
   return null;
 }
 
+/** Optional USD override; empty = derived from rate. Mirrors the package USD rules. */
+function tierThresholdUsdError(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null; // optional: empty = derived from exchange rate
+  if (!/^\d+(?:\.\d+)?$/.test(v)) return "Enter a USD amount like 590 or 590.50.";
+  const n = Number(v);
+  if (n < MIN_USD) return "USD threshold must be at least $0.01.";
+  if (n > MAX_USD) return "USD threshold cannot exceed $1,000,000.";
+  return null;
+}
+
 function isDirty(
   pkg: SponsorPackage,
   draft: PackageDraft | undefined,
@@ -323,6 +337,8 @@ function isTierDirty(
   return (
     draft.label !== tier.label ||
     draft.threshold.trim() !== String(tier.thresholdIdr) ||
+    draft.thresholdUsd.trim() !==
+      (tier.thresholdUsd == null ? "" : String(tier.thresholdUsd)) ||
     draft.accent !== tier.accent
   );
 }
@@ -367,6 +383,7 @@ export function SponsorPackageManager() {
   const [newTier, setNewTier] = useState<NewTierInput>({
     label: "",
     threshold: "",
+    thresholdUsd: "",
     accent: "default",
   });
   const [creatingTier, setCreatingTier] = useState(false);
@@ -586,6 +603,7 @@ export function SponsorPackageManager() {
           (existingTierThresholds.has(parsePriceIdr(newTier.threshold) ?? -1)
             ? "Thresholds must be unique."
             : null),
+        thresholdUsd: tierThresholdUsdError(newTier.thresholdUsd),
       }
     : null;
 
@@ -617,7 +635,10 @@ export function SponsorPackageManager() {
     groups.some((g) => groupError(g) !== null) ||
     packages.some((p) => packageInvalid(p)) ||
     tiers.some(
-      (t) => tierLabelRowError(t) !== null || tierThresholdRowError(t) !== null,
+      (t) =>
+        tierLabelRowError(t) !== null ||
+        tierThresholdRowError(t) !== null ||
+        tierThresholdUsdError(tierDrafts[t.id]?.thresholdUsd ?? "") !== null,
     );
   const modifiedParts = [
     dirtyGroupIds.length > 0
@@ -874,7 +895,7 @@ export function SponsorPackageManager() {
 
   function toggleAddTier(open: boolean) {
     setShowAddTier(open);
-    setNewTier({ label: "", threshold: "", accent: "default" });
+    setNewTier({ label: "", threshold: "", thresholdUsd: "", accent: "default" });
     setCreateTierError(null);
   }
 
@@ -891,6 +912,7 @@ export function SponsorPackageManager() {
       const data = await createSponsorTier(COMMUNITY_DAY_EVENT_SLUG, {
         label: newTier.label.trim(),
         thresholdIdr,
+        thresholdUsd: parsePriceUsd(newTier.thresholdUsd),
         accent: newTier.accent,
       });
       applyData(data);
@@ -949,6 +971,7 @@ export function SponsorPackageManager() {
         id,
         label: (tierDrafts[id]?.label ?? "").trim(),
         thresholdIdr,
+        thresholdUsd: parsePriceUsd(tierDrafts[id]?.thresholdUsd ?? ""),
         accent: tierDrafts[id]?.accent ?? "default",
       });
     }
@@ -1448,6 +1471,9 @@ export function SponsorPackageManager() {
                   dirty={isTierDirty(t, draft)}
                   labelError={tierLabelRowError(t)}
                   thresholdError={tierThresholdRowError(t)}
+                  thresholdUsdError={tierThresholdUsdError(
+                    tierDrafts[t.id]?.thresholdUsd ?? "",
+                  )}
                   rate={exchangeRate}
                   disabled={saving || creatingGroup || creatingPackage || creatingTier}
                   onChange={(patch) => setTierDraft(t.id, patch)}
@@ -2346,6 +2372,7 @@ function TierRow({
   dirty,
   labelError,
   thresholdError,
+  thresholdUsdError,
   rate,
   disabled,
   onChange,
@@ -2356,6 +2383,7 @@ function TierRow({
   dirty: boolean;
   labelError: string | null;
   thresholdError: string | null;
+  thresholdUsdError: string | null;
   rate: number;
   disabled: boolean;
   onChange: (patch: Partial<TierDraft>) => void;
@@ -2365,8 +2393,11 @@ function TierRow({
   const labelErrorId = `${labelId}-error`;
   const thresholdId = `tier-threshold-${tier.id}`;
   const thresholdErrorId = `${thresholdId}-error`;
+  const thresholdUsdId = `tier-threshold-usd-${tier.id}`;
+  const thresholdUsdErrorId = `${thresholdUsdId}-error`;
   const accentId = `tier-accent-${tier.id}`;
   const parsedThreshold = parsePriceIdr(draft.threshold);
+  const parsedThresholdUsd = parsePriceUsd(draft.thresholdUsd);
 
   return (
     <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
@@ -2434,6 +2465,39 @@ function TierRow({
         </div>
 
         <div className="space-y-1.5">
+          <Label htmlFor={thresholdUsdId}>Threshold (USD, optional)</Label>
+          <Input
+            id={thresholdUsdId}
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9.]*"
+            autoComplete="off"
+            placeholder="Auto from rate"
+            className="bg-background"
+            value={draft.thresholdUsd}
+            onChange={(e) => onChange({ thresholdUsd: e.target.value })}
+            disabled={disabled}
+            aria-invalid={thresholdUsdError ? true : undefined}
+            aria-describedby={thresholdUsdError ? thresholdUsdErrorId : undefined}
+          />
+          {thresholdUsdError ? (
+            <p id={thresholdUsdErrorId} className="text-xs text-destructive">
+              {thresholdUsdError}
+            </p>
+          ) : parsedThresholdUsd !== null ? (
+            <p className="text-xs text-muted-foreground">
+              Fixed ${parsedThresholdUsd} USD — USD sponsors reach this tier here, independent of the IDR threshold and rate.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {parsedThreshold !== null
+                ? `Empty — USD sponsors see the rate estimate (${formatUSD(parsedThreshold, rate)}).`
+                : "Optional — empty uses the exchange-rate estimate."}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
           <Label htmlFor={accentId}>Accent</Label>
           <Select
             value={draft.accent}
@@ -2466,12 +2530,14 @@ function TierRow({
 interface NewTierInput {
   label: string;
   threshold: string;
+  thresholdUsd: string;
   accent: SponsorTierAccent;
 }
 
 interface TierFormErrors {
   label: string | null;
   threshold: string | null;
+  thresholdUsd: string | null;
 }
 
 function AddTierForm({
@@ -2500,12 +2566,18 @@ function AddTierForm({
   const labelErrorId = `${labelId}-error`;
   const thresholdId = "new-tier-threshold";
   const thresholdErrorId = `${thresholdId}-error`;
+  const thresholdUsdId = "new-tier-threshold-usd";
+  const thresholdUsdErrorId = `${thresholdUsdId}-error`;
   const accentId = "new-tier-accent";
   const formErrorId = "new-tier-error";
   const headingId = "new-tier-heading";
   const parsedThreshold = parsePriceIdr(value.threshold);
+  const parsedThresholdUsd = parsePriceUsd(value.thresholdUsd);
   const invalid =
-    errors !== null && (errors.label !== null || errors.threshold !== null);
+    errors !== null &&
+    (errors.label !== null ||
+      errors.threshold !== null ||
+      errors.thresholdUsd !== null);
   const createDisabled = busy || blocked || invalid;
 
   return (
@@ -2571,6 +2643,39 @@ function AddTierForm({
                 {formatAmount(parsedThreshold, "IDR", true, rate)}
               </p>
             )
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={thresholdUsdId}>Threshold (USD, optional)</Label>
+          <Input
+            id={thresholdUsdId}
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9.]*"
+            autoComplete="off"
+            placeholder="Auto from rate"
+            className="bg-background"
+            value={value.thresholdUsd}
+            onChange={(e) => onChange({ thresholdUsd: e.target.value })}
+            disabled={busy}
+            aria-invalid={errors?.thresholdUsd ? true : undefined}
+            aria-describedby={errors?.thresholdUsd ? thresholdUsdErrorId : undefined}
+          />
+          {errors?.thresholdUsd ? (
+            <p id={thresholdUsdErrorId} className="text-xs text-destructive">
+              {errors.thresholdUsd}
+            </p>
+          ) : parsedThresholdUsd !== null ? (
+            <p className="text-xs text-muted-foreground">
+              Fixed ${parsedThresholdUsd} USD — independent of the IDR threshold and rate.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {parsedThreshold !== null
+                ? `Empty — USD sponsors see the rate estimate (${formatUSD(parsedThreshold, rate)}).`
+                : "Optional — empty uses the exchange-rate estimate."}
+            </p>
           )}
         </div>
 

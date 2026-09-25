@@ -21,8 +21,14 @@ function parseMarkdown(text: string): string {
   // Code: `text` -> <code>text</code>
   html = html.replace(/`(.+?)`/g, "<code>$1</code>");
 
-  // Links: [text](url) -> <a href="url">text</a>
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+  // Links: [text](url) -> <a href="url" target="_blank" rel="noopener noreferrer">text</a> for external URLs
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_match, linkText, url) => {
+    const isExternal = /^(https?:)?\/\//i.test(url);
+    if (isExternal) {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+    }
+    return `<a href="${url}">${linkText}</a>`;
+  });
 
   return html;
 }

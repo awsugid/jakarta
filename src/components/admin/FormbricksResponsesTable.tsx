@@ -14,6 +14,29 @@ import { Button } from "@/components/ui/button";
 import type { AdminFormbricksResponseSummary } from "@/lib/types";
 import { Eye } from "lucide-react";
 
+/** Up to three tag chips plus an overflow counter. */
+function TagChips({ tags }: { tags: string[] }) {
+  const shown = tags.slice(0, 3);
+  const rest = tags.length - shown.length;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {shown.map((t) => (
+        <Badge
+          key={t}
+          className="border-transparent bg-primary/10 text-primary"
+        >
+          {t}
+        </Badge>
+      ))}
+      {rest > 0 && (
+        <Badge variant="outline" className="text-muted-foreground">
+          +{rest}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -76,6 +99,7 @@ export function FormbricksResponsesTable({
               <TableHead className="w-[180px]">Submitted</TableHead>
               <TableHead className="w-[220px]">Respondent</TableHead>
               <TableHead className="w-[110px]">Status</TableHead>
+              <TableHead className="w-[190px]">Tags</TableHead>
               <TableHead>Preview</TableHead>
               <TableHead className="w-[100px] text-right">Action</TableHead>
             </TableRow>
@@ -113,6 +137,13 @@ export function FormbricksResponsesTable({
                       <Badge className="border-transparent bg-yellow-500/10 text-yellow-500">
                         In Progress
                       </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="max-w-[190px]">
+                    {(r.tags ?? []).length > 0 ? (
+                      <TagChips tags={r.tags ?? []} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   <TableCell className="max-w-[320px]">
@@ -184,6 +215,7 @@ export function FormbricksResponsesTable({
                     </div>
                   </div>
                 )}
+                {(r.tags ?? []).length > 0 && <TagChips tags={r.tags ?? []} />}
                 <Button
                   size="sm"
                   variant="outline"

@@ -295,12 +295,19 @@ export async function updateAdminFormStatus(
 /** GET /api/admin/formbricks/responses — paginated responses for a survey. */
 export async function fetchAdminFormbricksResponses(
   surveyId: string,
-  params?: { limit?: number; offset?: number; finished?: "all" | "true" | "false" },
+  params?: {
+    limit?: number;
+    offset?: number;
+    finished?: "all" | "true" | "false";
+    /** Exact tag label filter (applied before pagination, combined with finished). */
+    tag?: string;
+  },
 ): Promise<AdminFormbricksResponseList> {
   const qs = new URLSearchParams({ surveyId });
   if (params?.limit) qs.set("limit", String(params.limit));
   if (params?.offset) qs.set("offset", String(params.offset));
   if (params?.finished) qs.set("finished", params.finished);
+  if (params?.tag) qs.set("tag", params.tag);
   return apiFetch<AdminFormbricksResponseList>(
     `/api/admin/formbricks/responses?${qs}`,
     { headers: authHeaders() },
@@ -316,6 +323,29 @@ export async function fetchAdminFormbricksResponseDetail(
   return apiFetch<AdminFormbricksResponseDetail>(
     `/api/admin/formbricks/responses/${encodeURIComponent(responseId)}?${qs}`,
     { headers: authHeaders() },
+  );
+}
+
+/** GET /api/admin/formbricks/tags — distinct assigned tag labels in a survey. */
+export async function fetchAdminFormbricksTags(
+  surveyId: string,
+): Promise<string[]> {
+  const qs = new URLSearchParams({ surveyId });
+  return apiFetch<string[]>(`/api/admin/formbricks/tags?${qs}`, {
+    headers: authHeaders(),
+  });
+}
+
+/** PUT /api/admin/formbricks/responses/:responseId/tags — atomically replace the tag set. */
+export async function updateAdminFormbricksResponseTags(
+  responseId: string,
+  surveyId: string,
+  tags: string[],
+): Promise<{ tags: string[] }> {
+  const qs = new URLSearchParams({ surveyId });
+  return apiFetch<{ tags: string[] }>(
+    `/api/admin/formbricks/responses/${encodeURIComponent(responseId)}/tags?${qs}`,
+    { method: "PUT", headers: authHeaders(), body: JSON.stringify({ tags }) },
   );
 }
 

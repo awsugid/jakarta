@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,12 +10,17 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { fetchAdminFormbricksResponseDetail } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import {
+  fetchAdminFormbricksResponseDetail,
+  updateAdminFormbricksResponseTags,
+} from "@/lib/api";
+import { addTag, prepareTagsForSave, removeTag } from "@/lib/responseTags";
 import type {
   AdminFormbricksAnswer,
   AdminFormbricksResponseDetail,
 } from "@/lib/types";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, Copy, Loader2, X } from "lucide-react";
 
 function renderValue(value: unknown): string {
   if (value == null) return "";
@@ -63,11 +68,16 @@ function AnswerRow({ answer }: { answer: AdminFormbricksAnswer }) {
 export function ResponseDetailDrawer({
   responseId,
   surveyId,
+  availableTags,
+  onTagsSaved,
   open,
   onOpenChange,
 }: {
   responseId: string | null;
   surveyId: string | null;
+  /** Distinct tags currently assigned in this survey (for suggestions). */
+  availableTags: string[];
+  onTagsSaved?: (responseId: string, tags: string[]) => void;
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
@@ -78,6 +88,17 @@ export function ResponseDetailDrawer({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Tag editor state; savedTags mirrors the last persisted set for dirty-checking.
+  const [tags, setTags] = useState<string[]>([]);
+  const [savedTags, setSavedTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [tagError, setTagError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingTags, setSavingTags] = useState(false);
+  // Latest-prop mirror; guards in-flight saves against a response switch.
+  const responseIdRef = useRef<string | null>(null);
+  responseIdRef.current = responseId;
+
   useEffect(() => {
     if (!open || !responseId || !surveyId) return;
     let cancelled = false;
@@ -86,7 +107,15 @@ export function ResponseDetailDrawer({
     setDetail(null);
     fetchAdminFormbricksResponseDetail(responseId, surveyId)
       .then((d) => {
-        if (!cancelled) setDetail(d);
+        if (!cancelled) {
+          setDetail(d);
+          const nextTags = d.tags ?? [];
+          setTags(nextTags);
+          setSavedTags(nextTags);
+          setTagInput("");
+          setTagError(null);
+          setSaveError(null);
+        }
       })
       .catch((err: any) => {
         if (!cancelled)
@@ -108,6 +137,54 @@ export function ResponseDetailDrawer({
       setTimeout(() => setCopied(false), 1500);
     } catch {
       /* clipboard blocked */
+    }
+  };
+
+  const dirty = tags.join("\u0000") !== savedTags.join("\u0000");
+
+  const mutateTags = (next: string[]) => {
+    setTags(next);
+    setTagError(null);
+  };
+
+  const addFromInput = () => {
+    const res = addTag(tags, tagInput);
+    if (res.error) {
+      setTagError(res.error);
+      return;
+    }
+    mutateTags(res.tags);
+    setTagInput("");
+  };
+
+  const saveTags = async () => {
+    if (!responseId || !surveyId) return;
+    const prepared = prepareTagsForSave(tags);
+    if (prepared.error) {
+      setTagError(prepared.error);
+      return;
+    }
+    const targetId = responseId;
+    setSavingTags(true);
+    setSaveError(null);
+    setTagError(null);
+    try {
+      const res = await updateAdminFormbricksResponseTags(
+        targetId,
+        surveyId,
+        prepared.tags,
+      );
+      // Response switched mid-save; drop the stale result.
+      if (responseIdRef.current !== targetId) return;
+      const saved = res.tags ?? [];
+      setTags(saved);
+      setSavedTags(saved);
+      onTagsSaved?.(targetId, saved);
+    } catch (err: any) {
+      if (responseIdRef.current !== targetId) return;
+      setSaveError(err?.message ?? "Failed to save tags.");
+    } finally {
+      if (responseIdRef.current === targetId) setSavingTags(false);
     }
   };
 
@@ -152,6 +229,99 @@ export function ResponseDetailDrawer({
                     ? `Updated ${new Date(detail.updated_at).toLocaleString()}`
                     : "No timestamp"}
               </span>
+            </div>
+
+            {/* Tags */}
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Tags
+                </h3>
+                {savingTags ? (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Saving…
+                  </span>
+                ) : dirty ? (
+                  <span className="text-xs text-muted-foreground">Unsaved changes</span>
+                ) : (
+                  <span className="text-xs text-green-500 flex items-center gap-1">
+                    <Check className="h-3 w-3" aria-hidden="true" /> Saved
+                  </span>
+                )}
+              </div>
+
+              {tags.length > 0 ? (
+                <ul className="flex flex-wrap gap-1.5" aria-label="Current tags">
+                  {tags.map((t) => (
+                    <li
+                      key={t}
+                      className="inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary text-xs px-2 py-1"
+                    >
+                      {t}
+                      <button
+                        type="button"
+                        onClick={() => mutateTags(removeTag(tags, t))}
+                        aria-label={`Remove tag ${t}`}
+                        disabled={savingTags}
+                        className="rounded-sm p-0.5 hover:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <X className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No tags yet.</p>
+              )}
+
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addFromInput();
+                }}
+              >
+                <Input
+                  list={`tag-suggestions-${detail.id}`}
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  placeholder="Add tag (e.g. Hired)"
+                  aria-label="Add tag"
+                  className="h-8 text-sm bg-background"
+                  disabled={savingTags}
+                />
+                <datalist id={`tag-suggestions-${detail.id}`}>
+                  {availableTags
+                    .filter(
+                      (t) => !tags.some((cur) => cur.toLowerCase() === t.toLowerCase()),
+                    )
+                    .map((t) => (
+                      <option key={t} value={t} />
+                    ))}
+                </datalist>
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  disabled={savingTags}
+                >
+                  Add
+                </Button>
+              </form>
+
+              {(tagError || saveError) && (
+                <p className="text-xs text-destructive" role="alert">
+                  {tagError ?? saveError}
+                </p>
+              )}
+
+              <div>
+                <Button size="sm" onClick={saveTags} disabled={savingTags || !dirty}>
+                  {savingTags && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Save tags
+                </Button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">

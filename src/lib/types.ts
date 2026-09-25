@@ -188,6 +188,8 @@ export interface AdminFormbricksResponseSummary {
   respondent_email: string | null;
   respondent_name: string | null;
   preview_answers: Record<string, string | number | boolean | string[] | null>;
+  /** Custom admin tags (exact stored labels). */
+  tags: string[];
 }
 
 /** Paginated list wrapper. */
@@ -215,6 +217,8 @@ export interface AdminFormbricksResponseDetail {
   finished: boolean;
   answers: AdminFormbricksAnswer[];
   metadata: { contact_id?: string };
+  /** Custom admin tags (exact stored labels). */
+  tags: string[];
 }
 
 /** A labeled count entry (e.g. top positions, top companies). */

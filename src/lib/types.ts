@@ -192,12 +192,22 @@ export interface AdminFormbricksResponseSummary {
   tags: string[];
 }
 
+/** Aggregate response stats across all pages for the active survey+finished+tag filters. */
+export interface AdminFormbricksResponseStats {
+  total: number;
+  finished: number;
+  in_progress: number;
+  latest_submission: string | null;
+}
+
 /** Paginated list wrapper. */
 export interface AdminFormbricksResponseList {
   items: AdminFormbricksResponseSummary[];
   total: number | null;
   limit: number;
   offset: number;
+  /** Absent on older backend deployments; the UI shows em dashes then. */
+  stats?: AdminFormbricksResponseStats | null;
 }
 
 /** Single labeled answer in a response detail payload. */

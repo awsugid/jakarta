@@ -15,7 +15,7 @@ import {
   fetchAdminFormbricksResponseDetail,
   updateAdminFormbricksResponseTags,
 } from "@/lib/api";
-import { addTag, prepareTagsForSave, removeTag } from "@/lib/responseTags";
+import { addTag, prepareTagsForSave, removeTag, sameTag } from "@/lib/responseTags";
 import type {
   AdminFormbricksAnswer,
   AdminFormbricksResponseDetail,
@@ -148,7 +148,7 @@ export function ResponseDetailDrawer({
   };
 
   const addFromInput = () => {
-    const res = addTag(tags, tagInput);
+    const res = addTag(tags, tagInput, availableTags);
     if (res.error) {
       setTagError(res.error);
       return;
@@ -253,20 +253,19 @@ export function ResponseDetailDrawer({
               {tags.length > 0 ? (
                 <ul className="flex flex-wrap gap-1.5" aria-label="Current tags">
                   {tags.map((t) => (
-                    <li
-                      key={t}
-                      className="inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary text-xs px-2 py-1"
-                    >
-                      {t}
-                      <button
-                        type="button"
-                        onClick={() => mutateTags(removeTag(tags, t))}
-                        aria-label={`Remove tag ${t}`}
-                        disabled={savingTags}
-                        className="rounded-sm p-0.5 hover:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <X className="h-3 w-3" aria-hidden="true" />
-                      </button>
+                    <li key={t}>
+                      <Badge variant="secondary" className="gap-1 pr-1.5">
+                        {t}
+                        <button
+                          type="button"
+                          onClick={() => mutateTags(removeTag(tags, t))}
+                          aria-label={`Remove tag ${t}`}
+                          disabled={savingTags}
+                          className="rounded-full p-0.5 hover:bg-secondary-foreground/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <X className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      </Badge>
                     </li>
                   ))}
                 </ul>
@@ -285,16 +284,14 @@ export function ResponseDetailDrawer({
                   list={`tag-suggestions-${detail.id}`}
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
-                  placeholder="Add tag (e.g. Hired)"
+                  placeholder="Choose an existing tag or type a new one"
                   aria-label="Add tag"
                   className="h-8 text-sm bg-background"
                   disabled={savingTags}
                 />
                 <datalist id={`tag-suggestions-${detail.id}`}>
                   {availableTags
-                    .filter(
-                      (t) => !tags.some((cur) => cur.toLowerCase() === t.toLowerCase()),
-                    )
+                    .filter((t) => !tags.some((cur) => sameTag(cur, t)))
                     .map((t) => (
                       <option key={t} value={t} />
                     ))}

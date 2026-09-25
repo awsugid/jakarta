@@ -65,6 +65,7 @@ export function VolunteerPageContent({ kioskUrl }: VolunteerPageContentProps) {
       <VolunteerHero
         kioskUrl={kioskUrl}
         openCount={openCount}
+        totalCount={forms.length}
         onApplyClick={handleMainApply}
       />
 

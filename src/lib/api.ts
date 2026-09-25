@@ -293,23 +293,41 @@ export async function updateAdminFormStatus(
 }
 
 /** GET /api/admin/formbricks/responses — paginated responses for a survey. */
-export async function fetchAdminFormbricksResponses(
+export interface AdminFormbricksResponsesParams {
+  limit?: number;
+  offset?: number;
+  finished?: "all" | "true" | "false";
+  /** Single exact tag label filter (legacy callers). */
+  tag?: string;
+  /** Exact tag labels with OR semantics; serialized as repeated tag= params. */
+  tags?: string[];
+  /** true = only responses with no tags; must not be combined with tag/tags. */
+  untagged?: boolean;
+}
+
+/** Pure query builder so tag serialization stays testable without network. */
+export function buildAdminResponsesQuery(
   surveyId: string,
-  params?: {
-    limit?: number;
-    offset?: number;
-    finished?: "all" | "true" | "false";
-    /** Exact tag label filter (applied before pagination, combined with finished). */
-    tag?: string;
-  },
-): Promise<AdminFormbricksResponseList> {
+  params?: AdminFormbricksResponsesParams,
+): string {
   const qs = new URLSearchParams({ surveyId });
   if (params?.limit) qs.set("limit", String(params.limit));
   if (params?.offset) qs.set("offset", String(params.offset));
   if (params?.finished) qs.set("finished", params.finished);
   if (params?.tag) qs.set("tag", params.tag);
+  for (const tag of params?.tags ?? []) {
+    if (tag) qs.append("tag", tag);
+  }
+  if (params?.untagged) qs.set("untagged", "true");
+  return qs.toString();
+}
+
+export async function fetchAdminFormbricksResponses(
+  surveyId: string,
+  params?: AdminFormbricksResponsesParams,
+): Promise<AdminFormbricksResponseList> {
   return apiFetch<AdminFormbricksResponseList>(
-    `/api/admin/formbricks/responses?${qs}`,
+    `/api/admin/formbricks/responses?${buildAdminResponsesQuery(surveyId, params)}`,
     { headers: authHeaders() },
   );
 }

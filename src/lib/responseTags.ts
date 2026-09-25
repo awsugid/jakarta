@@ -1,6 +1,7 @@
 // Client-side tag rules — mirrors the backend validation contract:
-// max 20 tags, trimmed labels 1..50 chars, no control characters,
-// dedup case-insensitive preserving the first spelling.
+// max 20 tags, labels trimmed with inner whitespace collapsed, 1..50 chars,
+// no control characters, dedup case-insensitive preserving the first spelling.
+// Labels equal to a catalog entry after normalization reuse its spelling.
 
 export const MAX_TAGS = 20;
 export const MAX_TAG_LENGTH = 50;
@@ -15,38 +16,54 @@ function codepointLength(s: string): number {
 
 export type TagCheck = { ok: true; tag: string } | { ok: false; error: string };
 
-/** Validate one raw label: trim, length 1..50, no control characters. */
+/** Collapse inner whitespace runs to single spaces (after trim). */
+function collapseWhitespace(s: string): string {
+  return s.replace(/\s+/g, " ");
+}
+
+/** Validate one raw label: trim + collapse, length 1..50, no control characters. */
 export function checkTag(raw: string): TagCheck {
-  const tag = raw.trim();
-  if (!tag) return { ok: false, error: "Tag can't be empty." };
-  if (codepointLength(tag) > MAX_TAG_LENGTH) {
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: false, error: "Tag can't be empty." };
+  if (codepointLength(trimmed) > MAX_TAG_LENGTH) {
     return { ok: false, error: `Tag must be ${MAX_TAG_LENGTH} characters or fewer.` };
   }
-  if (CONTROL_CHARS.test(tag)) {
+  if (CONTROL_CHARS.test(trimmed)) {
     return { ok: false, error: "Tag can't contain control characters." };
   }
-  return { ok: true, tag };
+  return { ok: true, tag: collapseWhitespace(trimmed) };
 }
 
-/** Case-insensitive equality used for dedup; first spelling wins. */
+/** Equality after trim + whitespace collapse + lowercasing; first spelling wins. */
 export function sameTag(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return (
+    collapseWhitespace(a.trim()).toLowerCase() ===
+    collapseWhitespace(b.trim()).toLowerCase()
+  );
 }
 
-/** Add one tag immutably; enforces dedup + max count. */
+/**
+ * Add one tag immutably; enforces dedup + max count. When `existing` (the
+ * survey catalog) holds a label that is equal after normalization, its
+ * spelling is reused instead of the typed one. Exact normalized match only —
+ * no fuzzy merging of distinct labels.
+ */
 export function addTag(
   tags: string[],
   raw: string,
+  existing: string[] = [],
 ): { tags: string[]; error: string | null } {
   const check = checkTag(raw);
   if (!check.ok) return { tags, error: check.error };
-  if (tags.some((t) => sameTag(t, check.tag))) {
+  const canonical = existing.find((t) => sameTag(t, check.tag));
+  const tag = canonical ?? check.tag;
+  if (tags.some((t) => sameTag(t, tag))) {
     return { tags, error: `"${check.tag}" is already added.` };
   }
   if (tags.length >= MAX_TAGS) {
     return { tags, error: `A response can have at most ${MAX_TAGS} tags.` };
   }
-  return { tags: [...tags, check.tag], error: null };
+  return { tags: [...tags, tag], error: null };
 }
 
 /** Remove one tag (case-insensitive match) immutably. */
@@ -75,7 +92,7 @@ export function distinctTags(labels: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const label of labels) {
-    const key = label.trim().toLowerCase();
+    const key = collapseWhitespace(label.trim()).toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
     out.push(label.trim());

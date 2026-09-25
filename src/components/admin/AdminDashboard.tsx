@@ -20,20 +20,17 @@ import {
 } from "@/components/ui/select";
 import { fetchAdminFormbricksResponses, fetchAdminFormbricksTags } from "@/lib/api";
 import type {
+  AdminFormbricksResponseStats,
   AdminFormbricksResponseSummary,
   AdminMe,
 } from "@/lib/types";
 import { distinctTags } from "@/lib/responseTags";
-import { ArrowLeft, ChevronLeft, ChevronRight, Filter, Loader2, RefreshCw, Tags } from "lucide-react";
+import { TagFilterMenu, TAG_FILTER_HINT, effectiveTagSelection } from "@/components/admin/TagFilterMenu";
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PAGE_SIZE, computePagination, paginationSummary, type PaginationState } from "@/components/admin/pagination";
 
 type FinishedFilter = "all" | "true" | "false";
-
-// Prefixed option values stop a literal tag named "all" from colliding with
-// the sentinel; the prefix is stripped on change and never displayed.
-const TAG_ALL = "all";
-const TAG_VALUE_PREFIX = "tag:";
 
 export function AdminDashboard() {
   return (
@@ -46,15 +43,24 @@ export function AdminDashboard() {
 function AdminDashboardInner({ admin }: { admin: AdminMe }) {
   const [tab, setTab] = useState<AdminTab>("responses");
   const [surveyId, setSurveyId] = useState<string | null>(null);
-  const [finished, setFinished] = useState<FinishedFilter>("all");
-  const [tagFilter, setTagFilter] = useState("");
+  const [finished, setFinished] = useState<FinishedFilter>("true");
+  // null = auto: every catalog tag is selected (the default). A manual array
+  // persists until the survey changes — catalog refreshes never prune it, so
+  // a label missing from the catalog stays applied until unchecked by hand.
+  const [selectedTags, setSelectedTags] = useState<string[] | null>(null);
   const [tagCatalog, setTagCatalog] = useState<string[]>([]);
+  // Survey whose tag catalog is resolved; responses wait for it so the first
+  // fetch never fires a stale untagged query before the catalog is known.
+  const [tagCatalogFor, setTagCatalogFor] = useState<string | null>(null);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [responses, setResponses] = useState<
     AdminFormbricksResponseSummary[]
   >([]);
   const [total, setTotal] = useState<number | null>(null);
+  const [stats, setStats] = useState<AdminFormbricksResponseStats | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -63,30 +69,42 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
   const requestIdRef = useRef(0);
   const tagRequestIdRef = useRef(0);
 
+  const effectiveTags = effectiveTagSelection(selectedTags, tagCatalog);
+  // True while the current survey's tag catalog is still loading — the table
+  // shows the loading state so stale rows from the previous survey never read
+  // as current.
+  const tagsPending = surveyId !== null && tagCatalogFor !== surveyId;
+
   const load = useCallback(async () => {
     if (!surveyId) return;
+    if (tagCatalogFor !== surveyId) return;
     const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
+    // Stats follow the request lifecycle: em dash while loading, never stale page counts.
+    setStats(null);
     try {
       const data = await fetchAdminFormbricksResponses(surveyId, {
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
         finished,
-        tag: tagFilter || undefined,
+        tags: effectiveTags.length > 0 ? effectiveTags : undefined,
+        untagged: effectiveTags.length === 0,
       });
       if (requestId !== requestIdRef.current) return;
       setResponses(data.items ?? []);
       setTotal(data.total);
+      setStats(data.stats ?? null);
     } catch (err: any) {
       if (requestId !== requestIdRef.current) return;
       setError(err?.message ?? "Failed to load responses.");
       setResponses([]);
       setTotal(null);
+      setStats(null);
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [surveyId, finished, page, tagFilter]);
+  }, [surveyId, tagCatalogFor, finished, page, effectiveTags]);
 
   useEffect(() => {
     load();
@@ -99,11 +117,14 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
       const data = await fetchAdminFormbricksTags(surveyId);
       if (requestId !== tagRequestIdRef.current) return;
       setTagCatalog(distinctTags(Array.isArray(data) ? data : []));
+      setTagCatalogFor(surveyId);
       setTagsError(null);
     } catch (err: any) {
-      // Keep the last good catalog; surface the failure so filtering can be retried.
+      // Keep the last good catalog; surface the failure so filtering can be
+      // retried. The gate still opens — a tags failure must not block responses.
       if (requestId === tagRequestIdRef.current) {
         setTagsError(err?.message ?? "Failed to load tags.");
+        setTagCatalogFor(surveyId);
       }
     }
   }, [surveyId]);
@@ -112,23 +133,16 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
     loadTags();
   }, [loadTags]);
 
-  // A successful fetch is authoritative, even when empty: a label missing from
-  // the catalog means its last assignment is gone. Keep filters during errors.
-  useEffect(() => {
-    if (tagsError === null && tagFilter && !tagCatalog.includes(tagFilter)) {
-      setTagFilter("");
-      setPage(1);
-    }
-  }, [tagFilter, tagCatalog, tagsError]);
-
   const onTagsSaved = useCallback(
     (responseId: string, tags: string[]) => {
       // Immediate badge refresh in the current page, then authoritative reloads.
       setResponses((prev) =>
         prev.map((r) => (r.id === responseId ? { ...r, tags } : r)),
       );
-      load();
       loadTags();
+      // Always reload: in auto mode a failed tags refresh wouldn't change the
+      // catalog, so the explicit call is the only reload trigger left.
+      load();
     },
     [load, loadTags],
   );
@@ -163,7 +177,7 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
             variant="outline"
             size="sm"
             onClick={load}
-            disabled={loading || !surveyId}
+            disabled={loading || tagsPending || !surveyId}
             className="self-start sm:self-auto flex items-center gap-1.5"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
@@ -183,18 +197,36 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
         <SponsorPackageManager />
       ) : (
         <>
-          {/* Filter row */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-5">
-            <FormSelector
-              value={surveyId}
-              onChange={(id) => {
-                setSurveyId(id);
-                setPage(1);
-                setTagFilter("");
-              }}
-            />
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+          {/* Filter row: labeled controls, one grid row, equal heights; stacks on mobile. */}
+          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_180px_260px] gap-3 mb-4">
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label
+                htmlFor="filter-form"
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Form
+              </label>
+              <FormSelector
+                id="filter-form"
+                value={surveyId}
+                onChange={(id) => {
+                  setSurveyId(id);
+                  setPage(1);
+                  // Back to auto: the new survey selects its own full catalog,
+                  // and responses wait until that catalog resolves.
+                  setSelectedTags(null);
+                  setTagCatalogFor(null);
+                  setTagCatalog([]);
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label
+                htmlFor="filter-status"
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Status
+              </label>
               <Select
                 value={finished}
                 onValueChange={(v) => {
@@ -202,7 +234,7 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="w-full sm:w-[180px] bg-background">
+                <SelectTrigger id="filter-status" className="w-full bg-background">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -212,58 +244,57 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <Tags className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-                <Select
-                  value={tagFilter ? `${TAG_VALUE_PREFIX}${tagFilter}` : TAG_ALL}
-                  onValueChange={(v) => {
-                    setTagFilter(
-                      v.startsWith(TAG_VALUE_PREFIX) ? v.slice(TAG_VALUE_PREFIX.length) : "",
-                    );
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-[180px] bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={TAG_ALL}>All tags</SelectItem>
-                    {tagCatalog.map((t) => (
-                      <SelectItem key={t} value={`${TAG_VALUE_PREFIX}${t}`}>
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {tagsError && (
-                <div
-                  className="flex items-center gap-2 text-xs text-destructive"
-                  role="alert"
-                >
-                  <span className="truncate">Tags: {tagsError}</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-xs shrink-0"
-                    onClick={loadTags}
-                  >
-                    Retry
-                  </Button>
-                </div>
-              )}
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label
+                htmlFor="filter-tags"
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Tags
+              </label>
+              <TagFilterMenu
+                id="filter-tags"
+                hintId="filter-tags-hint"
+                selected={effectiveTags}
+                catalog={tagCatalog}
+                onChange={(next) => {
+                  setSelectedTags(next);
+                  setPage(1);
+                }}
+              />
             </div>
+          </div>
+          {/* Helper + tag errors sit outside the control row so they never
+              push the three triggers out of alignment. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-5 text-xs text-muted-foreground">
+            <span id="filter-tags-hint">Tags: {TAG_FILTER_HINT}</span>
+            {tagsError && (
+              <span
+                className="flex items-center gap-2 text-destructive"
+                role="alert"
+              >
+                <span className="truncate">Couldn't load tags: {tagsError}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs shrink-0"
+                  onClick={loadTags}
+                >
+                  Retry
+                </Button>
+              </span>
+            )}
           </div>
 
           {/* Stats */}
           <div className="mb-5">
-            <AdminStatsCards responses={responses} total={total} />
+            {/* Auto mode selects every tag, so counts always reflect an active
+                filter (untagged responses are excluded either way). */}
+            <AdminStatsCards stats={tagsPending ? null : stats} filtered />
           </div>
 
           {/* Body */}
-          {loading ? (
+          {loading || tagsPending ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 bg-card border border-border/80 rounded-xl">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground animate-pulse">

@@ -1,17 +1,25 @@
 import React from "react";
-import { HandHeart } from "lucide-react";
+import { HandHeart, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
 import { RotatingEventName } from "@/components/RotatingEventName";
+import { applyCtaMode } from "@/components/volunteer/talentPool";
 
 interface VolunteerHeroProps {
   kioskUrl?: string;
   openCount?: number;
+  totalCount?: number;
   onApplyClick?: () => void;
 }
 
-export function VolunteerHero({ kioskUrl, openCount, onApplyClick }: VolunteerHeroProps) {
+export function VolunteerHero({
+  kioskUrl,
+  openCount,
+  totalCount,
+  onApplyClick,
+}: VolunteerHeroProps) {
+  const ctaMode = applyCtaMode(openCount ?? 0, totalCount ?? 0);
   return (
     <section className="relative overflow-hidden min-h-[85vh] flex items-center justify-center pt-24 sm:pt-28 pb-16 px-4 bg-background">
       <div className="container mx-auto relative z-10 flex flex-col items-center text-center px-4 md:px-6">
@@ -45,14 +53,18 @@ export function VolunteerHero({ kioskUrl, openCount, onApplyClick }: VolunteerHe
         </p>
 
         <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both flex flex-col sm:flex-row gap-4 justify-center">
-          {openCount && openCount > 0 && (
+          {(ctaMode === "apply" || ctaMode === "pool") && (
             <Button
               size="lg"
               onClick={onApplyClick}
               className="h-12 w-full sm:w-56 px-8 text-base font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/95 shadow-lg shadow-orange-500/20 cursor-pointer"
             >
-              <HandHeart className="mr-2 h-5 w-5" />
-              Apply to Volunteer
+              {ctaMode === "pool" ? (
+                <Users className="mr-2 h-5 w-5" />
+              ) : (
+                <HandHeart className="mr-2 h-5 w-5" />
+              )}
+              {ctaMode === "pool" ? "Join Talent Pool" : "Apply to Volunteer"}
             </Button>
           )}
           <a href="/blog/volunteer">

@@ -33,10 +33,32 @@ ok("checkTag accepts 26 emoji (52 UTF-16 units)", (() => {
 })());
 
 ok("sameTag case-insensitive", sameTag("Hired", " HIRED "));
+ok("sameTag collapses inner whitespace", sameTag("Follow  Up", " follow up "));
+ok("checkTag collapses inner whitespace", (() => {
+  const t = checkTag("two  spaces");
+  return t.ok && t.tag === "two spaces";
+})());
 ok("addTag dedups case-insensitive", (() => {
   const first = addTag([], "Hired");
   const dup = addTag(first.tags, "HIRED");
   return first.error === null && dup.error !== null && dup.tags.join() === "Hired";
+})());
+ok("addTag dedups whitespace variants", addTag(["Follow Up"], "follow   up").error !== null);
+ok("addTag reuses catalog spelling (case-insensitive)", (() => {
+  const res = addTag([], "  vip ", ["VIP"]);
+  return res.error === null && res.tags.join() === "VIP";
+})());
+ok("addTag reuses catalog spelling (whitespace collapsed)", (() => {
+  const res = addTag([], "follow   up", ["Follow Up"]);
+  return res.error === null && res.tags.join() === "Follow Up";
+})());
+ok("addTag keeps new spelling when catalog differs", (() => {
+  const res = addTag([], "New Tag", ["VIP"]);
+  return res.error === null && res.tags.join() === "New Tag";
+})());
+ok("addTag does not fuzzy-merge partial matches", (() => {
+  const res = addTag([], "Hire", ["Hired"]);
+  return res.error === null && res.tags.join() === "Hire";
 })());
 ok("addTag enforces max 20", (() => {
   let tags: string[] = [];
@@ -56,6 +78,10 @@ ok("prepareTagsForSave rejects >20", prepareTagsForSave(Array.from({ length: 21 
 ok(
   "distinctTags dedups + sorts",
   distinctTags(["B", " a ", "A", ""]).join("|") === "a|B",
+);
+ok(
+  "distinctTags dedups whitespace variants",
+  distinctTags(["Follow  Up", "follow up"]).join("|") === "Follow  Up",
 );
 
 console.log(`responseTags: ${passed} checks passed`);

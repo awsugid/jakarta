@@ -21,10 +21,7 @@ function TagChips({ tags }: { tags: string[] }) {
   return (
     <div className="flex flex-wrap gap-1">
       {shown.map((t) => (
-        <Badge
-          key={t}
-          className="border-transparent bg-primary/10 text-primary"
-        >
+        <Badge key={t} variant="secondary">
           {t}
         </Badge>
       ))}

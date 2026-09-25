@@ -12,6 +12,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { fetchDiscovery, fetchFormLink } from "@/lib/api";
+import {
+  applyDialogForms,
+  isTalentPoolForm,
+} from "@/components/volunteer/talentPool";
 import { Loader2, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
 import type { FormInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -66,6 +70,12 @@ export function ApplyVolunteerDialog({
     submittedEmail: string;
     editable: boolean;
   } | null>(null);
+
+  // Talent Pool: volunteer forms stay submittable while inactive.
+  const selectedForm = forms.find(
+    (f) => f.kind === kind && f.slug === selectedSlug,
+  );
+  const isPool = selectedForm ? isTalentPoolForm(kind, selectedForm) : false;
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -178,7 +188,7 @@ export function ApplyVolunteerDialog({
   const renderContent = () => {
     switch (step) {
       case "select_division": {
-        const activeForms = forms.filter((f) => f.is_active && f.kind === kind);
+        const listedForms = applyDialogForms(kind, forms);
         return (
           <div className="space-y-4">
             <DialogDescription className="text-base text-muted-foreground">
@@ -190,8 +200,8 @@ export function ApplyVolunteerDialog({
                 Available Divisions
               </label>
               <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1.5 custom-scrollbar">
-                {activeForms.length > 0 ? (
-                  activeForms.map((form) => {
+                {listedForms.length > 0 ? (
+                  listedForms.map((form) => {
                     const divisionMeta = divisions.find(
                       (d) => nameToSlug[d.name] === form.slug,
                     );
@@ -222,15 +232,22 @@ export function ApplyVolunteerDialog({
                         >
                           <IconComponent className="h-4.5 w-4.5" />
                         </div>
-                        <div className="space-y-0.5">
-                          <h4
-                            className={cn(
-                              "text-sm font-semibold tracking-tight transition-colors",
-                              isSelected ? "text-primary" : "text-foreground",
+                        <div className="space-y-0.5 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4
+                              className={cn(
+                                "text-sm font-semibold tracking-tight transition-colors",
+                                isSelected ? "text-primary" : "text-foreground",
+                              )}
+                            >
+                              {form.title}
+                            </h4>
+                            {isTalentPoolForm(kind, form) && (
+                              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">
+                                Talent Pool
+                              </span>
                             )}
-                          >
-                            {form.title}
-                          </h4>
+                          </div>
                           {divisionMeta?.description && (
                             <p className="text-xs text-muted-foreground leading-normal line-clamp-2">
                               {divisionMeta.description}
@@ -242,7 +259,7 @@ export function ApplyVolunteerDialog({
                   })
                 ) : (
                   <div className="p-6 text-sm text-center text-muted-foreground border border-dashed border-border rounded-lg">
-                    No divisions currently active
+                    No divisions available
                   </div>
                 )}
               </div>
@@ -270,11 +287,24 @@ export function ApplyVolunteerDialog({
               if you already have an existing application and guide you through
               the process.
             </DialogDescription>
+            {isPool && (
+              <div
+                role="status"
+                className="flex gap-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/10"
+              >
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-300">
+                  This position is not currently recruiting. You can still apply
+                  to our talent pool, and we’ll contact you when opportunities
+                  become available.
+                </p>
+              </div>
+            )}
             <Button
               onClick={handleContinue}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/95"
             >
-              Continue
+              {isPool ? "Join talent pool" : "Continue"}
             </Button>
           </div>
         );
@@ -447,7 +477,18 @@ export function ApplyVolunteerDialog({
             isEmbedStep ? "px-6 py-4 border-b border-border/40" : "",
           )}
         >
-          <DialogTitle>Apply — {selectedTitle || "Volunteer"}</DialogTitle>
+          <DialogTitle>
+            {isPool && selectedTitle
+              ? `Talent Pool — ${selectedTitle}`
+              : `Apply — ${selectedTitle || "Volunteer"}`}
+          </DialogTitle>
+          {isEmbedStep && isPool && (
+            <DialogDescription className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+              This position is not currently recruiting. You can still apply
+              to our talent pool, and we’ll contact you when opportunities
+              become available.
+            </DialogDescription>
+          )}
         </DialogHeader>
         {isEmbedStep ? (
           <div className="flex-grow w-full h-full bg-muted/5 relative overflow-y-auto flex flex-col">

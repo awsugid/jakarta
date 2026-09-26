@@ -42,3 +42,12 @@ export const SESSIONIZE_CONFIG = {
 } as const;
 
 export type SessionizeConfig = typeof SESSIONIZE_CONFIG;
+
+/** Helper to check if CFP is currently open based on status and deadline date */
+export function isCfpOpen(now: Date = new Date()): boolean {
+  if (SESSIONIZE_CONFIG.status !== "open") return false;
+  const deadlineMs = Date.parse(`${SESSIONIZE_CONFIG.dates.deadline}T23:59:59+07:00`);
+  if (isNaN(deadlineMs)) return true;
+  return now.getTime() <= deadlineMs;
+}
+

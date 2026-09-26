@@ -4,13 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ImmichKioskBackground } from "@/components/ImmichKioskBackground";
 import { RotatingEventName } from "@/components/RotatingEventName";
-import { SESSIONIZE_CONFIG } from "@/lib/sessionize";
+import { SESSIONIZE_CONFIG, isCfpOpen } from "@/lib/sessionize";
 
 interface SpeakerHeroProps {
   kioskUrl?: string;
   isOpen?: boolean;
   activeTab?: "community" | "monthly";
   onApply?: () => void;
+  onSelectTab?: (tab: "community" | "monthly") => void;
 }
 
 export function SpeakerHero({
@@ -18,7 +19,10 @@ export function SpeakerHero({
   isOpen = true,
   activeTab = "community",
   onApply,
+  onSelectTab,
 }: SpeakerHeroProps) {
+  const communityCfpOpen = isCfpOpen();
+
   return (
     <section className="relative overflow-hidden min-h-[85vh] flex items-center justify-center pt-24 sm:pt-28 pb-16 px-4 bg-background">
 
@@ -53,17 +57,32 @@ export function SpeakerHero({
 
         <div className="mb-8 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 fill-mode-both flex flex-col sm:flex-row gap-4 justify-center">
           {activeTab === "community" ? (
-            <Button
-              asChild
-              size="lg"
-              className="h-12 w-full sm:w-64 px-8 text-base font-bold rounded-md bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/20 gap-2"
-            >
-              <a href={SESSIONIZE_CONFIG.CFP_URL} target="_blank" rel="noopener noreferrer">
+            communityCfpOpen ? (
+              <Button
+                asChild
+                size="lg"
+                className="h-12 w-full sm:w-64 px-8 text-base font-bold rounded-md bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/20 gap-2"
+              >
+                <a href={SESSIONIZE_CONFIG.CFP_URL} target="_blank" rel="noopener noreferrer">
+                  <Mic className="h-5 w-5" />
+                  Share Your Story
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={() => {
+                  if (onSelectTab) onSelectTab("monthly");
+                  if (onApply) onApply();
+                }}
+                className="h-12 w-full sm:w-64 px-8 text-base font-bold rounded-md bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/20 gap-2 cursor-pointer"
+              >
                 <Mic className="h-5 w-5" />
-                Share Your Story
+                Speak at Monthly Meetup
                 <ExternalLink className="h-4 w-4" />
-              </a>
-            </Button>
+              </Button>
+            )
           ) : (
             <Button
               size="lg"

@@ -51,6 +51,17 @@ export function SpeakerPageContent({ kioskUrl }: SpeakerPageContentProps) {
 
   const [activeTab, setActiveTab] = useState<"community" | "monthly">("community");
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      const hash = window.location.hash;
+      if (tabParam === "monthly" || hash.includes("monthly")) {
+        setActiveTab("monthly");
+      }
+    }
+  }, []);
+
   const speakerForm = forms.find((f) => f.slug === "speaker") ?? forms[0];
   const hasOpenForms = !!speakerForm?.is_active;
 
@@ -73,6 +84,7 @@ export function SpeakerPageContent({ kioskUrl }: SpeakerPageContentProps) {
         kioskUrl={kioskUrl}
         isOpen={hasOpenForms}
         activeTab={activeTab}
+        onSelectTab={setActiveTab}
         onApply={handleHeroApply}
       />
 

@@ -3,7 +3,17 @@
 // backend at runtime via fetchSponsorPackages — see
 // plan/comday_sponsor_admin_configuration.
 
-import type { SponsorPackageGroup, SponsorTier } from "@/lib/types";
+import {
+  Globe,
+  Megaphone,
+  Video,
+  Mail,
+  Shirt,
+  Award,
+  Camera,
+  Mic,
+} from "lucide-react";
+import type { SponsorPackageGroup, SponsorTier, SponsorTierAccent } from "@/lib/types";
 
 export const COMMUNITY_DAY_EVENT_SLUG = "community-day-2026";
 
@@ -14,6 +24,46 @@ export const communityDayEvent = {
 } as const;
 
 export const sponsorContactEmail = "awsugjakarta@gmail.com";
+
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const ASSET_ICONS: Record<string, typeof Globe> = {
+  "web-logo": Globe,
+  "social-blast": Megaphone,
+  "video-ad": Video,
+  "email-footer": Mail,
+  tshirt: Shirt,
+  lanyard: Award,
+  backdrop: Camera,
+  "mc-mention": Mic,
+};
+
+export const DEFAULT_PLACEMENT_IMAGE = "https://avatars.awscommunity.id/comday-26/xbanner.png";
+
+export const PLACEMENT_IMAGES: Record<string, string> = {
+  xbanner: DEFAULT_PLACEMENT_IMAGE,
+  backdrop: "https://avatars.awscommunity.id/comday-26/backdrop.png",
+  lanyard: "https://avatars.awscommunity.id/comday-26/lanyard.png",
+  booth: "https://avatars.awscommunity.id/comday-26/booth.png",
+  "video-ad": "https://avatars.awscommunity.id/comday-26/video-ad.png",
+};
+
+export function getPlacementImageUrl(packageId: string): string {
+  if (PLACEMENT_IMAGES[packageId]) {
+    return PLACEMENT_IMAGES[packageId];
+  }
+  return DEFAULT_PLACEMENT_IMAGE;
+}
+
+export const TIER_BADGE_CLASS: Record<SponsorTierAccent, string> = {
+  platinum: "bg-gradient-to-r from-slate-100 via-zinc-200 to-slate-200 text-slate-900 border-none shadow-[0_0_12px_rgba(255,255,255,0.15)] font-bold",
+  gold: "bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-500 text-amber-950 border-none shadow-[0_0_12px_rgba(245,158,11,0.2)] font-bold",
+  silver: "bg-gradient-to-r from-slate-300 via-zinc-400 to-slate-400 text-zinc-950 border-none font-bold",
+  bronze: "bg-gradient-to-r from-orange-700 via-amber-700 to-orange-800 text-orange-50 border-none font-bold",
+  default: "bg-gradient-to-r from-orange-400 via-primary to-orange-500 text-orange-950 border-none font-bold",
+};
+
+export type LoadStatus = "loading" | "ready" | "error";
 
 /**
  * Minimal tier shape for threshold math; older responses may omit thresholdUsd

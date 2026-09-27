@@ -1,39 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import {
-  Mail,
-  Copy,
-  Check,
-  Globe,
-  Megaphone,
-  Video,
-  Award,
-  Camera,
-  Mic,
-  Shirt,
-  RefreshCw,
-  Calculator,
-  AlertTriangle,
-} from "lucide-react";
-
+import { Globe, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { fetchSponsorPackages } from "@/lib/api";
 import type {
   SponsorPackage,
   SponsorPackageGroup,
   SponsorTier,
-  SponsorTierAccent,
 } from "@/lib/types";
 
 import {
   COMMUNITY_DAY_EVENT_SLUG,
   DEFAULT_USD_EXCHANGE_RATE,
+  EMAIL_PATTERN,
+  STORAGE_KEY,
   buildSponsorSections,
   communityDayEvent,
   formatIDR,
@@ -43,44 +23,26 @@ import {
   isSoldOut,
   maxSponsorsOf,
   minimumSpendOf,
+  nextSponsorTier,
   packagePriceParts,
   packageUsdPrice,
   parseStoredSelection,
   remainingSponsorSlots,
   resolveEffectiveSelection,
   resolveSponsorTier,
-  nextSponsorTier,
   sanitizeSelection,
   sponsorContactEmail,
   sumUsd,
   tierBudgetPresets,
   tierThreshold,
-  tierThresholdUsd,
-  STORAGE_KEY,
+  type LoadStatus,
 } from "@/components/sponsor/communityDayConfig";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const ASSET_ICONS: Record<string, typeof Globe> = {
-  "web-logo": Globe,
-  "social-blast": Megaphone,
-  "video-ad": Video,
-  "email-footer": Mail,
-  "tshirt": Shirt,
-  "lanyard": Award,
-  "backdrop": Camera,
-  "mc-mention": Mic,
-};
-
-const TIER_BADGE_CLASS: Record<SponsorTierAccent, string> = {
-  platinum: "bg-gradient-to-r from-slate-100 via-zinc-200 to-slate-200 text-slate-900 border-none shadow-[0_0_12px_rgba(255,255,255,0.15)] font-bold",
-  gold: "bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-500 text-amber-950 border-none shadow-[0_0_12px_rgba(245,158,11,0.2)] font-bold",
-  silver: "bg-gradient-to-r from-slate-300 via-zinc-400 to-slate-400 text-zinc-950 border-none font-bold",
-  bronze: "bg-gradient-to-r from-orange-700 via-amber-700 to-orange-800 text-orange-50 border-none font-bold",
-  default: "bg-gradient-to-r from-orange-400 via-primary to-orange-500 text-orange-950 border-none font-bold",
-};
-
-type LoadStatus = "loading" | "ready" | "error";
+import { SponsorBudgetTracker } from "./SponsorBudgetTracker";
+import { SponsorPackageCard } from "./SponsorPackageCard";
+import { SponsorSummaryCard } from "./SponsorSummaryCard";
+import { SponsorPlacementModal } from "./SponsorPlacementModal";
+import { SponsorMobileBar } from "./SponsorMobileBar";
 
 export function SponsorConfigurator() {
   const [packages, setPackages] = useState<SponsorPackage[] | null>(null);
@@ -93,6 +55,7 @@ export function SponsorConfigurator() {
   // Currency & Budget state
   const [currency, setCurrency] = useState<"IDR" | "USD">("IDR");
   const [budgetInput, setBudgetInput] = useState<string>("");
+  const [detailPackage, setDetailPackage] = useState<SponsorPackage | null>(null);
 
   const [selection, setSelection] = useState<Record<string, boolean>>(() => {
     try {
@@ -150,33 +113,31 @@ export function SponsorConfigurator() {
 
   const effectiveSelection = useMemo(
     () => resolveEffectiveSelection(packages ?? [], selection),
-    [packages, selection],
+    [packages, selection]
   );
 
   const selectedPackages = useMemo(
     () => (packages ?? []).filter((p) => effectiveSelection[p.id]),
-    [packages, effectiveSelection],
+    [packages, effectiveSelection]
   );
   const total = useMemo(
     () => selectedPackages.reduce((sum, p) => sum + p.priceIdr, 0),
-    [selectedPackages],
+    [selectedPackages]
   );
   const totalUsd = useMemo(
     () => sumUsd(selectedPackages, exchangeRate),
-    [selectedPackages, exchangeRate],
+    [selectedPackages, exchangeRate]
   );
   const totalUsdIsEstimate = hasRateDerivedUsd(selectedPackages);
-  // Tier math runs in the active currency: USD compares the override-aware
-  // USD total against effective USD thresholds (manual thresholdUsd wins over
-  // thresholdIdr/rate); IDR is unchanged.
+
   const totalInCurrency = currency === "USD" ? totalUsd : total;
   const tier = useMemo(
     () => resolveSponsorTier(totalInCurrency, tiers ?? [], currency, exchangeRate),
-    [totalInCurrency, tiers, currency, exchangeRate],
+    [totalInCurrency, tiers, currency, exchangeRate]
   );
   const nextTier = useMemo(
     () => nextSponsorTier(totalInCurrency, tiers ?? [], currency, exchangeRate),
-    [totalInCurrency, tiers, currency, exchangeRate],
+    [totalInCurrency, tiers, currency, exchangeRate]
   );
 
   const tierProgress = useMemo(() => {
@@ -189,7 +150,7 @@ export function SponsorConfigurator() {
 
   const startFromPackage = useMemo(() => {
     const eligible = (packages ?? []).filter(
-      (p) => p.isUnlocked && !isSoldOut(p) && minimumSpendOf(p) === null,
+      (p) => p.isUnlocked && !isSoldOut(p) && minimumSpendOf(p) === null
     );
     if (eligible.length === 0) return null;
     const key = (p: (typeof eligible)[number]) =>
@@ -197,8 +158,6 @@ export function SponsorConfigurator() {
     return eligible.reduce((a, b) => (key(b) < key(a) ? b : a));
   }, [packages, currency, exchangeRate]);
 
-  // Budget value in active-currency units (USD budgets compare against the
-  // override-aware USD total, not total/rate).
   const targetBudget = useMemo(() => {
     const raw = budgetInput.trim();
     if (!raw) return null;
@@ -222,15 +181,14 @@ export function SponsorConfigurator() {
     return totalInCurrency > targetBudget;
   }, [targetBudget, totalInCurrency]);
 
-  // Preset chips mirror the configured tier thresholds in the active currency.
   const budgetPresets = useMemo(
     () => tierBudgetPresets(tiers ?? [], currency, exchangeRate),
-    [tiers, currency, exchangeRate],
+    [tiers, currency, exchangeRate]
   );
 
   const sections = useMemo(
     () => buildSponsorSections(packages ?? [], groups),
-    [packages, groups],
+    [packages, groups]
   );
 
   const trimmedCompany = company.trim();
@@ -270,7 +228,7 @@ export function SponsorConfigurator() {
       "Could you confirm the availability of the selected packages, share a final quotation, and outline the next steps?",
       "",
       "Thank you,",
-      trimmedCompany,
+      trimmedCompany
     );
     return lines.join("\n");
   }, [selectedPackages, total, totalUsdText, tier, trimmedCompany, trimmedEmail, trimmedGoals, exchangeRate]);
@@ -362,106 +320,17 @@ export function SponsorConfigurator() {
 
         {/* Sponsor Budget Calculator Banner */}
         {showConfigurator && (
-          <div className="mb-8 rounded-xl border border-border bg-card/60 p-4 sm:p-5 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-                  <Calculator className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground">
-                    Sponsor Budget Tracker
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Specify your target budget to track remaining funds and optimize package selection.
-                  </p>
-                </div>
-              </div>
-
-              {/* Quick Presets */}
-              <div className="flex flex-wrap items-center gap-1.5 self-start md:self-auto">
-                {budgetPresets.length > 0 && (
-                  <>
-                    <span className="text-xs text-muted-foreground mr-1">Presets:</span>
-                    {budgetPresets.map((preset) => (
-                      <Button
-                        key={preset}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setBudgetInput(String(preset))}
-                        className={cn(
-                          "text-xs px-2.5 cursor-pointer",
-                          budgetInput === String(preset) && "border-primary bg-primary/10 text-primary font-bold"
-                        )}
-                      >
-                        {currency === "USD"
-                          ? `$${new Intl.NumberFormat("en-US").format(preset)}`
-                          : `IDR ${new Intl.NumberFormat("en-US", { notation: "compact" }).format(preset)}`}
-                      </Button>
-                    ))}
-                  </>
-                )}
-                {budgetInput && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setBudgetInput("")}
-                    className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="relative flex-1 max-w-xs">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">
-                  {currency === "USD" ? "$" : "IDR"}
-                </span>
-                <Input
-                  type="number"
-                  placeholder={currency === "USD" ? "Target Budget (USD)" : "Target Budget (IDR)"}
-                  value={budgetInput}
-                  onChange={(e) => setBudgetInput(e.target.value)}
-                  className="pl-11 bg-background"
-                />
-              </div>
-
-              {targetBudget !== null && (
-                <div className="flex-1 flex flex-col justify-center space-y-1.5 bg-background border border-border/60 rounded-lg p-2.5 text-xs">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-muted-foreground">
-                      Target Budget: <strong className="text-foreground">{currency === "USD" ? formatUsdAmount(targetBudget) : formatIDR(targetBudget)}</strong>
-                    </span>
-                    <span>
-                      {isOverBudget ? (
-                        <span className="text-destructive font-semibold flex items-center gap-1">
-                          <AlertTriangle className="h-3.5 w-3.5 inline shrink-0" />
-                          Exceeds budget by {currency === "USD" ? formatUsdAmount(totalInCurrency - targetBudget) : formatIDR(totalInCurrency - targetBudget)}
-                        </span>
-                      ) : (
-                        <span className="text-emerald-500 font-medium">
-                          Remaining: {currency === "USD" ? formatUsdAmount(budgetRemaining ?? 0) : formatIDR(budgetRemaining ?? 0)}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full transition-all duration-300 rounded-full",
-                        isOverBudget ? "bg-destructive" : "bg-emerald-500"
-                      )}
-                      style={{ width: `${Math.min(100, budgetProgress)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <SponsorBudgetTracker
+            budgetPresets={budgetPresets}
+            currency={currency}
+            budgetInput={budgetInput}
+            setBudgetInput={setBudgetInput}
+            targetBudget={targetBudget}
+            isOverBudget={isOverBudget}
+            totalInCurrency={totalInCurrency}
+            budgetRemaining={budgetRemaining}
+            budgetProgress={budgetProgress}
+          />
         )}
 
         {status === "loading" && (
@@ -523,341 +392,110 @@ export function SponsorConfigurator() {
         {showConfigurator && packages && (
           <>
             <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+              {/* Main Package Grid */}
               <div className="space-y-10">
-                {sections.map((section) => {
-                  return (
-                    <div key={section.id} className="space-y-4">
-                      <h4 className="text-lg font-bold text-foreground flex items-center gap-2 border-l-2 border-primary pl-3">
-                        {section.label}
-                      </h4>
-                      <ul className="space-y-3">
-                        {section.packages.map((p) => {
-                          const Icon = ASSET_ICONS[p.id] || Award;
-                          const minimumSpend = minimumSpendOf(p);
-                          const maxSponsors = maxSponsorsOf(p);
-                          const adminLocked = !p.isUnlocked;
-                          const soldOut = !adminLocked && isSoldOut(p);
-                          const spendLocked =
-                            !adminLocked && !soldOut && minimumSpend !== null && total < minimumSpend;
-                          const locked = adminLocked || soldOut || spendLocked;
-                          const isChecked = locked ? false : !!effectiveSelection[p.id];
-                          const remaining = remainingSponsorSlots(p);
-                          const exceedsRemainingBudget =
-                            targetBudget !== null &&
-                            !isChecked &&
-                            budgetRemaining !== null &&
-                            (currency === "USD"
-                              ? packageUsdPrice(p, exchangeRate)
-                              : p.priceIdr) > budgetRemaining;
+                {sections.map((section) => (
+                  <div key={section.id} className="space-y-4">
+                    <h4 className="text-lg font-bold text-foreground flex items-center gap-2 border-l-2 border-primary pl-3">
+                      {section.label}
+                    </h4>
+                    <ul className="space-y-3">
+                      {section.packages.map((p) => {
+                        const minimumSpend = minimumSpendOf(p);
+                        const maxSponsors = maxSponsorsOf(p);
+                        const adminLocked = !p.isUnlocked;
+                        const soldOut = !adminLocked && isSoldOut(p);
+                        const spendLocked =
+                          !adminLocked && !soldOut && minimumSpend !== null && total < minimumSpend;
+                        const locked = adminLocked || soldOut || spendLocked;
+                        const isChecked = locked ? false : !!effectiveSelection[p.id];
+                        const remaining = remainingSponsorSlots(p);
+                        const exceedsRemainingBudget =
+                          targetBudget !== null &&
+                          !isChecked &&
+                          budgetRemaining !== null &&
+                          (currency === "USD"
+                            ? packageUsdPrice(p, exchangeRate)
+                            : p.priceIdr) > budgetRemaining;
 
-                          return (
-                            <li key={p.id}>
-                              <Label
-                                htmlFor={p.id}
-                                className={cn(
-                                  "flex items-start gap-4 rounded-xl border p-4 transition-all duration-200 select-none",
-                                  locked
-                                    ? "cursor-not-allowed border-border bg-card/40 opacity-60"
-                                    : "cursor-pointer hover:bg-accent/40",
-                                  isChecked && "border-primary bg-primary/5 shadow-md shadow-primary/5"
-                                )}
-                              >
-                                <div className="flex items-center h-5">
-                                  <Checkbox
-                                    id={p.id}
-                                    checked={isChecked}
-                                    disabled={locked}
-                                    onCheckedChange={(value) =>
-                                      setSelection((prev) => ({ ...prev, [p.id]: value === true }))
-                                    }
-                                    className={locked ? "cursor-not-allowed" : "cursor-pointer"}
-                                  />
-                                </div>
-                                <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                  <div className="flex gap-3">
-                                    <div className={cn(
-                                      "p-2 rounded-lg shrink-0 h-10 w-10 flex items-center justify-center transition-colors",
-                                      isChecked
-                                        ? "bg-primary/20 text-primary"
-                                        : "bg-muted/55 text-muted-foreground"
-                                    )}>
-                                      <Icon className="h-5 w-5" />
-                                    </div>
-                                    <div className="space-y-2">
-                                      <div className="space-y-1 text-left">
-                                        <span className="flex flex-wrap items-center gap-2">
-                                          <span className="block font-medium text-foreground leading-snug">
-                                            {p.name}
-                                          </span>
-                                          {adminLocked && (
-                                            <Badge variant="secondary" className="text-xs">
-                                              Not available
-                                            </Badge>
-                                          )}
-                                          {soldOut && (
-                                            <Badge variant="secondary" className="text-xs">
-                                              Sold out
-                                            </Badge>
-                                          )}
-                                          {!adminLocked && !soldOut && minimumSpend !== null && (
-                                            <Badge
-                                              variant={spendLocked ? "secondary" : "outline"}
-                                              className="text-xs"
-                                            >
-                                              {spendLocked
-                                                ? `Spend ${currency === "USD" ? `~${formatUsdAmount(minimumSpend / exchangeRate)} (est.)` : formatIDR(minimumSpend)} to unlock`
-                                                : `Unlock at ${currency === "USD" ? `~${formatUsdAmount(minimumSpend / exchangeRate)} (est.)` : formatIDR(minimumSpend)} spend`}
-                                            </Badge>
-                                          )}
-                                          {!adminLocked && !soldOut && remaining !== null && (
-                                            <Badge variant="outline" className="text-xs">
-                                              {`${remaining} of ${maxSponsors} slots left`}
-                                            </Badge>
-                                          )}
-                                          {exceedsRemainingBudget && (
-                                            <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-500">
-                                              Exceeds target budget
-                                            </Badge>
-                                          )}
-                                        </span>
-                                        <span className="block text-xs text-muted-foreground leading-relaxed">
-                                          {p.advantage}
-                                        </span>
-                                      </div>
-                                      {/* Price stacked below description on mobile only */}
-                                      <span className={cn(
-                                        "sm:hidden block text-sm font-semibold",
-                                        isChecked ? "text-primary" : "text-foreground"
-                                      )}>
-                                        {formatPackagePrice(p, currency, exchangeRate)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  {/* Price aligned to right on desktop */}
-                                  <div className="hidden sm:flex flex-col items-end whitespace-nowrap self-center shrink-0">
-                                    <span className={cn(
-                                      "text-sm font-semibold",
-                                      isChecked ? "text-primary" : "text-muted-foreground"
-                                    )}>
-                                      {packagePriceParts(p, currency, exchangeRate).primary}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {packagePriceParts(p, currency, exchangeRate).secondary}
-                                    </span>
-                                  </div>
-                                </div>
-                              </Label>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  );
-                })}
+                        return (
+                          <SponsorPackageCard
+                            key={p.id}
+                            packageItem={p}
+                            currency={currency}
+                            exchangeRate={exchangeRate}
+                            isChecked={isChecked}
+                            locked={locked}
+                            adminLocked={adminLocked}
+                            soldOut={soldOut}
+                            spendLocked={spendLocked}
+                            minimumSpend={minimumSpend}
+                            maxSponsors={maxSponsors}
+                            remaining={remaining}
+                            exceedsRemainingBudget={exceedsRemainingBudget}
+                            onToggleSelection={(id, checked) =>
+                              setSelection((prev) => ({ ...prev, [id]: checked }))
+                            }
+                            onViewDetail={(pkg) => setDetailPackage(pkg)}
+                          />
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
               </div>
 
+              {/* Sidebar Sponsorship Request Card */}
               <aside className="lg:sticky lg:top-24 space-y-4">
-                <Card id="sponsorship-form-card" className={cn(
-                  "transition-all duration-300",
-                  total > 0 && "border-primary/30 shadow-lg shadow-primary/5"
-                )}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-lg">Your Sponsorship</CardTitle>
-                      {tier && (
-                        <Badge
-                          variant="outline"
-                          className={cn("bg-transparent", TIER_BADGE_CLASS[tier.accent])}
-                        >
-                          {tier.label}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        {total === 0
-                          ? "Select a package"
-                          : `${selectedPackages.length} ${selectedPackages.length === 1 ? "package" : "packages"} selected`}
-                      </p>
-                      <p className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-foreground">
-                        {totalPrimaryText}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-medium">
-                        {totalSecondaryText}
-                      </p>
-                      {tier && (
-                        <p className="text-xs text-muted-foreground">Indicative {tier.label} tier</p>
-                      )}
-                    </div>
-                    {nextTier && total > 0 && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span>
-                            {currency === "USD"
-                              ? nextTier.thresholdUsd != null
-                                ? formatUsdAmount(
-                                    tierThresholdUsd(nextTier, exchangeRate) - totalUsd,
-                                  )
-                                : `~${formatUsdAmount(
-                                    tierThresholdUsd(nextTier, exchangeRate) - totalUsd,
-                                  )} (est.)`
-                              : formatIDR(nextTier.thresholdIdr - total)}{" "}
-                            away from {nextTier.label}
-                          </span>
-                          <span className="tabular-nums">{Math.round(tierProgress)}%</span>
-                        </div>
-                        <div
-                          role="progressbar"
-                          aria-label={`Progress toward ${nextTier.label} tier`}
-                          aria-valuenow={Math.round(tierProgress)}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          className="h-2 w-full overflow-hidden rounded-full bg-muted"
-                        >
-                          <div
-                            className="h-full rounded-full bg-primary transition-all duration-500"
-                            style={{ width: `${tierProgress}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Package selections are requests, not reservations. Prices are indicative, subject to availability, and finalized by agreement.
-                    </p>
-                    <p className="text-xs text-amber-300 leading-relaxed">
-                      No baseline package comes with automatic booths; booths can be added in subsequent phases upon venue capacity confirmation.
-                    </p>
-
-                    <form onSubmit={handleSubmit} className="space-y-3" noValidate={false}>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="sponsor-company">Company Name</Label>
-                        <Input
-                          id="sponsor-company"
-                          type="text"
-                          required
-                          maxLength={120}
-                          autoComplete="organization"
-                          value={company}
-                          onChange={(e) => setCompany(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="sponsor-email">Contact Email</Label>
-                        <Input
-                          id="sponsor-email"
-                          type="email"
-                          required
-                          maxLength={254}
-                          autoComplete="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="sponsor-goals">Target Technical Goals</Label>
-                          <span className="text-xs text-muted-foreground">{goals.length}/1000</span>
-                        </div>
-                        <Textarea
-                          id="sponsor-goals"
-                          rows={3}
-                          maxLength={1000}
-                          value={goals}
-                          onChange={(e) => setGoals(e.target.value)}
-                        />
-                      </div>
-
-                      {formError && (
-                        <p className="text-sm text-destructive">{formError}</p>
-                      )}
-
-                      <Button type="submit" className="w-full h-11 cursor-pointer">
-                        <Mail aria-hidden="true" />
-                        Prepare Sponsorship Email
-                      </Button>
-                    </form>
-
-                    {submitState === "prepared" && (
-                      <div
-                        aria-live="polite"
-                        className="space-y-3 rounded-lg border border-border p-4 bg-background"
-                      >
-                        <p className="text-sm text-foreground">
-                          Email draft prepared. Send it from your email app to submit your package request.
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full cursor-pointer"
-                          onClick={handleCopy}
-                        >
-                          {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-                          Copy Summary
-                        </Button>
-                        {clipboardError === "copy-failed" && (
-                          <div className="space-y-2">
-                            <p className="text-xs text-destructive">
-                              Clipboard unavailable. Copy the summary manually below.
-                            </p>
-                            <Textarea
-                              readOnly
-                              rows={10}
-                              value={summaryText}
-                              className="font-mono text-xs"
-                              aria-label="Sponsorship request summary"
-                            />
-                          </div>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          Or email us directly:{" "}
-                          <a
-                            href={mailHref}
-                            className="text-primary underline underline-offset-4 break-all"
-                          >
-                            {sponsorContactEmail}
-                          </a>
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <SponsorSummaryCard
+                  total={total}
+                  totalUsd={totalUsd}
+                  selectedPackages={selectedPackages}
+                  tier={tier}
+                  nextTier={nextTier}
+                  tierProgress={tierProgress}
+                  currency={currency}
+                  exchangeRate={exchangeRate}
+                  totalPrimaryText={totalPrimaryText}
+                  totalSecondaryText={totalSecondaryText}
+                  company={company}
+                  setCompany={setCompany}
+                  email={email}
+                  setEmail={setEmail}
+                  goals={goals}
+                  setGoals={setGoals}
+                  formError={formError}
+                  submitState={submitState}
+                  handleSubmit={handleSubmit}
+                  handleCopy={handleCopy}
+                  copied={copied}
+                  clipboardError={clipboardError}
+                  summaryText={summaryText}
+                  mailHref={mailHref}
+                />
               </aside>
             </div>
 
-            {/* Sticky Bottom Bar for Mobile */}
+            {/* Sticky Mobile Summary Bar */}
             {total > 0 && (
-              <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-md border-t border-border p-4 shadow-lg animate-in slide-in-from-bottom duration-300">
-                <div className="container mx-auto flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <span className="block text-xs text-muted-foreground uppercase font-bold tracking-wider">Package Request</span>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-lg font-bold tabular-nums text-foreground">
-                        {totalPrimaryText}
-                      </span>
-                      {tier && (
-                        <Badge className={cn("text-[10px] px-1.5 py-0 font-bold", TIER_BADGE_CLASS[tier.accent])}>
-                          {tier.label}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const element = document.getElementById("sponsorship-form-card");
-                      if (element) {
-                        element.scrollIntoView({ behavior: "smooth" });
-                      }
-                    }}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs py-2 px-3 h-9 rounded-lg cursor-pointer"
-                  >
-                    Continue to Details
-                  </Button>
-                </div>
-              </div>
+              <SponsorMobileBar
+                totalPrimaryText={totalPrimaryText}
+                tier={tier}
+              />
             )}
+
+            {/* Sponsor Placement Detail Modal */}
+            <SponsorPlacementModal
+              detailPackage={detailPackage}
+              onClose={() => setDetailPackage(null)}
+              currency={currency}
+              exchangeRate={exchangeRate}
+              effectiveSelection={effectiveSelection}
+              onToggleSelection={(id, checked) =>
+                setSelection((prev) => ({ ...prev, [id]: checked }))
+              }
+              total={total}
+            />
           </>
         )}
       </div>

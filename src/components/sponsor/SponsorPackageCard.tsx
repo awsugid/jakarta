@@ -85,7 +85,12 @@ export function SponsorPackageCard({
               src={imgSrc}
               alt=""
               onError={handleImgError}
-              className="w-full h-full object-cover object-right filter blur-[0.5px] scale-105"
+              className={cn(
+                "w-full h-full object-right filter scale-105",
+                imgSrc === DEFAULT_PLACEMENT_IMAGE
+                  ? "object-contain p-3 opacity-60"
+                  : "object-cover blur-[0.5px]"
+              )}
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 to-transparent" />

@@ -69,7 +69,12 @@ export function SponsorPlacementModal({
                 src={imgSrc}
                 alt={`${detailPackage.name} placement visual`}
                 onError={handleImgError}
-                className="w-full h-full object-cover"
+                className={cn(
+                  "w-full h-full",
+                  imgSrc === DEFAULT_PLACEMENT_IMAGE
+                    ? "object-contain p-10 bg-gradient-to-br from-slate-900 via-slate-950 to-zinc-900"
+                    : "object-cover"
+                )}
               />
             ) : (
               <div className="flex flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground bg-gradient-to-br from-muted/50 to-muted/20 w-full h-full">

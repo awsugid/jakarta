@@ -38,14 +38,20 @@ export const ASSET_ICONS: Record<string, typeof Globe> = {
   "mc-mention": Mic,
 };
 
-export const DEFAULT_PLACEMENT_IMAGE = "https://avatars.awscommunity.id/comday-26/xbanner.png";
+export const DEFAULT_PLACEMENT_IMAGE = "/android-chrome-192x192.png";
 
 export const PLACEMENT_IMAGES: Record<string, string> = {
-  xbanner: DEFAULT_PLACEMENT_IMAGE,
+  xbanner: "https://avatars.awscommunity.id/comday-26/xbanner.png",
   backdrop: "https://avatars.awscommunity.id/comday-26/backdrop.png",
   lanyard: "https://avatars.awscommunity.id/comday-26/lanyard.png",
   booth: "https://avatars.awscommunity.id/comday-26/booth.png",
   "video-ad": "https://avatars.awscommunity.id/comday-26/video-ad.png",
+  website: "https://avatars.awscommunity.id/comday-26/website.png",
+  "web-logo": "https://avatars.awscommunity.id/comday-26/website.png",
+  "t-shirt": "https://avatars.awscommunity.id/comday-26/t-shirt.png",
+  tshirt: "https://avatars.awscommunity.id/comday-26/t-shirt.png",
+  "social-media": "https://avatars.awscommunity.id/comday-26/social-media.png",
+  "social-blast": "https://avatars.awscommunity.id/comday-26/social-media.png",
 };
 
 export function getPlacementImageUrl(packageId: string): string {

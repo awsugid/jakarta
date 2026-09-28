@@ -50,13 +50,13 @@ export function SponsorPackageCard({
   onViewDetail,
 }: SponsorPackageCardProps) {
   const Icon = ASSET_ICONS[p.id] || Award;
-  const [imgSrc, setImgSrc] = useState(() => getPlacementImageUrl(p.id));
+  const [imgSrc, setImgSrc] = useState(() => p.imageUrl || getPlacementImageUrl(p.id));
   const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
-    setImgSrc(getPlacementImageUrl(p.id));
+    setImgSrc(p.imageUrl || getPlacementImageUrl(p.id));
     setImgFailed(false);
-  }, [p.id]);
+  }, [p.id, p.imageUrl]);
 
   const handleImgError = () => {
     if (imgSrc !== DEFAULT_PLACEMENT_IMAGE) {

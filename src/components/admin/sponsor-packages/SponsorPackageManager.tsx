@@ -64,7 +64,7 @@ function toPackageDrafts(
       maxSponsors: p.maxSponsors == null ? "" : String(p.maxSponsors),
       reservedSponsors: String(p.reservedSponsors ?? 0),
       isUnlocked: p.isUnlocked,
-      imageUrl: getPlacementImageUrl(p.id),
+      imageUrl: p.imageUrl || getPlacementImageUrl(p.id),
     };
   }
   return drafts;
@@ -98,6 +98,7 @@ function isPackageDirty(
   draft: PackageDraft | undefined,
 ): boolean {
   if (!draft) return false;
+  const currentImg = (pkg.imageUrl || getPlacementImageUrl(pkg.id)).trim();
   return (
     draft.name.trim() !== pkg.name.trim() ||
     draft.advantage.trim() !== pkg.advantage.trim() ||
@@ -108,7 +109,7 @@ function isPackageDirty(
     draft.maxSponsors.trim() !== (pkg.maxSponsors == null ? "" : String(pkg.maxSponsors)) ||
     draft.reservedSponsors.trim() !== String(pkg.reservedSponsors ?? 0) ||
     draft.isUnlocked !== pkg.isUnlocked ||
-    draft.imageUrl.trim() !== getPlacementImageUrl(pkg.id)
+    draft.imageUrl.trim() !== currentImg
   );
 }
 
@@ -154,9 +155,6 @@ export function SponsorPackageManager() {
   const [settingsSuccess, setSettingsSuccess] = useState(false);
 
   // Modal dialog states
-  const [showAddPackage, setShowAddPackage] = useState(false);
-  const [addPackageDefaultGroupId, setAddPackageDefaultGroupId] = useState<string | undefined>(undefined);
-  const [showAddGroup, setShowAddGroup] = useState(false);
   const [activeTab, setActiveTab] = useState<"packages" | "groups" | "tiers" | "settings">("packages");
   const [showAddPackage, setShowAddPackage] = useState(false);
   const [addPackageDefaultGroupId, setAddPackageDefaultGroupId] = useState<string | undefined>(undefined);
@@ -325,6 +323,7 @@ export function SponsorPackageManager() {
             maxSponsors: d.maxSponsors.trim() ? Number(d.maxSponsors) : null,
             reservedSponsors: Number(d.reservedSponsors) || 0,
             isUnlocked: d.isUnlocked,
+            imageUrl: d.imageUrl.trim() || null,
           };
         });
 
@@ -380,6 +379,7 @@ export function SponsorPackageManager() {
       groupId: data.groupId,
       priceIdr: data.priceIdr,
       priceUsd: data.priceUsd,
+      imageUrl: data.imageUrl,
     });
     if (data.imageUrl) {
       const created = refreshed.packages.find((p) => p.name === data.name);

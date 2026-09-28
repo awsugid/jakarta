@@ -456,3 +456,54 @@ export interface SponsorTierUpdate {
 export interface SponsorTierBatchUpdate {
   tiers: SponsorTierUpdate[];
 }
+
+/** Confirmed event sponsor company/partner. */
+export interface EventSponsor {
+  id: string;
+  eventSlug: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string | null;
+  tier: string;
+  priceIdr: number;
+  description?: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Body for POST /api/admin/events/:eventSlug/sponsors */
+export interface EventSponsorCreate {
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string | null;
+  tier: string;
+  priceIdr?: number;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+/** Body for PUT /api/admin/events/:eventSlug/sponsors/:sponsorId */
+export interface EventSponsorUpdate {
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string | null;
+  tier: string;
+  priceIdr: number;
+  description?: string | null;
+  isActive: boolean;
+}
+
+/** Item in PUT /api/admin/events/:eventSlug/sponsors/order */
+export interface EventSponsorOrderItem {
+  id: string;
+  displayOrder: number;
+}
+
+/** Response shape for GET /api/events/:eventSlug/sponsors */
+export interface EventSponsorsResponse {
+  eventSlug: string;
+  sponsors: EventSponsor[];
+}
+

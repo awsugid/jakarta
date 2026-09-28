@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import {
   COMMUNITY_DAY_EVENT_SLUG,
   getPlacementImageUrl,
-  setStoredPlacementImage,
 } from "@/components/sponsor/communityDayConfig";
 import {
   createSponsorPackage,
@@ -300,15 +299,7 @@ export function SponsorPackageManager() {
     setSaveError(null);
 
     try {
-      // 1. Save image overrides
-      for (const p of packages) {
-        const d = drafts[p.id];
-        if (d && d.imageUrl.trim() !== getPlacementImageUrl(p.id)) {
-          setStoredPlacementImage(p.id, d.imageUrl.trim());
-        }
-      }
-
-      // 2. Save packages & groups if modified
+      // 1. Save packages & groups if modified
       if (dirtyIds.length > 0 || dirtyGroupIds.length > 0) {
         const pkgUpdates: SponsorPackageUpdate[] = packages.map((p) => {
           const d = drafts[p.id]!;
@@ -339,7 +330,7 @@ export function SponsorPackageManager() {
         });
       }
 
-      // 3. Save tiers if modified
+      // 2. Save tiers if modified
       if (dirtyTierIds.length > 0) {
         const tierUpdates: SponsorTierUpdate[] = tiers.map((t) => {
           const td = tierDrafts[t.id]!;
@@ -381,12 +372,6 @@ export function SponsorPackageManager() {
       priceUsd: data.priceUsd,
       imageUrl: data.imageUrl,
     });
-    if (data.imageUrl) {
-      const created = refreshed.packages.find((p) => p.name === data.name);
-      if (created) {
-        setStoredPlacementImage(created.id, data.imageUrl);
-      }
-    }
     applyData(refreshed);
   };
 

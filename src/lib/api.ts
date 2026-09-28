@@ -32,6 +32,11 @@ import type {
   SponsorTierCreate,
   SponsorTierBatchUpdate,
   SponsorSettingsUpdate,
+  EventSponsor,
+  EventSponsorCreate,
+  EventSponsorUpdate,
+  EventSponsorOrderItem,
+  EventSponsorsResponse,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -529,4 +534,90 @@ export async function updateSponsorSettings(
     },
   );
 }
+
+// ---------------------------------------------------------------------------
+// Event Sponsors (Directory / Partners) API
+// ---------------------------------------------------------------------------
+
+/** GET /api/events/:eventSlug/sponsors — public list of active event sponsors. */
+export async function fetchPublicSponsors(
+  eventSlug: string,
+): Promise<EventSponsorsResponse> {
+  return apiFetch<EventSponsorsResponse>(
+    `/api/events/${encodeURIComponent(eventSlug)}/sponsors`,
+  );
+}
+
+/** GET /api/admin/events/:eventSlug/sponsors — admin list of all event sponsors (active + inactive). */
+export async function fetchAdminSponsors(
+  eventSlug: string,
+): Promise<EventSponsorsResponse> {
+  return apiFetch<EventSponsorsResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsors`,
+    {
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/sponsors — create a sponsor. */
+export async function createAdminSponsor(
+  eventSlug: string,
+  input: EventSponsorCreate,
+): Promise<EventSponsor> {
+  return apiFetch<EventSponsor>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsors`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/sponsors/:sponsorId — update a sponsor. */
+export async function updateAdminSponsor(
+  eventSlug: string,
+  sponsorId: string,
+  input: EventSponsorUpdate,
+): Promise<EventSponsor> {
+  return apiFetch<EventSponsor>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsors/${encodeURIComponent(sponsorId)}`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** DELETE /api/admin/events/:eventSlug/sponsors/:sponsorId — delete a sponsor. Returns refreshed list. */
+export async function deleteAdminSponsor(
+  eventSlug: string,
+  sponsorId: string,
+): Promise<EventSponsorsResponse> {
+  return apiFetch<EventSponsorsResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsors/${encodeURIComponent(sponsorId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/sponsors/order — reorder sponsors. */
+export async function reorderAdminSponsors(
+  eventSlug: string,
+  items: EventSponsorOrderItem[],
+): Promise<EventSponsorsResponse> {
+  return apiFetch<EventSponsorsResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsors/order`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ items }),
+    },
+  );
+}
+
 

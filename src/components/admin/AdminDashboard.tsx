@@ -9,6 +9,7 @@ import { FormbricksResponsesTable } from "@/components/admin/FormbricksResponses
 import { ResponseDetailDrawer } from "@/components/admin/ResponseDetailDrawer";
 import { LinkManager } from "@/components/admin/LinkManager";
 import { SponsorPackageManager } from "@/components/admin/SponsorPackageManager";
+import { SponsorDirectoryManager } from "@/components/admin/SponsorDirectoryManager";
 import { FormStatusManager } from "@/components/admin/FormStatusManager";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,6 +121,8 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
         <FormStatusManager />
       ) : tab === "links" ? (
         <LinkManager />
+      ) : tab === "sponsors-directory" ? (
+        <SponsorDirectoryManager />
       ) : tab === "sponsors" ? (
         <SponsorPackageManager />
       ) : (

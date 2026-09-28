@@ -175,12 +175,20 @@ export function SponsorPackageCard({
                   type="button"
                   variant="outline"
                   size="sm"
+                  disabled={locked}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onViewDetail(p);
+                    if (!locked) {
+                      onViewDetail(p);
+                    }
                   }}
-                  className="h-7 px-2.5 text-[11px] text-muted-foreground hover:text-foreground border-border/70 bg-background/60 hover:bg-background gap-1.5 cursor-pointer shrink-0"
+                  className={cn(
+                    "h-7 px-2.5 text-[11px] border-border/70 bg-background/60 gap-1.5 shrink-0",
+                    locked
+                      ? "cursor-not-allowed opacity-50"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer"
+                  )}
                 >
                   <Eye className="h-3.5 w-3.5 text-primary" />
                   View Placement

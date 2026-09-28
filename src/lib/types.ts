@@ -341,6 +341,8 @@ export interface SponsorPackage {
   /** Manually maintained count of confirmed sponsors occupying maxSponsors. */
   reservedSponsors: number;
   isUnlocked: boolean;
+  /** Visual ad placement modal preview image URL. */
+  imageUrl?: string | null;
   displayOrder: number;
   updatedAt: string;
 }
@@ -394,6 +396,8 @@ export interface SponsorPackageUpdate {
   maxSponsors: number | null;
   reservedSponsors: number;
   isUnlocked: boolean;
+  /** Visual ad placement modal preview image URL. */
+  imageUrl?: string | null;
 }
 
 /** Body for POST /api/admin/events/:eventSlug/sponsor-groups. */
@@ -409,6 +413,8 @@ export interface SponsorPackageCreate {
   priceIdr: number;
   /** Optional manual USD price; null/omitted = derived from rate. 0.01..=1,000,000. */
   priceUsd?: number | null;
+  /** Visual ad placement modal preview image URL. */
+  imageUrl?: string | null;
 }
 
 /** Body for PUT /api/admin/events/:eventSlug/sponsor-packages. */

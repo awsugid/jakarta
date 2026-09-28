@@ -46,7 +46,7 @@ export function SponsorPlacementModal({
 
   useEffect(() => {
     if (detailPackage) {
-      setImgSrc(getPlacementImageUrl(detailPackage.id));
+      setImgSrc(detailPackage.imageUrl || getPlacementImageUrl(detailPackage.id));
       setImgFailed(false);
     }
   }, [detailPackage]);

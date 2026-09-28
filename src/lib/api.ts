@@ -298,16 +298,41 @@ export async function updateAdminFormStatus(
 }
 
 /** GET /api/admin/formbricks/responses — paginated responses for a survey. */
-export async function fetchAdminFormbricksResponses(
+export interface AdminFormbricksResponsesParams {
+  limit?: number;
+  offset?: number;
+  finished?: "all" | "true" | "false";
+  /** Single exact tag label filter (legacy callers). */
+  tag?: string;
+  /** Exact tag labels with OR semantics; serialized as repeated tag= params. */
+  tags?: string[];
+  /** true = only responses with no tags; must not be combined with tag/tags. */
+  untagged?: boolean;
+}
+
+/** Pure query builder so tag serialization stays testable without network. */
+export function buildAdminResponsesQuery(
   surveyId: string,
-  params?: { limit?: number; offset?: number; finished?: "all" | "true" | "false" },
-): Promise<AdminFormbricksResponseList> {
+  params?: AdminFormbricksResponsesParams,
+): string {
   const qs = new URLSearchParams({ surveyId });
   if (params?.limit) qs.set("limit", String(params.limit));
   if (params?.offset) qs.set("offset", String(params.offset));
   if (params?.finished) qs.set("finished", params.finished);
+  if (params?.tag) qs.set("tag", params.tag);
+  for (const tag of params?.tags ?? []) {
+    if (tag) qs.append("tag", tag);
+  }
+  if (params?.untagged) qs.set("untagged", "true");
+  return qs.toString();
+}
+
+export async function fetchAdminFormbricksResponses(
+  surveyId: string,
+  params?: AdminFormbricksResponsesParams,
+): Promise<AdminFormbricksResponseList> {
   return apiFetch<AdminFormbricksResponseList>(
-    `/api/admin/formbricks/responses?${qs}`,
+    `/api/admin/formbricks/responses?${buildAdminResponsesQuery(surveyId, params)}`,
     { headers: authHeaders() },
   );
 }
@@ -321,6 +346,29 @@ export async function fetchAdminFormbricksResponseDetail(
   return apiFetch<AdminFormbricksResponseDetail>(
     `/api/admin/formbricks/responses/${encodeURIComponent(responseId)}?${qs}`,
     { headers: authHeaders() },
+  );
+}
+
+/** GET /api/admin/formbricks/tags — distinct assigned tag labels in a survey. */
+export async function fetchAdminFormbricksTags(
+  surveyId: string,
+): Promise<string[]> {
+  const qs = new URLSearchParams({ surveyId });
+  return apiFetch<string[]>(`/api/admin/formbricks/tags?${qs}`, {
+    headers: authHeaders(),
+  });
+}
+
+/** PUT /api/admin/formbricks/responses/:responseId/tags — atomically replace the tag set. */
+export async function updateAdminFormbricksResponseTags(
+  responseId: string,
+  surveyId: string,
+  tags: string[],
+): Promise<{ tags: string[] }> {
+  const qs = new URLSearchParams({ surveyId });
+  return apiFetch<{ tags: string[] }>(
+    `/api/admin/formbricks/responses/${encodeURIComponent(responseId)}/tags?${qs}`,
+    { method: "PUT", headers: authHeaders(), body: JSON.stringify({ tags }) },
   );
 }
 

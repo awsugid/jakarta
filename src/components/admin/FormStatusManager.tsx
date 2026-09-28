@@ -15,11 +15,9 @@ import {
   CheckCircle2,
   ExternalLink,
   Loader2,
-  Power,
   RefreshCw,
   Search,
   Users,
-  XCircle,
 } from "lucide-react";
 import { fetchAdminForms, updateAdminFormStatus } from "@/lib/api";
 import type { AdminFormSummary } from "@/lib/types";
@@ -83,7 +81,7 @@ export function FormStatusManager() {
     }
   };
 
-  /** Bulk-toggle all volunteer categories to the target status. */
+  /** Bulk-switch all volunteer categories to the target mode (Recruiting / Talent Pool). */
   const handleBulkToggle = async (targetActive: boolean) => {
     const targets = forms.filter((f) => f.is_active !== targetActive);
     if (targets.length === 0) return;
@@ -123,10 +121,11 @@ export function FormStatusManager() {
   const allOpen = totalCount > 0 && openCount === totalCount;
   const allClosed = totalCount > 0 && closedCount === totalCount;
   const isBulkUpdating = forms.some((f) => updatingKey === f.slug);
-  const totalApplicants = forms.reduce(
-    (sum, f) => sum + (f.response_count ?? 0),
-    0,
-  );
+  // Null count on any form means the total is unknown — show — instead of a
+  // partial sum. Per-row counts still render individually.
+  const totalResponses = forms.some((f) => f.response_count == null)
+    ? null
+    : forms.reduce((sum, f) => sum + (f.response_count ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -137,10 +136,10 @@ export function FormStatusManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Total Applicants
+                  Total Responses
                 </p>
                 <h3 className="text-2xl font-bold mt-1 text-foreground">
-                  {totalApplicants}
+                  {totalResponses ?? "—"}
                 </h3>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   across {totalCount} categor{totalCount === 1 ? "y" : "ies"}
@@ -158,7 +157,7 @@ export function FormStatusManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                  Open
+                  Recruiting
                 </p>
                 <h3 className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
                   {openCount}
@@ -176,14 +175,14 @@ export function FormStatusManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Closed
+                  Talent Pool
                 </p>
                 <h3 className="text-2xl font-bold mt-1 text-muted-foreground">
                   {closedCount}
                 </h3>
               </div>
               <div className="p-2.5 rounded-lg bg-muted text-muted-foreground">
-                <XCircle className="h-5 w-5" />
+                <Users className="h-5 w-5" />
               </div>
             </div>
           </CardContent>
@@ -199,10 +198,17 @@ export function FormStatusManager() {
                 Volunteer Category Configuration
               </CardTitle>
               <CardDescription className="text-xs mt-1">
-                Open or close applications per volunteer category. Use{" "}
-                <span className="font-medium text-foreground">Open All</span> /{" "}
-                <span className="font-medium text-foreground">Close All</span>{" "}
-                to bulk-change every category, or toggle each one individually.
+                Switch each volunteer category between Recruiting and Talent
+                Pool. Talent Pool categories keep accepting talent pool
+                applications — nothing is closed or removed. Use{" "}
+                <span className="font-medium text-foreground">
+                  All Recruiting
+                </span>{" "}
+                /{" "}
+                <span className="font-medium text-foreground">
+                  All Talent Pool
+                </span>{" "}
+                to bulk-change every category, or switch each one individually.
               </CardDescription>
             </div>
             <Button
@@ -245,21 +251,21 @@ export function FormStatusManager() {
                 ) : (
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 )}
-                Open All
+                All Recruiting
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 disabled={isBulkUpdating || allClosed || totalCount === 0}
                 onClick={() => handleBulkToggle(false)}
-                className="h-9 text-xs px-3 gap-1.5 cursor-pointer border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 disabled:opacity-40"
+                className="h-9 text-xs px-3 gap-1.5 cursor-pointer border-border/60 text-muted-foreground hover:bg-muted hover:border-border disabled:opacity-40"
               >
                 {isBulkUpdating ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <XCircle className="h-3.5 w-3.5" />
+                  <Users className="h-3.5 w-3.5" />
                 )}
-                Close All
+                All Talent Pool
               </Button>
             </div>
           </div>
@@ -279,10 +285,10 @@ export function FormStatusManager() {
                 )}
               >
                 {allOpen
-                  ? "All Categories Open"
+                  ? "All Categories Recruiting"
                   : allClosed
-                  ? "All Categories Closed"
-                  : `${openCount} / ${totalCount} Open`}
+                  ? "All Categories Talent Pool"
+                  : `${openCount} / ${totalCount} Recruiting`}
               </Badge>
             </div>
           )}
@@ -336,7 +342,7 @@ export function FormStatusManager() {
                       "flex flex-col justify-between p-4 rounded-lg border transition-all duration-200 bg-background",
                       form.is_active
                         ? "border-border hover:border-border/80 shadow-xs"
-                        : "border-border/50 bg-muted/20 opacity-75 hover:opacity-100",
+                        : "border-border/50 bg-muted/20 hover:bg-muted/30",
                     )}
                   >
                     <div className="space-y-2">
@@ -360,19 +366,18 @@ export function FormStatusManager() {
                           </span>
                         </div>
 
-                        {/* Open / Closed badge */}
+                        {/* Recruiting / Talent Pool badge */}
                         {form.is_active ? (
                           <Badge className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10 shrink-0">
                             <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Open
+                            Recruiting
                           </Badge>
                         ) : (
                           <Badge
-                            variant="outline"
-                            className="text-xs text-muted-foreground border-muted-foreground/30 shrink-0"
+                            className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/10 shrink-0"
                           >
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Closed
+                            <Users className="h-3 w-3 mr-1" />
+                            Talent Pool
                           </Badge>
                         )}
                       </div>
@@ -390,7 +395,7 @@ export function FormStatusManager() {
                         <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
                           <Users className="h-3 w-3 shrink-0" />
                           {form.response_count != null
-                            ? `${form.response_count} applicant${form.response_count === 1 ? "" : "s"}`
+                            ? `${form.response_count} response${form.response_count === 1 ? "" : "s"}`
                             : "—"}
                         </p>
                       </div>
@@ -409,21 +414,24 @@ export function FormStatusManager() {
 
                       <Button
                         size="sm"
-                        variant={form.is_active ? "destructive" : "default"}
+                        variant={form.is_active ? "outline" : "default"}
                         disabled={isUpdating}
                         onClick={() => handleToggle(form)}
                         className={cn(
                           "h-8 text-xs cursor-pointer gap-1.5 font-medium",
-                          !form.is_active &&
-                            "bg-emerald-600 hover:bg-emerald-700 text-white",
+                          form.is_active
+                            ? "border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white",
                         )}
                       >
                         {isUpdating ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : form.is_active ? (
+                          <Users className="h-3 w-3" />
                         ) : (
-                          <Power className="h-3 w-3" />
+                          <CheckCircle2 className="h-3 w-3" />
                         )}
-                        {form.is_active ? "Close" : "Open"}
+                        {form.is_active ? "Talent Pool" : "Recruiting"}
                       </Button>
                     </div>
                   </div>

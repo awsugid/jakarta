@@ -188,6 +188,16 @@ export interface AdminFormbricksResponseSummary {
   respondent_email: string | null;
   respondent_name: string | null;
   preview_answers: Record<string, string | number | boolean | string[] | null>;
+  /** Custom admin tags (exact stored labels). */
+  tags: string[];
+}
+
+/** Aggregate response stats across all pages for the active survey+finished+tag filters. */
+export interface AdminFormbricksResponseStats {
+  total: number;
+  finished: number;
+  in_progress: number;
+  latest_submission: string | null;
 }
 
 /** Paginated list wrapper. */
@@ -196,6 +206,8 @@ export interface AdminFormbricksResponseList {
   total: number | null;
   limit: number;
   offset: number;
+  /** Absent on older backend deployments; the UI shows em dashes then. */
+  stats?: AdminFormbricksResponseStats | null;
 }
 
 /** Single labeled answer in a response detail payload. */
@@ -215,6 +227,8 @@ export interface AdminFormbricksResponseDetail {
   finished: boolean;
   answers: AdminFormbricksAnswer[];
   metadata: { contact_id?: string };
+  /** Custom admin tags (exact stored labels). */
+  tags: string[];
 }
 
 /** A labeled count entry (e.g. top positions, top companies). */

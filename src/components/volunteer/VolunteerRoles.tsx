@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Users, XCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { FormInfo } from "@/lib/types";
+import { isTalentPoolForm } from "@/components/volunteer/talentPool";
 import { divisions, nameToSlug } from "@/data/volunteer-divisions";
 
 export { divisions, nameToSlug };
@@ -61,13 +62,17 @@ export function VolunteerRoles({ forms, onApply }: VolunteerRolesProps) {
                 {(() => {
                   const slug = nameToSlug[division.name];
                   const form = slug ? formBySlug.get(slug) : undefined;
-                  const isActive = !!form?.is_active;
                   return (
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {isActive ? (
+                      {form?.is_active ? (
                         <Badge className="text-xs bg-green-500/10 text-green-600 border border-green-500/20 hover:bg-green-500/10">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Open
+                        </Badge>
+                      ) : form && isTalentPoolForm("volunteer", form) ? (
+                        <Badge className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/10">
+                          <Users className="h-3 w-3 mr-1" />
+                          Talent Pool
                         </Badge>
                       ) : (
                         <Badge

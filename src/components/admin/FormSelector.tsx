@@ -15,9 +15,12 @@ import { Loader2 } from "lucide-react";
 export function FormSelector({
   value,
   onChange,
+  id,
 }: {
   value: string | null;
   onChange: (surveyId: string) => void;
+  /** Trigger id, paired with the parent's visible label. */
+  id?: string;
 }) {
   const [forms, setForms] = useState<AdminFormSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +55,7 @@ export function FormSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> Loading forms…
       </div>
     );
@@ -60,13 +63,17 @@ export function FormSelector({
 
   if (error) {
     return (
-      <div className="text-sm text-destructive">Forms: {error}</div>
+      <div className="flex h-10 items-center text-sm text-destructive">
+        Forms: {error}
+      </div>
     );
   }
 
   if (forms.length === 0) {
     return (
-      <div className="text-sm text-muted-foreground">No forms available.</div>
+      <div className="flex h-10 items-center text-sm text-muted-foreground">
+        No forms available.
+      </div>
     );
   }
 
@@ -77,7 +84,7 @@ export function FormSelector({
       value={selected?.survey_id}
       onValueChange={(v) => onChange(v)}
     >
-      <SelectTrigger className="w-full sm:w-[280px] bg-background">
+      <SelectTrigger id={id} className="w-full bg-background">
         <SelectValue placeholder="Select a form" />
       </SelectTrigger>
       <SelectContent>

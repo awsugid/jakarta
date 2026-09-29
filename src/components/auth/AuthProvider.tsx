@@ -476,6 +476,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearProfileCache();
     pendingSuccessRef.current = null;
     window.google?.accounts?.id?.disableAutoSelect();
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
+      window.location.href = "/";
+    }
   }, []);
 
   // Sync user credentials to Formbricks SDK

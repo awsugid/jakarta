@@ -10,12 +10,16 @@ interface Props {
 	title?: string;
 	description?: string;
 	image?: string;
+	showHeader?: boolean;
+	showFooter?: boolean;
 }
 
 const {
 	title = "AWS User Group Jakarta",
 	description = "Join the AWS User Group Jakarta community for meetups, workshops, and Community Day.",
 	image = "/android-chrome-192x192.png",
+	showHeader = true,
+	showFooter = true,
 } = Astro.props;
 
 const site = Astro.site?.origin ?? "https://jakarta.awscommunity.id";
@@ -88,10 +92,10 @@ const siteNav = navItems.map((item) => ({
 	<body
 		class="min-h-screen bg-background font-sans antialiased flex flex-col"
 	>
-		<Header />
+		{showHeader && <Header />}
 		<main class="flex-1">
 			<slot />
 		</main>
-		<Footer />
+		{showFooter && <Footer />}
 	</body>
 </html>

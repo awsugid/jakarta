@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminGuard } from "@/components/admin/AdminGuard";
-import { AdminNavigation, type AdminTab } from "@/components/admin/AdminNavigation";
+import {
+  AdminNavigation,
+  ADMIN_TABS,
+  type AdminTab,
+} from "@/components/admin/AdminNavigation";
 import { FormSelector } from "@/components/admin/FormSelector";
 import { AdminStatsCards } from "@/components/admin/AdminStatsCards";
 import { FormbricksResponsesTable } from "@/components/admin/FormbricksResponsesTable";
@@ -27,7 +31,7 @@ import type {
 } from "@/lib/types";
 import { distinctTags } from "@/lib/responseTags";
 import { TagFilterMenu, TAG_FILTER_HINT, effectiveTagSelection } from "@/components/admin/TagFilterMenu";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PAGE_SIZE, computePagination, paginationSummary, type PaginationState } from "@/components/admin/pagination";
 
@@ -153,52 +157,43 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
     setDrawerOpen(true);
   };
 
+  const currentTab = ADMIN_TABS.find((t) => t.id === tab) ?? ADMIN_TABS[0];
+
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-6 sm:py-8">
-      <a
-        href="/"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mb-2 transition-colors"
-      >
-        <ArrowLeft className="h-3 w-3" /> Back to Home
-      </a>
+    <div className="min-h-screen bg-background flex flex-col">
+      <AdminNavigation
+        active={tab}
+        onChange={setTab}
+        admin={admin}
+        onRefresh={load}
+        loading={loading}
+        refreshDisabled={loading || tagsPending || !surveyId}
+      />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Admin Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Signed in as{" "}
-            <span className="text-foreground font-medium">{admin.email}</span>
-          </p>
-        </div>
-        {tab === "responses" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={load}
-            disabled={loading || tagsPending || !surveyId}
-            className="self-start sm:self-auto flex items-center gap-1.5"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-            Refresh
-          </Button>
-        )}
-      </div>
+      <main className="flex-1 pb-16">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {/* Section Heading */}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/50 pb-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                {currentTab.label}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                {currentTab.description}
+              </p>
+            </div>
+          </div>
 
-      <AdminNavigation active={tab} onChange={setTab} />
-
-      {/* Explicit tab branches; responses remains the default */}
-      {tab === "forms" ? (
-        <FormStatusManager />
-      ) : tab === "links" ? (
-        <LinkManager />
-      ) : tab === "sponsors-directory" ? (
-        <SponsorDirectoryManager />
-      ) : tab === "sponsors" ? (
-        <SponsorPackageManager />
-      ) : (
+          {/* Explicit tab branches; responses remains the default */}
+          {tab === "forms" ? (
+            <FormStatusManager />
+          ) : tab === "links" ? (
+            <LinkManager />
+          ) : tab === "sponsors-directory" ? (
+            <SponsorDirectoryManager />
+          ) : tab === "sponsors" ? (
+            <SponsorPackageManager />
+          ) : (
         <>
           {/* Filter row: labeled controls, one grid row, equal heights; stacks on mobile. */}
           <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_180px_260px] gap-3 mb-4">
@@ -345,6 +340,8 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
           />
         </>
       )}
+        </div>
+      </main>
     </div>
   );
 }

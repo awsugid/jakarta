@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, Loader2, Plus, RotateCcw, Save, Trash2, User } from "lucide-react";
+import { AlertCircle, Camera, Loader2, Plus, RotateCcw, Save, Trash2, User } from "lucide-react";
 import { AuthProvider, useAuth, writeProfileCache } from "@/components/auth/AuthProvider";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
-import { getInitials } from "@/lib/utils";
+import { getInitials, formatFileSize } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -287,11 +287,11 @@ function ProfileEditorInner() {
 
 		const allowed = ["image/jpeg", "image/png", "image/webp"];
 		if (!allowed.includes(file.type)) {
-			setError("Invalid file type. Please select a JPEG, PNG, or WebP image.");
+			setError(`Unsupported file type (${file.type || "unknown"}). Allowed formats: JPEG, PNG, WebP.`);
 			return;
 		}
 		if (file.size > 2 * 1024 * 1024) {
-			setError("File size exceeds 2MB limit.");
+			setError(`Image size exceeds 2 MB limit (Selected file is ${formatFileSize(file.size)}). Please compress or choose a smaller image.`);
 			return;
 		}
 
@@ -640,9 +640,13 @@ function ProfileEditorInner() {
 					</div>
 
 					{error && (
-						<p className="text-sm font-medium text-destructive" role="alert">
-							⚠️ {error}
-						</p>
+						<div className="flex items-start gap-2.5 text-xs text-red-200 bg-red-950/70 border border-red-500/50 rounded-xl p-3.5 shadow-sm animate-in fade-in duration-200" role="alert">
+							<AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+							<div className="space-y-0.5 leading-relaxed">
+								<p className="font-semibold text-red-300">Notice</p>
+								<p className="text-red-200/90">{error}</p>
+							</div>
+						</div>
 					)}
 					{success && (
 						<p className="text-sm font-medium text-green-500" role="status">

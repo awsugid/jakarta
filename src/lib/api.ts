@@ -591,10 +591,15 @@ export async function uploadSponsorMockup(
 ): Promise<{ url: string; key: string }> {
   const allowed = ["image/jpeg", "image/png", "image/webp"];
   if (!allowed.includes(file.type)) {
-    throw new Error("Invalid file type. Allowed formats: JPEG, PNG, WebP.");
+    throw new Error(
+      `Unsupported file type (${file.type || "unknown"}). Allowed formats: JPEG, PNG, WebP.`
+    );
   }
   if (file.size > 2 * 1024 * 1024) {
-    throw new Error("File size exceeds 2MB limit.");
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `Image size exceeds 2 MB limit (Selected file is ${sizeMb} MB). Please compress or choose a smaller image.`
+    );
   }
   const query = path ? `?path=${encodeURIComponent(path)}` : "";
   return apiFetch<{ url: string; key: string }>(

@@ -70,10 +70,15 @@ const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
 /** POST /api/profiles/me/avatar — upload custom avatar image (JPEG, PNG, WebP <= 2MB). */
 export async function uploadAvatar(file: File): Promise<MyProfile> {
   if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
-    throw new Error("Invalid file type. Allowed types: JPEG, PNG, WebP.");
+    throw new Error(
+      `Unsupported file type (${file.type || "unknown"}). Allowed formats: JPEG, PNG, WebP.`
+    );
   }
   if (file.size > MAX_AVATAR_SIZE) {
-    throw new Error("File size exceeds 2MB limit.");
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `Image size exceeds 2 MB limit (Selected file is ${sizeMb} MB). Please compress or choose a smaller image.`
+    );
   }
 
   return apiFetch<MyProfile>("/api/profiles/me/avatar", {

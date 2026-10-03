@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, formatFileSize } from "@/lib/utils";
 import { uploadSponsorMockup } from "@/lib/api";
 import { PLACEMENT_PRESETS } from "../types";
 import { SponsorPlacementThumbnail } from "../atoms/SponsorPlacementThumbnail";
@@ -53,11 +53,15 @@ export function SponsorPlacementEditor({
     setUploadError(null);
     const allowed = ["image/jpeg", "image/png", "image/webp"];
     if (!allowed.includes(file.type)) {
-      setUploadError("Invalid file type. Allowed formats: JPEG, PNG, WebP.");
+      setUploadError(
+        `Unsupported file type (${file.type || "unknown"}). Allowed formats: JPEG, PNG, WebP.`
+      );
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      setUploadError("File size exceeds 2MB limit.");
+      setUploadError(
+        `Image size exceeds 2 MB limit (Selected file is ${formatFileSize(file.size)}). Please compress or choose a smaller image.`
+      );
       return;
     }
 
@@ -180,9 +184,12 @@ export function SponsorPlacementEditor({
       </div>
 
       {uploadError && (
-        <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-2.5">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>{uploadError}</span>
+        <div className="flex items-start gap-2.5 text-xs text-red-200 bg-red-950/70 border border-red-500/50 rounded-lg p-3 shadow-sm animate-in fade-in duration-200">
+          <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 leading-relaxed">
+            <p className="font-semibold text-red-300">Upload Failed</p>
+            <p className="text-red-200/90">{uploadError}</p>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import { Plus, Loader2, Upload, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,15 +19,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { SponsorPackageGroup } from "@/lib/types";
+import { uploadSponsorMockup } from "@/lib/api";
 import { PLACEMENT_PRESETS } from "../types";
 import { SponsorPlacementThumbnail } from "../atoms/SponsorPlacementThumbnail";
-import { DEFAULT_PLACEMENT_IMAGE } from "@/components/sponsor/communityDayConfig";
+import {
+  DEFAULT_PLACEMENT_IMAGE,
+  COMMUNITY_DAY_EVENT_SLUG,
+} from "@/components/sponsor/communityDayConfig";
 
 interface AddPackageDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   groups: SponsorPackageGroup[];
   defaultGroupId?: string;
+  eventSlug?: string;
   onCreatePackage: (data: {
     name: string;
     advantage: string;
@@ -43,6 +48,7 @@ export function AddPackageDialog({
   onOpenChange,
   groups,
   defaultGroupId,
+  eventSlug = COMMUNITY_DAY_EVENT_SLUG,
   onCreatePackage,
 }: AddPackageDialogProps) {
   const [name, setName] = useState("");
@@ -52,7 +58,37 @@ export function AddPackageDialog({
   const [priceUsd, setPriceUsd] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setUploadError(null);
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setUploadError("Invalid file type. Allowed formats: JPEG, PNG, WebP.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError("File size exceeds 2MB limit.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const res = await uploadSponsorMockup(eventSlug, file);
+      setImageUrl(res.url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Failed to upload mockup image.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -181,9 +217,38 @@ export function AddPackageDialog({
 
           {/* Placement Visual Quick Select */}
           <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-muted/20">
-            <Label className="text-xs font-semibold text-foreground">
-              Placement Preview Visual
-            </Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs font-semibold text-foreground">
+                Placement Preview Visual
+              </Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => !uploading && fileInputRef.current?.click()}
+                disabled={uploading}
+                className="h-6 px-2 text-[11px] gap-1.5 cursor-pointer font-medium"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3 w-3 text-primary" />
+                    Upload Mockup
+                  </>
+                )}
+              </Button>
+            </div>
             <div className="flex items-center gap-3">
               <SponsorPlacementThumbnail
                 url={imageUrl.trim() || DEFAULT_PLACEMENT_IMAGE}
@@ -211,6 +276,12 @@ export function AddPackageDialog({
                 </div>
               </div>
             </div>
+            {uploadError && (
+              <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-2">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                <span>{uploadError}</span>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-xs text-destructive font-medium">{error}</p>}

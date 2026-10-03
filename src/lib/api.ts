@@ -583,6 +583,33 @@ export async function updateSponsorSettings(
   );
 }
 
+/** POST /api/admin/events/:eventSlug/sponsor-mockup — upload placement mockup visual asset (admin-only). */
+export async function uploadSponsorMockup(
+  eventSlug: string,
+  file: File,
+  path?: string,
+): Promise<{ url: string; key: string }> {
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
+  if (!allowed.includes(file.type)) {
+    throw new Error("Invalid file type. Allowed formats: JPEG, PNG, WebP.");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("File size exceeds 2MB limit.");
+  }
+  const query = path ? `?path=${encodeURIComponent(path)}` : "";
+  return apiFetch<{ url: string; key: string }>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-mockup${query}`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": file.type,
+      },
+      body: file,
+    },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Event Sponsors (Directory / Partners) API
 // ---------------------------------------------------------------------------

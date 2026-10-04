@@ -58,9 +58,9 @@ export function SponsorPlacementEditor({
       );
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > 5 * 1024 * 1024) {
       setUploadError(
-        `Image size exceeds 2 MB limit (Selected file is ${formatFileSize(file.size)}). Please compress or choose a smaller image.`
+        `Image size exceeds 5 MB limit (Selected file is ${formatFileSize(file.size)}). Please compress or choose a smaller image.`
       );
       return;
     }

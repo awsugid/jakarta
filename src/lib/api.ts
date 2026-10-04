@@ -595,10 +595,10 @@ export async function uploadSponsorMockup(
       `Unsupported file type (${file.type || "unknown"}). Allowed formats: JPEG, PNG, WebP.`
     );
   }
-  if (file.size > 2 * 1024 * 1024) {
+  if (file.size > 5 * 1024 * 1024) {
     const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
     throw new Error(
-      `Image size exceeds 2 MB limit (Selected file is ${sizeMb} MB). Please compress or choose a smaller image.`
+      `Image size exceeds 5 MB limit (Selected file is ${sizeMb} MB). Please compress or choose a smaller image.`
     );
   }
   const query = path ? `?path=${encodeURIComponent(path)}` : "";

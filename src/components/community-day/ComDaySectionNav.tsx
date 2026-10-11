@@ -29,12 +29,12 @@ interface SectionItem {
 
 const SECTION_ITEMS: SectionItem[] = [
   { id: "overview", label: "Overview", icon: Compass },
-  { id: "cfp", label: "Speakers (CFP)", icon: Mic, badge: "Open" },
   { id: "tickets", label: "Get Tickets", icon: Ticket, badge: "Registration" },
   { id: "agenda", label: "Schedule", icon: Calendar },
   { id: "sponsors", label: "Sponsors", icon: Handshake },
   { id: "volunteers", label: "Volunteers", icon: Heart },
   { id: "team", label: "Team & Organizers", icon: Users },
+  { id: "cfp", label: "Speakers", icon: Mic },
   { id: "faq", label: "FAQ", icon: HelpCircle },
 ];
 

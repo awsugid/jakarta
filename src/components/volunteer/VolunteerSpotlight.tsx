@@ -4,13 +4,15 @@ import React from "react";
 import { PeopleList } from "@/components/people/PeopleList";
 import type { PersonItem } from "@/components/people/PeopleList";
 
-import { SAMPLE_VOLUNTEERS } from "@/data/volunteers";
-
 interface VolunteerSpotlightProps {
   people?: PersonItem[];
 }
 
-export function VolunteerSpotlight({ people = SAMPLE_VOLUNTEERS }: VolunteerSpotlightProps) {
+export function VolunteerSpotlight({ people = [] }: VolunteerSpotlightProps) {
+  if (!people || people.length === 0) {
+    return null;
+  }
+
   return (
     <section className="relative py-20 bg-background overflow-hidden">
       {/* Ambient background glows */}

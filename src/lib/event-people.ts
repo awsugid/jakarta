@@ -1,6 +1,6 @@
 import type { PeopleGroup, PersonItem } from "@/components/people/PeopleList";
 
-function parsePersonEntry(entry: string): PersonItem | null {
+export function parsePersonEntry(entry: string): PersonItem | null {
   const parts = entry.split(":").map((p) => p.trim());
   const username = parts[0]?.toLowerCase();
   if (!username) return null;
@@ -15,7 +15,7 @@ function parsePersonEntry(entry: string): PersonItem | null {
   };
 }
 
-function normalizePeople(entries?: string[]): PersonItem[] {
+export function normalizePeople(entries?: string[]): PersonItem[] {
   const seen = new Set<string>();
   const people: PersonItem[] = [];
   for (const entry of entries ?? []) {

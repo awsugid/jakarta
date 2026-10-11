@@ -111,6 +111,9 @@ export const PeopleList: React.FC<PeopleListProps> = ({ groups, preferContentTit
           if (p.username) {
             map[p.username.trim().toLowerCase()] = p;
           }
+          if (p.normalized_email) {
+            map[p.normalized_email.trim().toLowerCase()] = p;
+          }
         }
         setProfilesMap(map);
       })

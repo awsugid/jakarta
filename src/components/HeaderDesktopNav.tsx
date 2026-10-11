@@ -24,12 +24,12 @@ interface SectionItem {
 
 const COMDAY_SECTION_ITEMS: SectionItem[] = [
   { id: "overview", label: "Overview", icon: Compass },
-  { id: "cfp", label: "Speakers (CFP)", icon: Mic },
   { id: "tickets", label: "Tickets", icon: Ticket },
   { id: "agenda", label: "Schedule", icon: Calendar },
   { id: "sponsors", label: "Sponsors", icon: Handshake },
   { id: "volunteers", label: "Volunteers", icon: Heart },
   { id: "team", label: "Team", icon: Users },
+  { id: "cfp", label: "Speakers", icon: Mic },
   { id: "faq", label: "FAQ", icon: HelpCircle },
 ];
 

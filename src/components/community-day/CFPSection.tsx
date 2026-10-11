@@ -18,24 +18,24 @@ export function CFPSection() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <section id="cfp" className="py-24 px-4 bg-background relative border-b border-border overflow-hidden">
+    <section id="cfp" className="py-16 md:py-20 px-4 bg-background relative border-b border-border overflow-hidden">
       {/* Background Decorative Glows */}
       <div className="absolute right-0 top-1/4 w-[350px] h-[350px] bg-orange-500/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute left-0 bottom-1/4 w-[300px] h-[300px] bg-amber-500/5 rounded-full blur-[100px] pointer-events-none" />
       
-      <div className="container max-w-6xl mx-auto space-y-20">
+      <div className="container max-w-6xl mx-auto space-y-12">
         
         {/* Section Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold uppercase tracking-widest animate-pulse">
-            🎤 Call for Speakers
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-muted/60 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+            🎤 Speaker Opportunities
           </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
-            Share Your Story at <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-400 to-orange-600">Community Day Jakarta</span>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
+            Speaking Sessions & <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-400 to-orange-600">Topics</span>
           </h2>
-          <div className="w-24 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-orange-600 mx-auto rounded-full" />
-          <p className="text-muted-foreground text-base sm:text-lg font-normal leading-relaxed">
-            Join the largest community-led developer conference in Indonesia. We welcome technical deep dives, architectural case studies, and hands-on guide proposals from both first-time speakers and seasoned experts.
+          <div className="w-20 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-orange-600 mx-auto rounded-full" />
+          <p className="text-muted-foreground text-sm sm:text-base font-normal leading-relaxed">
+            Discover the technical tracks and topics featured at AWS Community Day Jakarta, and explore speaking opportunities across our community events.
           </p>
         </div>
 

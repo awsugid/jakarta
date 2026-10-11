@@ -8,13 +8,17 @@ import { VolunteerSpotlight } from "@/components/volunteer/VolunteerSpotlight";
 import { ApplyVolunteerDialog } from "@/components/volunteer/ApplyVolunteerDialog";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { fetchForms } from "@/lib/api";
-import type { FormInfo } from "@/lib/types";
+import type { FormInfo, PersonItem } from "@/lib/types";
 
 interface VolunteerPageContentProps {
   kioskUrl?: string;
+  volunteers?: PersonItem[];
 }
 
-export function VolunteerPageContent({ kioskUrl }: VolunteerPageContentProps) {
+export function VolunteerPageContent({
+  kioskUrl,
+  volunteers = [],
+}: VolunteerPageContentProps) {
   const [forms, setForms] = useState<FormInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -88,7 +92,7 @@ export function VolunteerPageContent({ kioskUrl }: VolunteerPageContentProps) {
         </section>
       )}
 
-      <VolunteerSpotlight />
+      {volunteers.length > 0 && <VolunteerSpotlight people={volunteers} />}
 
       <VolunteerNotify />
 

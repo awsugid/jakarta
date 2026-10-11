@@ -57,7 +57,7 @@ export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
         <div className="lg:col-span-7 text-center lg:text-left space-y-8 animate-in fade-in duration-700">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-            🎤 Share Your Story at Community Day Jakarta — Sessionize
+            🎟️ Registration Open — Get Your Tickets for Community Day
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-tight">
@@ -101,8 +101,8 @@ export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
               size="lg"
               className="w-full sm:w-auto bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 hover:from-orange-600 hover:to-purple-600 text-primary-foreground font-bold tracking-wide shadow-lg shadow-orange-500/25 active:scale-95 transition-all py-6 px-8 rounded-xl"
             >
-              <a href="#cfp">
-                <Mic className="mr-2 h-5 w-5" /> Share Your Story
+              <a href="#tickets">
+                <Ticket className="mr-2 h-5 w-5" /> Get Tickets
               </a>
             </Button>
             <Button
@@ -111,8 +111,8 @@ export function ComDayHero({ kioskUrl }: ComDayHeroProps) {
               size="lg"
               className="w-full sm:w-auto border-border bg-card text-foreground hover:bg-accent hover:border-border font-medium py-6 px-8 rounded-xl"
             >
-              <a href="#tickets">
-                <Ticket className="mr-2 h-5 w-5" /> Get Tickets
+              <a href="#agenda">
+                <Calendar className="mr-2 h-5 w-5" /> Event Schedule
               </a>
             </Button>
           </div>

@@ -33,25 +33,30 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
 
     <MetricsBar client:visible />
 
-    <!-- Speaker CFP Section -->
-    <CFPSection client:visible />
-
-    <!-- Ticket Sales Section -->
-    <section id="tickets" class="py-20 px-4 bg-background border-b border-border relative">
-        <div class="absolute right-0 top-1/4 w-80 h-80 bg-orange-500/5 rounded-full blur-[100px]" />
-        <div class="container max-w-4xl mx-auto space-y-12">
+    <!-- Ticket Sales Section (MAIN SECTION) -->
+    <section id="tickets" class="py-20 sm:py-24 px-4 bg-background border-b border-border relative overflow-hidden">
+        <div class="absolute right-0 top-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-[120px] pointer-events-none" />
+        <div class="absolute left-0 bottom-1/4 w-96 h-96 bg-purple-900/15 rounded-full blur-[120px] pointer-events-none" />
+        <div class="container max-w-4xl mx-auto space-y-12 relative z-10">
             <div class="text-center space-y-4">
-                <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold">
+                    <span class="relative flex h-1.5 w-1.5 shrink-0">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-500 opacity-75"></span>
+                        <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                    </span>
+                    Official Registration
+                </div>
+                <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">
                     Get Your Tickets
                 </h2>
                 <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
                 <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">
-                    Secure your attendance today. Select a ticket tier below to register. Refundable upon check-in.
+                    Secure your attendance today. Select a ticket tier below to register. Refundable upon check-in at the venue.
                 </p>
             </div>
 
             {/* Embedded Pretix Widget */}
-            <div class="bg-card/60 backdrop-blur-xl border border-border rounded-3xl p-6 sm:p-8 shadow-2xl relative">
+            <div class="bg-card/60 backdrop-blur-xl border border-border/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
                 <PretixWidget
                     client:visible
                     eventUrl="https://gultix.awscommunity.id/AWSUserGroupJakarta/CommunityDay26/"
@@ -113,6 +118,9 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
             </div>
         </section>
     )}
+
+    <!-- Speaker CFP Section (Secondary Opportunity Section) -->
+    <CFPSection client:visible />
 
     <!-- FAQ Section -->
     <section id="faq" class="py-20 px-4 bg-background">

@@ -2,10 +2,19 @@
 import Layout from "../layouts/Layout.astro";
 import { VolunteerPageContent } from "../components/volunteer/VolunteerPageContent";
 import { VolunteerFAQ } from "../components/VolunteerFAQ";
+import { getCollection } from "astro:content";
+import { normalizePeople } from "@/lib/event-people";
+
+const events = await getCollection("events");
+const sortedEvents = [...events].sort(
+    (a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime()
+);
+const allVolunteerStrings = sortedEvents.flatMap((e) => e.data.volunteers ?? []);
+const volunteers = normalizePeople(allVolunteerStrings);
 ---
 
 <Layout title="Volunteer — AWS User Group Jakarta">
-    <VolunteerPageContent client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} />
+    <VolunteerPageContent client:load kioskUrl={import.meta.env.PUBLIC_IMMICH_KIOSK_URL} volunteers={volunteers} />
     
     <section class="py-16 md:py-24 border-t border-border/40">
         <div class="container max-w-4xl mx-auto px-4 md:px-6">

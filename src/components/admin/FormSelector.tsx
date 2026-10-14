@@ -32,11 +32,12 @@ export function FormSelector({
     fetchAdminForms()
       .then((data) => {
         if (cancelled) return;
-        setForms(data);
+        const formList = Array.isArray(data) ? data : [];
+        setForms(formList);
         // Default to first active form (or first form) if caller has no value.
         if (!value) {
           const first =
-            data.find((f) => f.is_active) ?? data[0];
+            formList.find((f) => f.is_active) ?? formList[0];
           if (first) onChange(first.survey_id);
         }
       })

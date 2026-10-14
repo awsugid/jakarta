@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from "react";
 import { AdminGuard } from "@/components/admin/AdminGuard";
 import {
   AdminNavigation,
@@ -11,10 +11,6 @@ import { FormSelector } from "@/components/admin/FormSelector";
 import { AdminStatsCards } from "@/components/admin/AdminStatsCards";
 import { FormbricksResponsesTable } from "@/components/admin/FormbricksResponsesTable";
 import { ResponseDetailDrawer } from "@/components/admin/ResponseDetailDrawer";
-import { LinkManager } from "@/components/admin/LinkManager";
-import { SponsorPackageManager } from "@/components/admin/SponsorPackageManager";
-import { SponsorDirectoryManager } from "@/components/admin/SponsorDirectoryManager";
-import { FormStatusManager } from "@/components/admin/FormStatusManager";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -35,6 +31,84 @@ import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PAGE_SIZE, computePagination, paginationSummary, type PaginationState } from "@/components/admin/pagination";
 
+// Lazy-loaded secondary admin tabs to shrink initial admin JS bundle
+const FormStatusManager = lazy(() =>
+  import("@/components/admin/FormStatusManager").then((m) => ({
+    default: m.FormStatusManager,
+  }))
+);
+const LinkManager = lazy(() =>
+  import("@/components/admin/LinkManager").then((m) => ({
+    default: m.LinkManager,
+  }))
+);
+const SponsorPackageManager = lazy(() =>
+  import("@/components/admin/SponsorPackageManager").then((m) => ({
+    default: m.SponsorPackageManager,
+  }))
+);
+const SponsorDirectoryManager = lazy(() =>
+  import("@/components/admin/SponsorDirectoryManager").then((m) => ({
+    default: m.SponsorDirectoryManager,
+  }))
+);
+
+function TabLoadingSkeleton() {
+  return (
+    <div className="flex h-64 items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class TabErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[TabErrorBoundary] Caught render error:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback ?? (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center my-8">
+            <h3 className="font-semibold text-destructive mb-2">Something went wrong in this section</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {this.state.error?.message ?? "An unexpected rendering error occurred."}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => this.setState({ hasError: false })}
+            >
+              Try Again
+            </Button>
+          </div>
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
 type FinishedFilter = "all" | "true" | "false";
 
 export function AdminDashboard() {
@@ -50,12 +124,9 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
   const [surveyId, setSurveyId] = useState<string | null>(null);
   const [finished, setFinished] = useState<FinishedFilter>("true");
   // null = auto: every catalog tag is selected (the default). A manual array
-  // persists until the survey changes — catalog refreshes never prune it, so
-  // a label missing from the catalog stays applied until unchecked by hand.
+  // persists until the survey changes — catalog refreshes never prune it.
   const [selectedTags, setSelectedTags] = useState<string[] | null>(null);
   const [tagCatalog, setTagCatalog] = useState<string[]>([]);
-  // Survey whose tag catalog is resolved; responses wait for it so the first
-  // fetch never fires a stale untagged query before the catalog is known.
   const [tagCatalogFor, setTagCatalogFor] = useState<string | null>(null);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -74,27 +145,28 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
   const requestIdRef = useRef(0);
   const tagRequestIdRef = useRef(0);
 
-  const effectiveTags = effectiveTagSelection(selectedTags, tagCatalog);
-  // True while the current survey's tag catalog is still loading — the table
-  // shows the loading state so stale rows from the previous survey never read
-  // as current.
+  const menuEffectiveTags = effectiveTagSelection(selectedTags, tagCatalog);
   const tagsPending = surveyId !== null && tagCatalogFor !== surveyId;
 
   const load = useCallback(async () => {
     if (!surveyId) return;
-    if (tagCatalogFor !== surveyId) return;
     const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
-    // Stats follow the request lifecycle: em dash while loading, never stale page counts.
     setStats(null);
     try {
+      const tagParams =
+        selectedTags === null
+          ? {}
+          : selectedTags.length > 0
+          ? { tags: selectedTags }
+          : { untagged: true };
+
       const data = await fetchAdminFormbricksResponses(surveyId, {
         limit: PAGE_SIZE,
         offset: (page - 1) * PAGE_SIZE,
         finished,
-        tags: effectiveTags.length > 0 ? effectiveTags : undefined,
-        untagged: effectiveTags.length === 0,
+        ...tagParams,
       });
       if (requestId !== requestIdRef.current) return;
       setResponses(data.items ?? []);
@@ -109,7 +181,7 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [surveyId, tagCatalogFor, finished, page, effectiveTags]);
+  }, [surveyId, finished, page, selectedTags]);
 
   useEffect(() => {
     load();
@@ -125,8 +197,6 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
       setTagCatalogFor(surveyId);
       setTagsError(null);
     } catch (err: any) {
-      // Keep the last good catalog; surface the failure so filtering can be
-      // retried. The gate still opens — a tags failure must not block responses.
       if (requestId === tagRequestIdRef.current) {
         setTagsError(err?.message ?? "Failed to load tags.");
         setTagCatalogFor(surveyId);
@@ -185,82 +255,84 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
           </div>
 
           {/* Explicit tab branches; responses remains the default */}
-          {tab === "forms" ? (
-            <FormStatusManager />
-          ) : tab === "links" ? (
-            <LinkManager />
-          ) : tab === "sponsors-directory" ? (
-            <SponsorDirectoryManager />
-          ) : tab === "sponsors" ? (
-            <SponsorPackageManager />
-          ) : (
-        <>
-          {/* Filter row: labeled controls, one grid row, equal heights; stacks on mobile. */}
-          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_180px_260px] gap-3 mb-4">
-            <div className="flex flex-col gap-1.5 min-w-0">
-              <label
-                htmlFor="filter-form"
-                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-              >
-                Form
-              </label>
-              <FormSelector
-                id="filter-form"
-                value={surveyId}
-                onChange={(id) => {
-                  setSurveyId(id);
-                  setPage(1);
-                  // Back to auto: the new survey selects its own full catalog,
-                  // and responses wait until that catalog resolves.
-                  setSelectedTags(null);
-                  setTagCatalogFor(null);
-                  setTagCatalog([]);
-                }}
-              />
+          <TabErrorBoundary>
+            <Suspense fallback={<TabLoadingSkeleton />}>
+            {tab === "forms" ? (
+              <FormStatusManager />
+            ) : tab === "links" ? (
+              <LinkManager />
+            ) : tab === "sponsors-directory" ? (
+              <SponsorDirectoryManager />
+            ) : tab === "sponsors" ? (
+              <SponsorPackageManager />
+            ) : (
+          <>
+            {/* Filter row: labeled controls, one grid row, equal heights; stacks on mobile. */}
+            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_180px_260px] gap-3 mb-4">
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <label
+                  htmlFor="filter-form"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  Form
+                </label>
+                <FormSelector
+                  id="filter-form"
+                  value={surveyId}
+                  onChange={(id) => {
+                    setSurveyId(id);
+                    setPage(1);
+                    // Back to auto: the new survey selects its own full catalog,
+                    // and responses wait until that catalog resolves.
+                    setSelectedTags(null);
+                    setTagCatalogFor(null);
+                    setTagCatalog([]);
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <label
+                  htmlFor="filter-status"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  Status
+                </label>
+                <Select
+                  value={finished}
+                  onValueChange={(v) => {
+                    setFinished(v as FinishedFilter);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger id="filter-status" className="w-full bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All responses</SelectItem>
+                    <SelectItem value="true">Finished only</SelectItem>
+                    <SelectItem value="false">In progress only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <label
+                  htmlFor="filter-tags"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
+                  Tags
+                </label>
+                <TagFilterMenu
+                  id="filter-tags"
+                  hintId="filter-tags-hint"
+                  selected={menuEffectiveTags}
+                  catalog={tagCatalog}
+                  onChange={(next) => {
+                    setSelectedTags(next);
+                    setPage(1);
+                  }}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5 min-w-0">
-              <label
-                htmlFor="filter-status"
-                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-              >
-                Status
-              </label>
-              <Select
-                value={finished}
-                onValueChange={(v) => {
-                  setFinished(v as FinishedFilter);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger id="filter-status" className="w-full bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All responses</SelectItem>
-                  <SelectItem value="true">Finished only</SelectItem>
-                  <SelectItem value="false">In progress only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5 min-w-0">
-              <label
-                htmlFor="filter-tags"
-                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-              >
-                Tags
-              </label>
-              <TagFilterMenu
-                id="filter-tags"
-                hintId="filter-tags-hint"
-                selected={effectiveTags}
-                catalog={tagCatalog}
-                onChange={(next) => {
-                  setSelectedTags(next);
-                  setPage(1);
-                }}
-              />
-            </div>
-          </div>
           {/* Helper + tag errors sit outside the control row so they never
               push the three triggers out of alignment. */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-5 text-xs text-muted-foreground">
@@ -340,6 +412,8 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
           />
         </>
       )}
+      </Suspense>
+      </TabErrorBoundary>
         </div>
       </main>
     </div>

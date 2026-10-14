@@ -44,7 +44,9 @@ export function FormStatusManager() {
     try {
       const data = await fetchAdminForms();
       // Only volunteer forms, ordered to match the divisions list
-      const volunteerForms = data.filter((f) => f.kind === "volunteer");
+      const volunteerForms = (Array.isArray(data) ? data : []).filter(
+        (f) => f.kind === "volunteer"
+      );
       volunteerForms.sort((a, b) => {
         const slugOrder = divisions.map((d) => nameToSlug[d.name]);
         const ai = slugOrder.indexOf(a.slug);
@@ -81,27 +83,45 @@ export function FormStatusManager() {
     }
   };
 
-  /** Bulk-switch all volunteer categories to the target mode (Recruiting / Talent Pool). */
+  /** Bulk-switch all volunteer categories to the target mode (Recruiting / Talent Pool) in parallel. */
   const handleBulkToggle = async (targetActive: boolean) => {
     const targets = forms.filter((f) => f.is_active !== targetActive);
     if (targets.length === 0) return;
     setUpdateError(null);
-    for (const form of targets) {
-      setUpdatingKey(form.slug);
-      try {
-        const updated = await updateAdminFormStatus(form.kind, form.slug, {
-          is_active: targetActive,
-        });
-        setForms((prev) =>
-          prev.map((f) => (f.slug === form.slug ? updated : f)),
-        );
-      } catch (e: any) {
-        setUpdateError(e?.message ?? `Failed to update ${form.title}.`);
-        setUpdatingKey(null);
-        return;
+    setUpdatingKey("bulk");
+    try {
+      const results = await Promise.allSettled(
+        targets.map((form) =>
+          updateAdminFormStatus(form.kind, form.slug, {
+            is_active: targetActive,
+          })
+        )
+      );
+
+      const successfulUpdates: AdminFormSummary[] = [];
+      const failedTitles: string[] = [];
+
+      results.forEach((res, idx) => {
+        if (res.status === "fulfilled") {
+          successfulUpdates.push(res.value);
+        } else {
+          failedTitles.push(targets[idx].title);
+        }
+      });
+
+      if (successfulUpdates.length > 0) {
+        const updateMap = new Map(successfulUpdates.map((u) => [u.slug, u]));
+        setForms((prev) => prev.map((f) => updateMap.get(f.slug) ?? f));
       }
+
+      if (failedTitles.length > 0) {
+        setUpdateError(
+          `Failed to update ${failedTitles.length} categories: ${failedTitles.join(", ")}.`
+        );
+      }
+    } finally {
+      setUpdatingKey(null);
     }
-    setUpdatingKey(null);
   };
 
   const filteredForms = searchQuery.trim()
@@ -120,7 +140,7 @@ export function FormStatusManager() {
   const closedCount = totalCount - openCount;
   const allOpen = totalCount > 0 && openCount === totalCount;
   const allClosed = totalCount > 0 && closedCount === totalCount;
-  const isBulkUpdating = forms.some((f) => updatingKey === f.slug);
+  const isBulkUpdating = updatingKey === "bulk" || forms.some((f) => updatingKey === f.slug);
   // Null count on any form means the total is unknown — show — instead of a
   // partial sum. Per-row counts still render individually.
   const totalResponses = forms.some((f) => f.response_count == null)

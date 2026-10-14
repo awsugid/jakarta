@@ -16,11 +16,11 @@ export { divisions, nameToSlug };
 
 interface VolunteerRolesProps {
   forms?: FormInfo[];
+  loading?: boolean;
   onApply?: (slug: string, title: string) => void;
 }
 
-
-export function VolunteerRoles({ forms, onApply }: VolunteerRolesProps) {
+export function VolunteerRoles({ forms, loading = false, onApply }: VolunteerRolesProps) {
   // Build a lookup from slug to FormInfo
   const formBySlug = new Map<string, FormInfo>();
   if (forms) {
@@ -64,7 +64,9 @@ export function VolunteerRoles({ forms, onApply }: VolunteerRolesProps) {
                   const form = slug ? formBySlug.get(slug) : undefined;
                   return (
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {form?.is_active ? (
+                      {loading && !form ? (
+                        <div className="h-5 w-16 bg-muted/60 animate-pulse rounded-full" />
+                      ) : form?.is_active ? (
                         <Badge className="text-xs bg-green-500/10 text-green-600 border border-green-500/20 hover:bg-green-500/10">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Open

@@ -48,8 +48,9 @@ function formatDateTime(iso: string | null): string {
 }
 
 function joinPreview(
-  preview: Record<string, string | number | boolean | string[] | null>,
+  preview?: Record<string, string | number | boolean | string[] | null> | null,
 ): { firstKey: string; firstValue: string; full: string } {
+  if (!preview || typeof preview !== "object") return { firstKey: "", firstValue: "—", full: "" };
   const entries = Object.entries(preview);
   if (entries.length === 0) return { firstKey: "", firstValue: "—", full: "" };
   const render = (v: string | number | boolean | string[] | null): string => {

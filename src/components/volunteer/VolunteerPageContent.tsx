@@ -30,11 +30,32 @@ export function VolunteerPageContent({
 
   useEffect(() => {
     let cancelled = false;
+    const CACHE_KEY = "awsug_volunteer_forms_cache";
+
+    // Instant hydration from sessionStorage if available
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setForms(parsed);
+          setLoading(false);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
     async function load() {
       try {
         const data = await fetchForms("volunteer");
         if (!cancelled) {
           setForms(data);
+          try {
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          } catch {
+            /* ignore */
+          }
         }
       } catch {
         if (!cancelled) {
@@ -73,24 +94,11 @@ export function VolunteerPageContent({
         onApplyClick={handleMainApply}
       />
 
-      {!loading && !error && (
-        <VolunteerRoles forms={forms} onApply={handleApply} />
-      )}
-
-      {!loading && (error || forms.length === 0) && (
-        <VolunteerRoles onApply={handleApply} />
-      )}
-
-      {loading && (
-        <section className="py-24 bg-muted/30">
-          <div className="container mx-auto px-4 md:px-6 text-center">
-            <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-            <p className="text-muted-foreground mt-4">
-              Loading volunteer divisions...
-            </p>
-          </div>
-        </section>
-      )}
+      <VolunteerRoles
+        forms={forms}
+        loading={loading}
+        onApply={handleApply}
+      />
 
       {volunteers.length > 0 && <VolunteerSpotlight people={volunteers} />}
 

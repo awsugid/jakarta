@@ -8,6 +8,8 @@ import {
   Unlock,
   AlertCircle,
   Users,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,9 +118,9 @@ export function SponsorPackageCard({
                 </Badge>
               )}
               {!draft.isUnlocked && (
-                <Badge variant="secondary" className="text-[10px] bg-muted font-normal text-muted-foreground">
-                  <Lock className="h-2.5 w-2.5 mr-0.5" />
-                  Locked
+                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/30 font-medium">
+                  <EyeOff className="h-2.5 w-2.5 mr-0.5" />
+                  Hidden
                 </Badge>
               )}
             </div>
@@ -207,18 +209,18 @@ export function SponsorPackageCard({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-foreground">Unlock / Public Availability</Label>
+              <Label className="text-xs font-semibold text-foreground">Public Visibility</Label>
               <div className="flex items-center justify-between p-2 rounded-lg border border-border/80 bg-background h-10">
                 <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                   {draft.isUnlocked ? (
                     <>
-                      <Unlock className="h-3.5 w-3.5 text-emerald-500" />
-                      Available to Public
+                      <Eye className="h-3.5 w-3.5 text-emerald-500" />
+                      Visible to Public
                     </>
                   ) : (
                     <>
-                      <Lock className="h-3.5 w-3.5 text-amber-500" />
-                      Locked / Hidden
+                      <EyeOff className="h-3.5 w-3.5 text-amber-500" />
+                      Hidden from Public
                     </>
                   )}
                 </span>

@@ -18,6 +18,11 @@ import {
   Sparkles,
   Layers,
   Tag,
+  Upload,
+  Image as ImageIcon,
+  UserCheck,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +43,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -49,16 +56,44 @@ import {
   updateAdminSpeaker,
   deleteAdminSpeaker,
   reorderAdminSpeakers,
+  searchAdminUsers,
+  uploadSpeakerAsset,
 } from "@/lib/api";
 import type {
   EventSpeaker,
   EventSpeakerCreate,
   EventSpeakerUpdate,
   EventSpeakerOrderItem,
+  AdminUserSearchResult,
 } from "@/lib/types";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 
 export type EventCategoryType = "Conference" | "Monthly Meetup" | "Workshop" | "Other";
+
+export const TALK_FORMAT_PRESETS = [
+  "Keynote",
+  "Technical Session",
+  "Technical Track",
+  "Standard Talk",
+  "Deep Dive",
+  "Lightning Talk",
+  "Workshop / Hands-on",
+  "Panel Discussion",
+  "Fireside Chat",
+] as const;
+
+export function getDefaultTalkFormat(category: EventCategoryType | "ALL"): string {
+  switch (category) {
+    case "Conference":
+      return "Keynote";
+    case "Monthly Meetup":
+      return "Technical Session";
+    case "Workshop":
+      return "Workshop / Hands-on";
+    default:
+      return "Technical Session";
+  }
+}
 
 export interface EventOption {
   slug: string;
@@ -102,13 +137,19 @@ export const KNOWN_EVENTS: EventOption[] = [
   },
   {
     slug: "monthly-meetup-july-2026",
-    name: "July 2026 Meetup",
+    name: "July 2026 Meetup (with Confluent)",
     category: "Monthly Meetup",
     badge: "Jul 2026",
   },
   {
+    slug: "openclaw-meetup",
+    name: "June 2026 Meetup (Openclaw Edition)",
+    category: "Monthly Meetup",
+    badge: "Jun 2026",
+  },
+  {
     slug: "monthly-meetup-june-2026",
-    name: "June 2026 Meetup",
+    name: "June 2026 Meetup (monthly-meetup-june-2026)",
     category: "Monthly Meetup",
     badge: "Jun 2026",
   },
@@ -119,9 +160,16 @@ export const KNOWN_EVENTS: EventOption[] = [
     badge: "Apr 2026",
   },
   {
-    slug: "kiro-night-bukber",
-    name: "Kiro Night Meetup",
+    slug: "kiro-night",
+    name: "March 2026 Meetup (Kiro Night Bukber)",
     category: "Monthly Meetup",
+    badge: "Mar 2026",
+  },
+  {
+    slug: "kiro-night-bukber",
+    name: "March 2026 Meetup (kiro-night-bukber)",
+    category: "Monthly Meetup",
+    badge: "Mar 2026",
   },
 
   // Workshops
@@ -208,6 +256,23 @@ export function SpeakerDirectoryManager() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formCustomSlug, setFormCustomSlug] = useState(false);
+  const [formCustomFormat, setFormCustomFormat] = useState(false);
+
+  // User Autofill Search state
+  const [searchUserQuery, setSearchUserQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<AdminUserSearchResult[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [userSearchError, setUserSearchError] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUserSearchResult | null>(null);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  // Asset Upload states & refs
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
+  const topicInputRef = React.useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoUploadError, setPhotoUploadError] = useState<string | null>(null);
+  const [uploadingTopic, setUploadingTopic] = useState(false);
+  const [topicUploadError, setTopicUploadError] = useState<string | null>(null);
 
   // Delete Dialog state
   const [deleteTarget, setDeleteTarget] = useState<EventSpeaker | null>(null);
@@ -276,19 +341,109 @@ export function SpeakerDirectoryManager() {
     return { total, active, inactive };
   }, [filteredSpeakers]);
 
+  // Search Registered Users
+  const handleSearchUsers = async (queryText?: string) => {
+    const q = queryText !== undefined ? queryText : searchUserQuery;
+    setSearchingUsers(true);
+    setUserSearchError(null);
+    try {
+      const res = await searchAdminUsers(q.trim() || undefined);
+      setUserSearchResults(res.users || []);
+      setShowUserDropdown(true);
+    } catch (err: any) {
+      setUserSearchError(err?.message || "Failed to search registered users");
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  // Select Registered User to Autofill common profile data
+  const handleSelectUser = (user: AdminUserSearchResult) => {
+    let parsedRole = user.title?.trim() || "";
+    let parsedCompany = formData.company;
+    if (parsedRole.toLowerCase().includes(" at ")) {
+      const parts = parsedRole.split(/ at /i);
+      parsedRole = parts[0].trim();
+      parsedCompany = parts[1].trim();
+    } else if (parsedRole.includes(" @ ")) {
+      const parts = parsedRole.split(" @ ");
+      parsedRole = parts[0].trim();
+      parsedCompany = parts[1].trim();
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      name: user.displayName?.trim() || user.name.trim() || prev.name,
+      role: parsedRole || prev.role,
+      company: parsedCompany || prev.company,
+      photoUrl: user.picture || prev.photoUrl,
+      socialUrl: user.socialUrl || prev.socialUrl,
+      // Note: Topic Banner and Talk Title are preserved for manual event input!
+    }));
+    setSelectedUser(user);
+    setShowUserDropdown(false);
+  };
+
+  // Handle Photo File Upload
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploadError(null);
+    setUploadingPhoto(true);
+    try {
+      const res = await uploadSpeakerAsset(formData.eventSlug || COMMUNITY_DAY_EVENT_SLUG, file, "photo");
+      setFormData((prev) => ({ ...prev, photoUrl: res.url }));
+    } catch (err: any) {
+      setPhotoUploadError(err?.message || "Failed to upload photo");
+    } finally {
+      setUploadingPhoto(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
+  // Handle Topic Banner File Upload
+  const handleTopicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setTopicUploadError(null);
+    setUploadingTopic(true);
+    try {
+      const res = await uploadSpeakerAsset(formData.eventSlug || COMMUNITY_DAY_EVENT_SLUG, file, "topic");
+      setFormData((prev) => ({ ...prev, topicImageUrl: res.url }));
+    } catch (err: any) {
+      setTopicUploadError(err?.message || "Failed to upload banner");
+    } finally {
+      setUploadingTopic(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
   // Open Add Dialog
   const handleOpenAdd = () => {
     setEditingSpeaker(null);
-    const defaultSlug =
-      activeQuerySlug && activeQuerySlug !== "ALL" && activeQuerySlug !== "CUSTOM"
-        ? activeQuerySlug
-        : COMMUNITY_DAY_EVENT_SLUG;
+    let defaultSlug = COMMUNITY_DAY_EVENT_SLUG;
+    if (selectedEventSlug && selectedEventSlug !== "ALL" && selectedEventSlug !== "CUSTOM") {
+      defaultSlug = selectedEventSlug;
+    } else if (selectedCategory === "Monthly Meetup") {
+      defaultSlug = "monthly-meetup";
+    } else if (selectedCategory === "Workshop") {
+      defaultSlug = "voice-ai-agents-workshop-may-2026";
+    }
+    const defaultFormat = getDefaultTalkFormat(getEventCategoryMeta(defaultSlug).category);
     setFormData({
       ...INITIAL_FORM,
       eventSlug: defaultSlug,
+      talkFormat: defaultFormat,
     });
     setFormCustomSlug(false);
+    setFormCustomFormat(false);
     setFormError(null);
+    setSelectedUser(null);
+    setSearchUserQuery("");
+    setUserSearchResults([]);
+    setShowUserDropdown(false);
+    setPhotoUploadError(null);
+    setTopicUploadError(null);
     setDialogOpen(true);
   };
 
@@ -297,6 +452,8 @@ export function SpeakerDirectoryManager() {
     setEditingSpeaker(speaker);
     const isKnown = KNOWN_EVENTS.some((e) => e.slug === speaker.eventSlug);
     setFormCustomSlug(!isKnown);
+    const isStandardFormat = TALK_FORMAT_PRESETS.includes(speaker.talkFormat as any);
+    setFormCustomFormat(!isStandardFormat && Boolean(speaker.talkFormat));
     setFormData({
       eventSlug: speaker.eventSlug,
       name: speaker.name,
@@ -305,12 +462,18 @@ export function SpeakerDirectoryManager() {
       photoUrl: speaker.photoUrl,
       topicImageUrl: speaker.topicImageUrl || "",
       talkTitle: speaker.talkTitle,
-      talkFormat: speaker.talkFormat || "Keynote",
+      talkFormat: speaker.talkFormat || "Technical Session",
       bio: speaker.bio || "",
       socialUrl: speaker.socialUrl || "",
       isActive: speaker.isActive,
     });
     setFormError(null);
+    setSelectedUser(null);
+    setSearchUserQuery("");
+    setUserSearchResults([]);
+    setShowUserDropdown(false);
+    setPhotoUploadError(null);
+    setTopicUploadError(null);
     setDialogOpen(true);
   };
 
@@ -361,7 +524,17 @@ export function SpeakerDirectoryManager() {
           isActive: formData.isActive,
         };
         const created = await createAdminSpeaker(targetSlug, payload);
-        setSpeakers((prev) => [...prev, created]);
+        setSpeakers((prev) => [
+          created,
+          ...prev.filter((s) => !(s.id === created.id && s.eventSlug === created.eventSlug)),
+        ]);
+        const meta = getEventCategoryMeta(targetSlug);
+        if (selectedCategory !== "ALL" && selectedCategory !== meta.category) {
+          setSelectedCategory(meta.category);
+        }
+        if (selectedEventSlug !== "ALL" && selectedEventSlug !== targetSlug) {
+          setSelectedEventSlug(targetSlug);
+        }
       }
       setDialogOpen(false);
     } catch (err: any) {
@@ -467,7 +640,7 @@ export function SpeakerDirectoryManager() {
             variant={selectedCategory === "Conference" ? "default" : "outline"}
             onClick={() => {
               setSelectedCategory("Conference");
-              setSelectedEventSlug("community-day-2026");
+              setSelectedEventSlug("ALL");
             }}
             className="rounded-full text-xs font-semibold gap-1.5 cursor-pointer"
           >
@@ -481,7 +654,7 @@ export function SpeakerDirectoryManager() {
             variant={selectedCategory === "Monthly Meetup" ? "default" : "outline"}
             onClick={() => {
               setSelectedCategory("Monthly Meetup");
-              setSelectedEventSlug("monthly-meetup");
+              setSelectedEventSlug("ALL");
             }}
             className="rounded-full text-xs font-semibold gap-1.5 cursor-pointer"
           >
@@ -495,7 +668,7 @@ export function SpeakerDirectoryManager() {
             variant={selectedCategory === "Workshop" ? "default" : "outline"}
             onClick={() => {
               setSelectedCategory("Workshop");
-              setSelectedEventSlug("voice-ai-agents-workshop-may-2026");
+              setSelectedEventSlug("ALL");
             }}
             className="rounded-full text-xs font-semibold gap-1.5 cursor-pointer"
           >
@@ -520,7 +693,17 @@ export function SpeakerDirectoryManager() {
               <SelectValue placeholder="Select Event" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">🌐 All Events in Category</SelectItem>
+              <SelectItem value="ALL">
+                {selectedCategory === "ALL"
+                  ? "🌐 All Events"
+                  : selectedCategory === "Monthly Meetup"
+                  ? "🌐 All Monthly Meetups"
+                  : selectedCategory === "Conference"
+                  ? "🌐 All Conferences"
+                  : selectedCategory === "Workshop"
+                  ? "🌐 All Workshops"
+                  : "🌐 All Events in Category"}
+              </SelectItem>
               {availableEvents.map((evt) => (
                 <SelectItem key={evt.slug} value={evt.slug}>
                   {evt.name} {evt.badge && `(${evt.badge})`}
@@ -861,34 +1044,74 @@ export function SpeakerDirectoryManager() {
             )}
 
             {/* Event Category & Slug Assignment */}
-            <div className="p-3.5 rounded-xl border border-border/80 bg-muted/30 space-y-2">
-              <Label htmlFor="sp-event" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Target Event & Category *
-              </Label>
-              {!formCustomSlug ? (
-                <div className="flex items-center gap-2">
+            <div className="p-3.5 rounded-xl border border-border/80 bg-muted/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="sp-event" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Target Event *
+                </Label>
+                {formData.eventSlug && (
+                  <Badge variant="outline" className={cn("text-[11px]", getEventCategoryMeta(formData.eventSlug).color)}>
+                    {getEventCategoryMeta(formData.eventSlug).category} · {formData.eventSlug}
+                  </Badge>
+                )}
+              </div>
+
+              {editingSpeaker ? (
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-semibold text-foreground">
+                      {getEventCategoryMeta(editingSpeaker.eventSlug).label}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      slug: {editingSpeaker.eventSlug}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    Event Locked on Edit
+                  </Badge>
+                </div>
+              ) : !formCustomSlug ? (
+                <div className="space-y-2">
                   <Select
                     value={formData.eventSlug}
                     onValueChange={(val) => {
                       if (val === "CUSTOM") {
                         setFormCustomSlug(true);
+                        setFormData({ ...formData, eventSlug: "" });
                       } else {
                         setFormData({ ...formData, eventSlug: val });
                       }
                     }}
                   >
                     <SelectTrigger id="sp-event" className="bg-background">
-                      <SelectValue placeholder="Choose Event" />
+                      <SelectValue placeholder="Choose Event for this Speaker" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="community-day-2026">🌟 AWS Community Day Jakarta 2026</SelectItem>
-                      <SelectItem value="monthly-meetup">📅 Monthly Meetups (General / Upcoming)</SelectItem>
-                      <SelectItem value="aws-ug-jakarta-redis-october-2026">📅 October 2026 Meetup (with Redis)</SelectItem>
-                      <SelectItem value="monthly-meetup-july-2026">📅 July 2026 Meetup</SelectItem>
-                      <SelectItem value="monthly-meetup-june-2026">📅 June 2026 Meetup</SelectItem>
-                      <SelectItem value="monthly-meetup-april-2026">📅 April 2026 Meetup</SelectItem>
-                      <SelectItem value="voice-ai-agents-workshop-may-2026">🛠️ Voice AI Agents Workshop</SelectItem>
-                      <SelectItem value="CUSTOM">✏️ Custom Event Slug...</SelectItem>
+                    <SelectContent className="max-h-[320px]">
+                      <SelectGroup>
+                        <SelectLabel className="text-xs font-bold text-orange-400">🌟 Community Day & Conferences</SelectLabel>
+                        <SelectItem value="community-day-2026">AWS Community Day Jakarta 2026</SelectItem>
+                        <SelectItem value="community-day-2025">AWS Community Day Jakarta 2025</SelectItem>
+                        <SelectItem value="reinvent-recap-2025">AWS re:Invent 2025 Recap</SelectItem>
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel className="text-xs font-bold text-sky-400">📅 Monthly Meetups</SelectLabel>
+                        <SelectItem value="monthly-meetup">Monthly Meetup (Global / General)</SelectItem>
+                        <SelectItem value="aws-ug-jakarta-redis-october-2026">October 2026 Meetup (with Redis)</SelectItem>
+                        <SelectItem value="monthly-meetup-july-2026">July 2026 Meetup (with Confluent)</SelectItem>
+                        <SelectItem value="openclaw-meetup">June 2026 Meetup (Openclaw Edition)</SelectItem>
+                        <SelectItem value="monthly-meetup-june-2026">June 2026 Meetup (monthly-meetup-june-2026)</SelectItem>
+                        <SelectItem value="monthly-meetup-april-2026">April 2026 Meetup</SelectItem>
+                        <SelectItem value="kiro-night">March 2026 Meetup (Kiro Night Bukber)</SelectItem>
+                        <SelectItem value="kiro-night-bukber">March 2026 Meetup (kiro-night-bukber)</SelectItem>
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel className="text-xs font-bold text-purple-400">🛠️ Workshops</SelectLabel>
+                        <SelectItem value="voice-ai-agents-workshop-may-2026">Voice AI Agents Hands-On Workshop</SelectItem>
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel className="text-xs font-bold text-muted-foreground">✏️ Other</SelectLabel>
+                        <SelectItem value="CUSTOM">Custom Event Slug...</SelectItem>
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
@@ -898,7 +1121,7 @@ export function SpeakerDirectoryManager() {
                     <Input
                       placeholder="e.g. monthly-meetup-november-2026"
                       value={formData.eventSlug}
-                      onChange={(e) => setFormData({ ...formData, eventSlug: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, eventSlug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "-") })}
                       required
                       className="bg-background"
                     />
@@ -906,12 +1129,143 @@ export function SpeakerDirectoryManager() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setFormCustomSlug(false)}
+                      onClick={() => {
+                        setFormCustomSlug(false);
+                        setFormData({ ...formData, eventSlug: COMMUNITY_DAY_EVENT_SLUG });
+                      }}
                       className="text-xs shrink-0 cursor-pointer"
                     >
                       Use Presets
                     </Button>
                   </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Enter the URL slug for this event (alphanumeric, dashes, lowercase).
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Autofill from Registered Community Member */}
+            <div className="p-3.5 rounded-xl border border-primary/25 bg-primary/5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                    Autofill from Registered Community Member
+                  </span>
+                </div>
+                {selectedUser ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedUser(null)}
+                    className="h-6 text-[11px] text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear Link
+                  </Button>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">
+                    Optional — manual input available below
+                  </span>
+                )}
+              </div>
+
+              {selectedUser ? (
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-primary/30">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar className="h-9 w-9 shrink-0 border border-primary/20">
+                      <AvatarImage src={selectedUser.picture || undefined} />
+                      <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                        {selectedUser.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate text-foreground flex items-center gap-1.5">
+                        {selectedUser.displayName || selectedUser.name}
+                        {selectedUser.username && (
+                          <span className="text-xs text-muted-foreground font-mono font-normal">@{selectedUser.username}</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{selectedUser.title || selectedUser.email}</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary shrink-0 ml-2">
+                    <UserCheck className="h-3 w-3 mr-1" />
+                    Autofilled
+                  </Badge>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by name, email, or @username to autofill..."
+                        value={searchUserQuery}
+                        onChange={(e) => setSearchUserQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSearchUsers();
+                          }
+                        }}
+                        className="pl-8 bg-background h-8 text-xs"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleSearchUsers()}
+                      disabled={searchingUsers}
+                      className="shrink-0 h-8 text-xs cursor-pointer"
+                    >
+                      {searchingUsers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Search Users"}
+                    </Button>
+                  </div>
+
+                  {userSearchError && (
+                    <p className="text-xs text-destructive">{userSearchError}</p>
+                  )}
+
+                  {showUserDropdown && (
+                    <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-background p-1 space-y-1 shadow-md">
+                      {userSearchResults.length === 0 ? (
+                        <p className="text-xs text-muted-foreground p-2.5 text-center">
+                          No registered user found for &quot;{searchUserQuery}&quot;. You can enter speaker details manually below!
+                        </p>
+                      ) : (
+                        userSearchResults.map((u) => (
+                          <div
+                            key={u.email}
+                            onClick={() => handleSelectUser(u)}
+                            className="flex items-center justify-between p-2 rounded-md hover:bg-muted/70 cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Avatar className="h-7 w-7 shrink-0 border border-border">
+                                <AvatarImage src={u.picture || undefined} />
+                                <AvatarFallback className="text-[10px] font-bold">
+                                  {u.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-foreground truncate">
+                                  {u.displayName || u.name}
+                                  {u.username && <span className="ml-1 text-[11px] text-muted-foreground font-mono">@{u.username}</span>}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground truncate">{u.title || u.email}</p>
+                              </div>
+                            </div>
+                            <Button type="button" size="sm" variant="outline" className="h-6 text-[10px] shrink-0 ml-2">
+                              Select
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -952,25 +1306,122 @@ export function SpeakerDirectoryManager() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="sp-photo">Profile Photo URL *</Label>
-                <Input
-                  id="sp-photo"
-                  placeholder="https://..."
-                  value={formData.photoUrl}
-                  onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                  required
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sp-photo">Profile Photo *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="h-6 text-xs shrink-0 cursor-pointer"
+                  >
+                    {uploadingPhoto ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3 w-3 mr-1 text-primary" />
+                        Upload Photo
+                      </>
+                    )}
+                  </Button>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <Avatar className="h-10 w-10 border border-border shrink-0">
+                    <AvatarImage src={formData.photoUrl} alt={formData.name} />
+                    <AvatarFallback className="text-xs font-bold bg-muted text-muted-foreground">
+                      {formData.name ? formData.name.charAt(0) : "IMG"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Input
+                    id="sp-photo"
+                    placeholder="https://... or upload photo"
+                    value={formData.photoUrl}
+                    onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
+                    required
+                    className="bg-background"
+                  />
+                </div>
+                {photoUploadError && (
+                  <p className="text-[11px] text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {photoUploadError}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="sp-topic-img">Topic / Session Cover Banner URL</Label>
-              <Input
-                id="sp-topic-img"
-                placeholder="https://... (16:9 topic banner image)"
-                value={formData.topicImageUrl}
-                onChange={(e) => setFormData({ ...formData, topicImageUrl: e.target.value })}
-              />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="sp-topic-img">Topic / Session Cover Banner (Optional)</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => topicInputRef.current?.click()}
+                  disabled={uploadingTopic}
+                  className="h-6 text-xs shrink-0 cursor-pointer"
+                >
+                  {uploadingTopic ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-3 w-3 mr-1 text-primary" />
+                      Upload Banner
+                    </>
+                  )}
+                </Button>
+                <input
+                  ref={topicInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleTopicUpload}
+                  className="hidden"
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {formData.topicImageUrl ? (
+                  <div className="w-14 h-9 rounded border border-border overflow-hidden bg-muted shrink-0">
+                    <img
+                      src={formData.topicImageUrl}
+                      alt="Topic Banner"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-14 h-9 rounded border border-dashed border-border flex items-center justify-center bg-muted/30 text-muted-foreground shrink-0">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                  </div>
+                )}
+                <Input
+                  id="sp-topic-img"
+                  placeholder="https://... (16:9 topic banner) or upload banner"
+                  value={formData.topicImageUrl}
+                  onChange={(e) => setFormData({ ...formData, topicImageUrl: e.target.value })}
+                  className="bg-background"
+                />
+              </div>
+              {topicUploadError && (
+                <p className="text-[11px] text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {topicUploadError}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -983,26 +1434,67 @@ export function SpeakerDirectoryManager() {
                   onChange={(e) => setFormData({ ...formData, talkTitle: e.target.value })}
                   required
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Event-specific topic / talk title (manually input for this event purpose).
+                </p>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="sp-format">Talk Format</Label>
-                <Select
-                  value={formData.talkFormat}
-                  onValueChange={(val) => setFormData({ ...formData, talkFormat: val })}
-                >
-                  <SelectTrigger id="sp-format">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Keynote">Keynote</SelectItem>
-                    <SelectItem value="Technical Track">Technical Track</SelectItem>
-                    <SelectItem value="Deep Dive">Deep Dive</SelectItem>
-                    <SelectItem value="Lightning Talk">Lightning Talk</SelectItem>
-                    <SelectItem value="Workshop">Workshop</SelectItem>
-                    <SelectItem value="Panel Discussion">Panel Discussion</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sp-format">Talk Format *</Label>
+                  {formCustomFormat ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFormCustomFormat(false);
+                        setFormData({
+                          ...formData,
+                          talkFormat: getDefaultTalkFormat(getEventCategoryMeta(formData.eventSlug).category),
+                        });
+                      }}
+                      className="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      Use Presets
+                    </Button>
+                  ) : null}
+                </div>
+
+                {!formCustomFormat ? (
+                  <Select
+                    value={formData.talkFormat}
+                    onValueChange={(val) => {
+                      if (val === "CUSTOM") {
+                        setFormCustomFormat(true);
+                        setFormData({ ...formData, talkFormat: "" });
+                      } else {
+                        setFormData({ ...formData, talkFormat: val });
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="sp-format" className="bg-background">
+                      <SelectValue placeholder="Select format..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[280px]">
+                      {TALK_FORMAT_PRESETS.map((fmt) => (
+                        <SelectItem key={fmt} value={fmt}>
+                          {fmt}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="CUSTOM">✏️ Custom Format...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="sp-format"
+                    placeholder="e.g. Community Showcase, Demo Lab..."
+                    value={formData.talkFormat}
+                    onChange={(e) => setFormData({ ...formData, talkFormat: e.target.value })}
+                    required
+                    className="bg-background"
+                  />
+                )}
               </div>
             </div>
 

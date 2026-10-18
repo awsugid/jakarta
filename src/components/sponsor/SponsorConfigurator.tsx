@@ -95,10 +95,15 @@ export function SponsorConfigurator() {
     };
   }, [retryTick]);
 
+  const visiblePackages = useMemo(
+    () => (packages ?? []).filter((p) => p.isUnlocked),
+    [packages]
+  );
+
   useEffect(() => {
     if (status !== "ready" || !packages) return;
-    setSelection((prev) => sanitizeSelection(prev, packages.map((p) => p.id)));
-  }, [status, packages]);
+    setSelection((prev) => sanitizeSelection(prev, visiblePackages.map((p) => p.id)));
+  }, [status, packages, visiblePackages]);
 
   const hydrated = useRef(false);
   useEffect(() => {
@@ -189,8 +194,8 @@ export function SponsorConfigurator() {
   );
 
   const sections = useMemo(
-    () => buildSponsorSections(packages ?? [], groups),
-    [packages, groups]
+    () => buildSponsorSections(visiblePackages, groups),
+    [visiblePackages, groups]
   );
 
   const trimmedCompany = company.trim();
@@ -422,59 +427,66 @@ export function SponsorConfigurator() {
 
         {showConfigurator && packages && (
           <>
-            <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
-              {/* Main Package Grid */}
-              <div className="space-y-10">
-                {sections.map((section) => (
-                  <div key={section.id} className="space-y-4">
-                    <h4 className="text-lg font-bold text-foreground flex items-center gap-2 border-l-2 border-primary pl-3">
-                      {section.label}
-                    </h4>
-                    <ul className="space-y-3">
-                      {section.packages.map((p) => {
-                        const minimumSpend = minimumSpendOf(p);
-                        const maxSponsors = maxSponsorsOf(p);
-                        const adminLocked = !p.isUnlocked;
-                        const soldOut = !adminLocked && isSoldOut(p);
-                        const spendLocked =
-                          !adminLocked && !soldOut && minimumSpend !== null && total < minimumSpend;
-                        const locked = adminLocked || soldOut || spendLocked;
-                        const isChecked = locked ? false : !!effectiveSelection[p.id];
-                        const remaining = remainingSponsorSlots(p);
-                        const exceedsRemainingBudget =
-                          targetBudget !== null &&
-                          !isChecked &&
-                          budgetRemaining !== null &&
-                          (currency === "USD"
-                            ? packageUsdPrice(p, exchangeRate)
-                            : p.priceIdr) > budgetRemaining;
-
-                        return (
-                          <SponsorPackageCard
-                            key={p.id}
-                            packageItem={p}
-                            currency={currency}
-                            exchangeRate={exchangeRate}
-                            isChecked={isChecked}
-                            locked={locked}
-                            adminLocked={adminLocked}
-                            soldOut={soldOut}
-                            spendLocked={spendLocked}
-                            minimumSpend={minimumSpend}
-                            maxSponsors={maxSponsors}
-                            remaining={remaining}
-                            exceedsRemainingBudget={exceedsRemainingBudget}
-                            onToggleSelection={(id, checked) =>
-                              setSelection((prev) => ({ ...prev, [id]: checked }))
-                            }
-                            onViewDetail={(pkg) => setDetailPackage(pkg)}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
+            {sections.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-card/40 p-12 text-center text-muted-foreground max-w-xl mx-auto my-8">
+                <p className="font-semibold text-foreground text-base">No packages published yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sponsorship packages for this event will be published soon.
+                </p>
               </div>
+            ) : (
+              <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+                {/* Main Package Grid */}
+                <div className="space-y-10">
+                  {sections.map((section) => (
+                    <div key={section.id} className="space-y-4">
+                      <h4 className="text-lg font-bold text-foreground flex items-center gap-2 border-l-2 border-primary pl-3">
+                        {section.label}
+                      </h4>
+                      <ul className="space-y-3">
+                        {section.packages.map((p) => {
+                          const minimumSpend = minimumSpendOf(p);
+                          const maxSponsors = maxSponsorsOf(p);
+                          const soldOut = isSoldOut(p);
+                          const spendLocked =
+                            !soldOut && minimumSpend !== null && total < minimumSpend;
+                          const locked = soldOut || spendLocked;
+                          const isChecked = locked ? false : !!effectiveSelection[p.id];
+                          const remaining = remainingSponsorSlots(p);
+                          const exceedsRemainingBudget =
+                            targetBudget !== null &&
+                            !isChecked &&
+                            budgetRemaining !== null &&
+                            (currency === "USD"
+                              ? packageUsdPrice(p, exchangeRate)
+                              : p.priceIdr) > budgetRemaining;
+
+                          return (
+                            <SponsorPackageCard
+                              key={p.id}
+                              packageItem={p}
+                              currency={currency}
+                              exchangeRate={exchangeRate}
+                              isChecked={isChecked}
+                              locked={locked}
+                              adminLocked={false}
+                              soldOut={soldOut}
+                              spendLocked={spendLocked}
+                              minimumSpend={minimumSpend}
+                              maxSponsors={maxSponsors}
+                              remaining={remaining}
+                              exceedsRemainingBudget={exceedsRemainingBudget}
+                              onToggleSelection={(id, checked) =>
+                                setSelection((prev) => ({ ...prev, [id]: checked }))
+                              }
+                              onViewDetail={(pkg) => setDetailPackage(pkg)}
+                            />
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
 
               {/* Sidebar Sponsorship Request Card */}
               <aside className="lg:sticky lg:top-24 space-y-4">
@@ -506,8 +518,9 @@ export function SponsorConfigurator() {
                 />
               </aside>
             </div>
+          )}
 
-            {/* Sticky Mobile Summary Bar */}
+          {/* Sticky Mobile Summary Bar */}
             {total > 0 && (
               <SponsorMobileBar
                 totalPrimaryText={totalPrimaryText}

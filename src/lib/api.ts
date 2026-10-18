@@ -42,6 +42,8 @@ import type {
   EventSpeakerUpdate,
   EventSpeakerOrderItem,
   EventSpeakersResponse,
+  AdminUserSearchResult,
+  AdminUserSearchResponse,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -788,5 +790,67 @@ export async function reorderAdminSpeakers(
     },
   );
 }
+
+/** GET /api/admin/users/search?q=... — search registered community users for speaker autofill (admin-only). */
+export async function searchAdminUsers(
+  query?: string,
+): Promise<AdminUserSearchResponse> {
+  const qs = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
+  return apiFetch<AdminUserSearchResponse>(`/api/admin/users/search${qs}`, {
+    headers: authHeaders(),
+  });
+}
+
+/** POST /api/admin/events/:eventSlug/speakers/upload — upload speaker photo or topic banner (admin-only). */
+export async function uploadSpeakerAsset(
+  eventSlug: string,
+  file: File,
+  type: "photo" | "topic" = "photo",
+): Promise<{ url: string; key: string }> {
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
+  if (!allowed.includes(file.type)) {
+    throw new Error(
+      `Unsupported file type (${file.type || "unknown"}). Allowed formats: JPEG, PNG, WebP.`
+    );
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `Image size exceeds 5 MB limit (Selected file is ${sizeMb} MB). Please compress or choose a smaller image.`
+    );
+  }
+
+  try {
+    return await apiFetch<{ url: string; key: string }>(
+      `/api/admin/events/${encodeURIComponent(eventSlug)}/speakers/upload?type=${encodeURIComponent(type)}`,
+      {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": file.type,
+        },
+        body: file,
+      },
+    );
+  } catch (err: any) {
+    // Graceful fallback to sponsor-mockup endpoint if speakers/upload is not yet deployed on worker
+    if (err?.status === 404) {
+      const folder = type === "topic" ? `${eventSlug}/topics` : `${eventSlug}/speakers`;
+      return await apiFetch<{ url: string; key: string }>(
+        `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsor-mockup?path=${encodeURIComponent(folder)}`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": file.type,
+          },
+          body: file,
+        },
+      );
+    }
+    throw err;
+  }
+}
+
 
 

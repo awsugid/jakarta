@@ -97,7 +97,7 @@ const TIER_ORDER: SponsorTierType[] = [
 ];
 
 export function SponsorGrid({
-  sponsors = DEFAULT_SPONSORS,
+  sponsors = [],
   title = "Our Sponsors & Partners",
   subtitle = "Supported by organizations empowering the developer community.",
   showBecomeSponsorCta = true,
@@ -105,8 +105,12 @@ export function SponsorGrid({
   const groupedSponsors = TIER_ORDER.map((tier) => ({
     tier,
     meta: TIER_META[tier],
-    items: sponsors.filter((s) => s.tier === tier),
+    items: (sponsors || []).filter((s) => s.tier === tier),
   })).filter((group) => group.items.length > 0);
+
+  if (groupedSponsors.length === 0) {
+    return null;
+  }
 
   return (
     <section

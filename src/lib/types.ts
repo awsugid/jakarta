@@ -574,3 +574,21 @@ export interface EventSpeakersResponse {
   speakers: EventSpeaker[];
 }
 
+/** Result for GET /api/admin/users/search */
+export interface AdminUserSearchResult {
+  email: string;
+  name: string;
+  displayName?: string | null;
+  title?: string | null;
+  picture?: string | null;
+  username?: string | null;
+  socialUrl?: string | null;
+  links?: { kind: string; url: string; label?: string }[];
+  isPublic: boolean;
+}
+
+export interface AdminUserSearchResponse {
+  users: AdminUserSearchResult[];
+}
+
+

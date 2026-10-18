@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { SponsorGrid, type Sponsor, type SponsorTierType } from "@/components/sponsors/SponsorGrid";
-import { COMDAY26_SPONSORS } from "@/data/sponsors";
 import { fetchPublicSponsors } from "@/lib/api";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 
 export function ComDaySponsors() {
-  const [sponsors, setSponsors] = useState<Sponsor[]>(COMDAY26_SPONSORS);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     fetchPublicSponsors(COMMUNITY_DAY_EVENT_SLUG)
       .then((res) => {
-        if (!cancelled && res.sponsors && res.sponsors.length > 0) {
-          const mapped: Sponsor[] = res.sponsors.map((s) => ({
+        if (!cancelled) {
+          const list = res.sponsors || [];
+          const mapped: Sponsor[] = list.map((s) => ({
             name: s.name,
             logo: s.logoUrl,
             url: s.websiteUrl || undefined,
@@ -22,13 +23,24 @@ export function ComDaySponsors() {
         }
       })
       .catch(() => {
-        // Fall back gracefully to static COMDAY26_SPONSORS
+        if (!cancelled) {
+          setSponsors([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  if (loading || sponsors.length === 0) {
+    return null;
+  }
 
   return (
     <SponsorGrid
@@ -39,3 +51,5 @@ export function ComDaySponsors() {
     />
   );
 }
+
+(ComDaySponsors as unknown as Record<symbol, string>)[Symbol.for("astro:renderer")] = "@astrojs/react";

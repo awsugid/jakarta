@@ -351,7 +351,7 @@ export function SpeakerDirectoryManager() {
       setUserSearchResults(res.users || []);
       setShowUserDropdown(true);
     } catch (err: any) {
-      setUserSearchError(err?.message || "Failed to search registered users");
+      setUserSearchError(err?.message || "Failed to search registered speakers");
     } finally {
       setSearchingUsers(false);
     }
@@ -1145,13 +1145,13 @@ export function SpeakerDirectoryManager() {
               )}
             </div>
 
-            {/* Quick Autofill from Registered Community Member */}
+            {/* Quick Autofill from Registered Speakers (CFP Submissions) */}
             <div className="p-3.5 rounded-xl border border-primary/25 bg-primary/5 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                    Autofill from Registered Community Member
+                    Autofill from Registered Speakers (CFP)
                   </span>
                 </div>
                 {selectedUser ? (
@@ -1202,7 +1202,7 @@ export function SpeakerDirectoryManager() {
                     <div className="relative flex-1">
                       <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                       <Input
-                        placeholder="Search by name, email, or @username to autofill..."
+                        placeholder="Search registered speakers by name, email, or @username..."
                         value={searchUserQuery}
                         onChange={(e) => setSearchUserQuery(e.target.value)}
                         onKeyDown={(e) => {
@@ -1222,7 +1222,7 @@ export function SpeakerDirectoryManager() {
                       disabled={searchingUsers}
                       className="shrink-0 h-8 text-xs cursor-pointer"
                     >
-                      {searchingUsers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Search Users"}
+                      {searchingUsers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Search Speakers"}
                     </Button>
                   </div>
 
@@ -1234,7 +1234,7 @@ export function SpeakerDirectoryManager() {
                     <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-background p-1 space-y-1 shadow-md">
                       {userSearchResults.length === 0 ? (
                         <p className="text-xs text-muted-foreground p-2.5 text-center">
-                          No registered user found for &quot;{searchUserQuery}&quot;. You can enter speaker details manually below!
+                          No registered speaker found for &quot;{searchUserQuery}&quot;. You can enter speaker details manually below!
                         </p>
                       ) : (
                         userSearchResults.map((u) => (

@@ -165,10 +165,7 @@ export function SpeakerCarousel({
 
           {/* Carousel Controls in Section Header */}
           {speakers.length > 1 && (
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs text-muted-foreground font-mono hidden sm:inline-block mr-1">
-                {currentIndex + 1} / {speakers.length}
-              </span>
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 type="button"
                 variant="outline"
@@ -256,13 +253,10 @@ export function SpeakerCarousel({
                               </div>
 
                               {/* Bottom Overlay Snippet */}
-                              <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between">
+                              <div className="absolute bottom-4 left-4 z-10">
                                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-[11px] font-medium text-white/90 border border-white/10">
                                   <Mic className="h-3 w-3 text-orange-400" />
                                   Presenter on Stage
-                                </span>
-                                <span className="text-xs text-white/70 font-mono">
-                                  {idx + 1} / {speakers.length}
                                 </span>
                               </div>
                             </div>
@@ -325,12 +319,9 @@ export function SpeakerCarousel({
                               </div>
 
                               {/* Bottom Overlay Snippet */}
-                              <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between">
+                              <div className="absolute bottom-4 left-4 z-10">
                                 <span className="text-[11px] text-white/70 font-medium">
                                   AWS Community Lineup
-                                </span>
-                                <span className="text-xs text-white/70 font-mono">
-                                  {idx + 1} / {speakers.length}
                                 </span>
                               </div>
                             </div>
@@ -340,13 +331,10 @@ export function SpeakerCarousel({
                         {/* Narrative & Details Column */}
                         <div className="lg:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-6">
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
                               <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
                                 <Mic className="h-3.5 w-3.5" />
                                 {speaker.talkFormat || "Technical Session"}
-                              </span>
-                              <span className="text-xs text-muted-foreground font-mono">
-                                Speaker {idx + 1} of {speakers.length}
                               </span>
                             </div>
 
@@ -360,7 +348,7 @@ export function SpeakerCarousel({
                             </p>
                           </div>
 
-                          <div className="pt-6 border-t border-border/70 space-y-4">
+                          <div className="pt-6 border-t border-border/70">
                             {/* Speaker Profile Row */}
                             <div className="flex items-center justify-between gap-4">
                               <div className="flex items-center gap-3.5 min-w-0">
@@ -397,54 +385,6 @@ export function SpeakerCarousel({
                                 </a>
                               )}
                             </div>
-
-                            {/* In-Card Next/Prev Controls & Indicator */}
-                            {speakers.length > 1 && (
-                              <div className="flex items-center justify-between pt-2">
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handlePrev}
-                                    aria-label="Previous speaker"
-                                    className="h-9 px-3 rounded-full border-border bg-background shadow-sm hover:bg-accent cursor-pointer text-xs"
-                                  >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    Prev
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleNext}
-                                    aria-label="Next speaker"
-                                    className="h-9 px-3 rounded-full border-border bg-background shadow-sm hover:bg-accent cursor-pointer text-xs"
-                                  >
-                                    Next
-                                    <ChevronRight className="h-4 w-4 ml-1" />
-                                  </Button>
-                                </div>
-
-                                {/* Slide Indicator Dots */}
-                                <div className="flex items-center gap-1.5">
-                                  {speakers.map((_, i) => (
-                                    <button
-                                      key={i}
-                                      type="button"
-                                      onClick={() => setCurrentIndex(i)}
-                                      aria-label={`Go to speaker ${i + 1}`}
-                                      className={cn(
-                                        "h-2 rounded-full transition-all duration-300 cursor-pointer",
-                                        currentIndex === i
-                                          ? "w-7 bg-primary"
-                                          : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                                      )}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -455,6 +395,63 @@ export function SpeakerCarousel({
             </div>
           </div>
         </div>
+
+        {/* Carousel Controls & Slide Status Below Speaker Card */}
+        {speakers.length > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 px-2">
+            {/* Slide Status */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Speaker</span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/30">
+                {currentIndex + 1} of {speakers.length}
+              </span>
+            </div>
+
+            {/* Slide Indicator Dots */}
+            <div className="flex items-center gap-2">
+              {speakers.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setCurrentIndex(i)}
+                  aria-label={`Go to speaker ${i + 1}`}
+                  className={cn(
+                    "h-2 rounded-full transition-all duration-300 cursor-pointer",
+                    currentIndex === i
+                      ? "w-8 bg-orange-500 shadow-sm shadow-orange-500/40"
+                      : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                  )}
+                />
+              ))}
+            </div>
+
+            {/* Prev and Next Buttons */}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrev}
+                aria-label="Previous speaker"
+                className="h-9 px-3.5 rounded-full border-border bg-card hover:bg-accent cursor-pointer text-xs font-medium"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleNext}
+                aria-label="Next speaker"
+                className="h-9 px-3.5 rounded-full border-border bg-card hover:bg-accent cursor-pointer text-xs font-medium"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

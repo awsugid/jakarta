@@ -138,6 +138,10 @@ export function SponsorPackageManager() {
   const [groups, setGroups] = useState<SponsorPackageGroup[]>([]);
   const [tiers, setTiers] = useState<SponsorTier[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number>(17000);
+  const [isConfiguratorEnabled, setIsConfiguratorEnabled] = useState<boolean>(true);
+  const [togglingConfigurator, setTogglingConfigurator] = useState(false);
+  const [configuratorError, setConfiguratorError] = useState<string | null>(null);
+  const [configuratorSuccess, setConfiguratorSuccess] = useState(false);
 
   const [drafts, setDrafts] = useState<Record<string, PackageDraft>>({});
   const [groupDrafts, setGroupDrafts] = useState<Record<string, GroupDraft>>({});
@@ -179,6 +183,7 @@ export function SponsorPackageManager() {
       setTierDrafts(toTierDrafts(data.tiers ?? []));
       const rate = data.usdExchangeRate ?? 17000;
       setExchangeRate(rate);
+      setIsConfiguratorEnabled(data.isConfiguratorEnabled ?? true);
       setSaveError(null);
       setConfirmDelete(null);
       setDeleteError(null);
@@ -253,6 +258,24 @@ export function SponsorPackageManager() {
       setSettingsError(err?.message ?? "Failed to update exchange rate.");
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleToggleConfigurator = async (enabled: boolean) => {
+    setTogglingConfigurator(true);
+    setConfiguratorError(null);
+    setConfiguratorSuccess(false);
+    try {
+      const refreshed = await updateSponsorSettings(COMMUNITY_DAY_EVENT_SLUG, {
+        isConfiguratorEnabled: enabled,
+      });
+      setIsConfiguratorEnabled(refreshed.isConfiguratorEnabled ?? enabled);
+      setConfiguratorSuccess(true);
+      setTimeout(() => setConfiguratorSuccess(false), 3000);
+    } catch (err: any) {
+      setConfiguratorError(err?.message ?? "Failed to update configurator status.");
+    } finally {
+      setTogglingConfigurator(false);
     }
   };
 
@@ -589,6 +612,11 @@ export function SponsorPackageManager() {
               saving={savingSettings}
               error={settingsError}
               success={settingsSuccess}
+              isConfiguratorEnabled={isConfiguratorEnabled}
+              onToggleConfigurator={handleToggleConfigurator}
+              togglingConfigurator={togglingConfigurator}
+              configuratorError={configuratorError}
+              configuratorSuccess={configuratorSuccess}
             />
           </div>
         )}

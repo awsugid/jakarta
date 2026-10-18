@@ -10,6 +10,7 @@ import { MobileStickyBar } from "../components/community-day/MobileStickyBar";
 import { PretixWidget } from "../components/PretixWidget";
 import { EventFAQ } from "../components/EventFAQ";
 import AgendaStatus from "@/components/AgendaStatus";
+import { SpeakerCarousel } from "@/components/speakers/SpeakerCarousel";
 import { VolunteerCallSection } from "../components/community-day/VolunteerCallSection";
 import PeopleList from "../components/people/PeopleList";
 import { getCollection } from "astro:content";
@@ -88,6 +89,9 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
             </div>
         </div>
     </section>
+
+    <!-- Featured Speakers Carousel Section -->
+    <SpeakerCarousel client:load />
 
     <!-- Sponsor CTA Section -->
     <SponsorSection client:visible />

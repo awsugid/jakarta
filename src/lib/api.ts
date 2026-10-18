@@ -37,6 +37,11 @@ import type {
   EventSponsorUpdate,
   EventSponsorOrderItem,
   EventSponsorsResponse,
+  EventSpeaker,
+  EventSpeakerCreate,
+  EventSpeakerUpdate,
+  EventSpeakerOrderItem,
+  EventSpeakersResponse,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -692,6 +697,90 @@ export async function reorderAdminSponsors(
 ): Promise<EventSponsorsResponse> {
   return apiFetch<EventSponsorsResponse>(
     `/api/admin/events/${encodeURIComponent(eventSlug)}/sponsors/order`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ items }),
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Event Speakers API
+// ---------------------------------------------------------------------------
+
+/** GET /api/events/:eventSlug/speakers — fetch active speakers for public showcase */
+export async function fetchPublicSpeakers(
+  eventSlug: string,
+): Promise<EventSpeakersResponse> {
+  return apiFetch<EventSpeakersResponse>(
+    `/api/events/${encodeURIComponent(eventSlug)}/speakers`,
+  );
+}
+
+/** GET /api/admin/events/:eventSlug/speakers or /api/admin/speakers — fetch speakers for admin */
+export async function fetchAdminSpeakers(
+  eventSlug?: string,
+): Promise<EventSpeakersResponse> {
+  const endpoint =
+    eventSlug && eventSlug !== "ALL"
+      ? `/api/admin/events/${encodeURIComponent(eventSlug)}/speakers`
+      : `/api/admin/speakers`;
+  return apiFetch<EventSpeakersResponse>(endpoint, { headers: authHeaders() });
+}
+
+/** POST /api/admin/events/:eventSlug/speakers — create a speaker */
+export async function createAdminSpeaker(
+  eventSlug: string,
+  input: EventSpeakerCreate,
+): Promise<EventSpeaker> {
+  return apiFetch<EventSpeaker>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/speakers`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/speakers/:speakerId — update a speaker */
+export async function updateAdminSpeaker(
+  eventSlug: string,
+  speakerId: string,
+  input: EventSpeakerUpdate,
+): Promise<EventSpeaker> {
+  return apiFetch<EventSpeaker>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/speakers/${encodeURIComponent(speakerId)}`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+/** DELETE /api/admin/events/:eventSlug/speakers/:speakerId — delete a speaker */
+export async function deleteAdminSpeaker(
+  eventSlug: string,
+  speakerId: string,
+): Promise<EventSpeakersResponse> {
+  return apiFetch<EventSpeakersResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/speakers/${encodeURIComponent(speakerId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/speakers/order — reorder speakers */
+export async function reorderAdminSpeakers(
+  eventSlug: string,
+  items: EventSpeakerOrderItem[],
+): Promise<EventSpeakersResponse> {
+  return apiFetch<EventSpeakersResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/speakers/order`,
     {
       method: "PUT",
       headers: authHeaders(),

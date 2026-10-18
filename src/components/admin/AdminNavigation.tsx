@@ -20,6 +20,7 @@ import {
   Layers,
   Link2,
   LogOut,
+  Mic,
   RefreshCw,
   Shield,
   SlidersHorizontal,
@@ -30,6 +31,7 @@ export type AdminTab =
   | "responses"
   | "forms"
   | "links"
+  | "speakers"
   | "sponsors-directory"
   | "sponsors";
 
@@ -62,6 +64,13 @@ export const ADMIN_TABS: AdminTabItem[] = [
     shortLabel: "Links",
     description: "Manage short links, redirects, and custom URLs",
     icon: Link2,
+  },
+  {
+    id: "speakers",
+    label: "Speakers Directory",
+    shortLabel: "Speakers",
+    description: "Configure keynote & session speakers, talks, and display order",
+    icon: Mic,
   },
   {
     id: "sponsors-directory",

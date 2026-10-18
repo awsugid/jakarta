@@ -109,3 +109,5 @@ export function SpeakerPageContent({ kioskUrl }: SpeakerPageContentProps) {
     </AuthProvider>
   );
 }
+
+(SpeakerPageContent as unknown as Record<symbol, string>)[Symbol.for("astro:renderer")] = "@astrojs/react";

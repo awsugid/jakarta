@@ -361,6 +361,7 @@ export interface SponsorPackagesResponse {
   eventSlug: string;
   currency: string;
   usdExchangeRate?: number;
+  isConfiguratorEnabled?: boolean;
   groups: SponsorPackageGroup[];
   packages: SponsorPackage[];
   /** Ordered by thresholdIdr descending; tier order IS threshold order (no displayOrder). */
@@ -369,7 +370,8 @@ export interface SponsorPackagesResponse {
 
 /** Body for PUT /api/admin/events/:eventSlug/sponsor-settings. */
 export interface SponsorSettingsUpdate {
-  usdExchangeRate: number;
+  usdExchangeRate?: number;
+  isConfiguratorEnabled?: boolean;
 }
 
 /** A single changed group row in the admin batch update body. */
@@ -511,5 +513,64 @@ export interface EventSponsorOrderItem {
 export interface EventSponsorsResponse {
   eventSlug: string;
   sponsors: EventSponsor[];
+}
+
+/** Featured Speaker for an event. */
+export interface EventSpeaker {
+  id: string;
+  eventSlug: string;
+  name: string;
+  role: string;
+  company?: string | null;
+  photoUrl: string;
+  talkTitle: string;
+  talkFormat?: string | null;
+  topicImageUrl?: string | null;
+  bio?: string | null;
+  socialUrl?: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Body for POST /api/admin/events/:eventSlug/speakers */
+export interface EventSpeakerCreate {
+  name: string;
+  role: string;
+  company?: string | null;
+  photoUrl: string;
+  talkTitle: string;
+  talkFormat?: string | null;
+  topicImageUrl?: string | null;
+  bio?: string | null;
+  socialUrl?: string | null;
+  isActive?: boolean;
+}
+
+/** Body for PUT /api/admin/events/:eventSlug/speakers/:speakerId */
+export interface EventSpeakerUpdate {
+  name: string;
+  role: string;
+  company?: string | null;
+  photoUrl: string;
+  talkTitle: string;
+  talkFormat?: string | null;
+  topicImageUrl?: string | null;
+  bio?: string | null;
+  socialUrl?: string | null;
+  isActive: boolean;
+}
+
+/** Item in PUT /api/admin/events/:eventSlug/speakers/order */
+export interface EventSpeakerOrderItem {
+  id: string;
+  displayOrder: number;
+}
+
+/** Response shape for GET /api/events/:eventSlug/speakers */
+export interface EventSpeakersResponse {
+  eventSlug: string;
+  speakers: EventSpeaker[];
 }
 

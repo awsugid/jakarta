@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Globe, RefreshCw } from "lucide-react";
+import { Globe, RefreshCw, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fetchSponsorPackages } from "@/lib/api";
@@ -49,6 +49,7 @@ export function SponsorConfigurator() {
   const [groups, setGroups] = useState<SponsorPackageGroup[] | null>(null);
   const [tiers, setTiers] = useState<SponsorTier[] | null>(null);
   const [exchangeRate, setExchangeRate] = useState<number>(DEFAULT_USD_EXCHANGE_RATE);
+  const [isConfiguratorEnabled, setIsConfiguratorEnabled] = useState<boolean>(true);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [retryTick, setRetryTick] = useState(0);
 
@@ -82,6 +83,7 @@ export function SponsorConfigurator() {
         setGroups(response.groups);
         setTiers(response.tiers);
         setExchangeRate(response.usdExchangeRate ?? DEFAULT_USD_EXCHANGE_RATE);
+        setIsConfiguratorEnabled(response.isConfiguratorEnabled ?? true);
         setStatus("ready");
       })
       .catch(() => {
@@ -266,7 +268,36 @@ export function SponsorConfigurator() {
     }
   }
 
-  const showConfigurator = status === "ready" && packages !== null && packages.length > 0;
+  const showConfigurator = status === "ready" && isConfiguratorEnabled && packages !== null && packages.length > 0;
+
+  if (status === "ready" && !isConfiguratorEnabled) {
+    return (
+      <section className="py-12 sm:py-16">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="max-w-2xl mx-auto rounded-2xl border border-amber-500/20 bg-amber-500/5 p-8 text-center space-y-4 shadow-sm">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 mb-1">
+              <Lock className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <h3 className="text-xl sm:text-2xl font-bold text-foreground">
+              Sponsorship Package Configurator Closed
+            </h3>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
+              Online package configuration is currently closed or in review. For custom sponsorship opportunities or questions, please contact our team directly.
+            </p>
+            <div className="pt-2">
+              <a
+                href={`mailto:${sponsorContactEmail}`}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow hover:bg-primary/90 transition-colors cursor-pointer"
+              >
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                Contact {sponsorContactEmail}
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={cn("py-16 sm:py-20", total > 0 && "pb-28 lg:pb-20")}>

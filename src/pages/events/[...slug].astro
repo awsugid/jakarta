@@ -11,6 +11,7 @@ import { LumaEmbed } from "@/components/LumaEmbed";
 import { EventPretixStats } from "@/components/events/EventPretixStats";
 import PeopleList from "@/components/people/PeopleList";
 import { buildPeopleGroups } from "@/lib/event-people";
+import { SpeakerCarousel } from "@/components/speakers/SpeakerCarousel";
 
 export async function getStaticPaths() {
     const events = await getCollection("events");
@@ -167,6 +168,16 @@ if (event.data.pretixUrl) {
             )
         }
 
+        <!-- Featured Speakers for this Event (Auto-hides if empty) -->
+        <SpeakerCarousel
+            client:load
+            eventSlug={event.id}
+            badge={`${event.data.type} Speakers`}
+            title="Featured Speakers & Topics"
+            subtitle={`Meet the confirmed speakers and sessions for ${event.data.title}.`}
+            className="mt-12 pt-12 border-t border-b-0 border-border/50 bg-transparent py-0"
+            containerClassName="px-0 max-w-none"
+        />
 
         {
             peopleGroups.length > 0 && (

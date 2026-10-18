@@ -31,10 +31,11 @@ const SECTION_ITEMS: SectionItem[] = [
   { id: "overview", label: "Overview", icon: Compass },
   { id: "tickets", label: "Get Tickets", icon: Ticket, badge: "Registration" },
   { id: "agenda", label: "Schedule", icon: Calendar },
+  { id: "speakers", label: "Speakers", icon: Mic },
   { id: "sponsors", label: "Sponsors", icon: Handshake },
   { id: "volunteers", label: "Volunteers", icon: Heart },
   { id: "team", label: "Team & Organizers", icon: Users },
-  { id: "cfp", label: "Speakers", icon: Mic },
+  { id: "cfp", label: "Call for Speakers", icon: Presentation, badge: "CFP" },
   { id: "faq", label: "FAQ", icon: HelpCircle },
 ];
 
@@ -44,8 +45,34 @@ const SPONSOR_MOBILE_SECTION_ITEMS: SectionItem[] = [
   { id: "contact", label: "Get in Touch", icon: HelpCircle },
 ];
 
+function useAvailableSections(items: SectionItem[]) {
+  const [availableIds, setAvailableIds] = useState<string[]>(() => items.map((i) => i.id));
+
+  useEffect(() => {
+    const checkAvailability = () => {
+      const valid = items
+        .filter((item) => item.id === "overview" || !!document.getElementById(item.id))
+        .map((item) => item.id);
+      setAvailableIds((prev) => {
+        if (prev.length === valid.length && prev.every((v, i) => v === valid[i])) {
+          return prev;
+        }
+        return valid;
+      });
+    };
+
+    checkAvailability();
+    const interval = setInterval(checkAvailability, 800);
+    return () => clearInterval(interval);
+  }, [items]);
+
+  return availableIds;
+}
+
 export function ComDaySectionNav() {
   const [activeId, setActiveId] = useState<string>("overview");
+  const availableIds = useAvailableSections(SECTION_ITEMS);
+  const visibleItems = SECTION_ITEMS.filter((item) => availableIds.includes(item.id));
 
   useEffect(() => {
     const mainNav = document.getElementById("main-desktop-nav");
@@ -112,7 +139,7 @@ export function ComDaySectionNav() {
           className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-2.5 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none]"
           aria-label="Section Navigation"
         >
-          {SECTION_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeId === item.id;
 
@@ -165,6 +192,8 @@ export function ComDayMobileSectionNav() {
   const isSponsorPage = currentPath.startsWith("/sponsor");
   const items = isSponsorPage ? SPONSOR_MOBILE_SECTION_ITEMS : SECTION_ITEMS;
   const titleText = isSponsorPage ? "Sponsorship Sections" : "ComDay Sections";
+  const availableIds = useAvailableSections(items);
+  const visibleItems = items.filter((item) => availableIds.includes(item.id));
 
   const scrollToSection = (id: string) => {
     setActiveId(id);
@@ -241,7 +270,7 @@ export function ComDayMobileSectionNav() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 px-1 mb-1">
                     Jump to Section
                   </p>
-                  {items.map((item) => {
+                  {visibleItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeId === item.id;
 

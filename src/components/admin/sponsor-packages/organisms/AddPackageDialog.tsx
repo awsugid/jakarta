@@ -41,6 +41,7 @@ interface AddPackageDialogProps {
     priceIdr: number;
     priceUsd?: number | null;
     imageUrl?: string;
+    deadlineDate?: string;
   }) => Promise<void>;
 }
 
@@ -58,6 +59,7 @@ export function AddPackageDialog({
   const [price, setPrice] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [deadlineDate, setDeadlineDate] = useState("");
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -125,6 +127,7 @@ export function AddPackageDialog({
         priceIdr: priceNum,
         priceUsd: priceUsd.trim() ? Number(priceUsd.trim()) : null,
         imageUrl: imageUrl.trim() || undefined,
+        deadlineDate: deadlineDate.trim() || undefined,
       });
       // Reset
       setName("");
@@ -132,6 +135,7 @@ export function AddPackageDialog({
       setPrice("");
       setPriceUsd("");
       setImageUrl("");
+      setDeadlineDate("");
       onOpenChange(false);
     } catch (err: any) {
       setError(err?.message ?? "Failed to create package.");
@@ -195,7 +199,7 @@ export function AddPackageDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Price (IDR) *</Label>
               <Input
@@ -216,6 +220,16 @@ export function AddPackageDialog({
                 value={priceUsd}
                 onChange={(e) => setPriceUsd(e.target.value)}
                 className="bg-background font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Cutoff / Print Deadline</Label>
+              <Input
+                type="date"
+                value={deadlineDate}
+                onChange={(e) => setDeadlineDate(e.target.value)}
+                className="bg-background font-mono text-sm"
+                title="Optional auto-close cutoff date"
               />
             </div>
           </div>

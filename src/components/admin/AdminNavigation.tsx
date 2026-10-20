@@ -25,6 +25,7 @@ import {
   Shield,
   SlidersHorizontal,
   User as UserIcon,
+  CalendarClock,
 } from "lucide-react";
 
 export type AdminTab =
@@ -32,6 +33,7 @@ export type AdminTab =
   | "forms"
   | "links"
   | "speakers"
+  | "schedule"
   | "sponsors-directory"
   | "sponsors";
 
@@ -71,6 +73,13 @@ export const ADMIN_TABS: AdminTabItem[] = [
     shortLabel: "Speakers",
     description: "Configure keynote & session speakers, talks, and display order",
     icon: Mic,
+  },
+  {
+    id: "schedule",
+    label: "Event Schedule & Sessionize",
+    shortLabel: "Schedule",
+    description: "Configure event timeline, session stages, and sync from Sessionize",
+    icon: CalendarClock,
   },
   {
     id: "sponsors-directory",

@@ -57,6 +57,11 @@ const SpeakerDirectoryManager = lazy(() =>
     default: m.SpeakerDirectoryManager,
   }))
 );
+const ScheduleManager = lazy(() =>
+  import("@/components/admin/schedule/ScheduleManager").then((m) => ({
+    default: m.ScheduleManager,
+  }))
+);
 
 function TabLoadingSkeleton() {
   return (
@@ -268,6 +273,8 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
               <LinkManager />
             ) : tab === "speakers" ? (
               <SpeakerDirectoryManager />
+            ) : tab === "schedule" ? (
+              <ScheduleManager />
             ) : tab === "sponsors-directory" ? (
               <SponsorDirectoryManager />
             ) : tab === "sponsors" ? (

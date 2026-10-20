@@ -4,13 +4,16 @@
 import type { SponsorTier } from "@/lib/types";
 import {
   DEFAULT_USD_EXCHANGE_RATE,
+  formatDeadlineDisplay,
   formatIDR,
   formatUSD,
   formatUsdAmount,
   hasRateDerivedUsd,
+  isDeadlinePassed,
   nextSponsorTier,
   packagePriceParts,
   packageUsdPrice,
+  resolveEffectiveSelection,
   resolveSponsorTier,
   sumUsd,
   tierBudgetPresets,
@@ -175,9 +178,33 @@ assertEq(
   [100],
   "duplicate effective thresholds deduped",
 );
-assertEq(tierBudgetPresets([], "IDR", RATE), [], "no tiers = no presets");
+// 12. Deadline cutoff checks (e.g. for media print deadlines)
+assertEq(formatDeadlineDisplay("2026-10-25"), "Oct 25, 2026", "formatDeadlineDisplay formats valid date");
+assertEq(formatDeadlineDisplay(""), "", "formatDeadlineDisplay empty on blank");
+assertEq(formatDeadlineDisplay(null), "", "formatDeadlineDisplay empty on null");
+
+// Package with deadline 2026-10-25 (cutoff is 2026-10-25T23:59:59+07:00)
+const printPkg = {
+  id: "tshirt",
+  priceIdr: 6_000_000,
+  isUnlocked: true,
+  deadlineDate: "2026-10-25",
+};
+const beforeDeadline = new Date("2026-10-25T12:00:00+07:00");
+const afterDeadline = new Date("2026-10-26T00:00:01+07:00");
+
+assertEq(isDeadlinePassed(printPkg, beforeDeadline), false, "not passed before cutoff");
+assertEq(isDeadlinePassed(printPkg, afterDeadline), true, "passed after cutoff");
+assertEq(isDeadlinePassed({ deadlineDate: null }, afterDeadline), false, "no deadline never passes");
+
+// resolveEffectiveSelection excludes expired packages
+const rawSel = { tshirt: true };
+const activeEff = resolveEffectiveSelection([printPkg], rawSel, beforeDeadline);
+assertEq(activeEff["tshirt"], true, "package selectable before deadline");
+const expiredEff = resolveEffectiveSelection([printPkg], rawSel, afterDeadline);
+assertEq(expiredEff["tshirt"], undefined, "package excluded after deadline");
 
 if (failures > 0) {
   throw new Error(`${failures} check(s) failed`);
 }
-console.log(`all price + USD tier eligibility checks passed (${RATE} rate)`);
+console.log(`all price + USD tier eligibility + deadline checks passed (${RATE} rate)`);

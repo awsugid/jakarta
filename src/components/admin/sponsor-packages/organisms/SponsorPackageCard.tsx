@@ -149,6 +149,16 @@ export function SponsorPackageCard({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {draft.deadlineDate && (
+              <Badge
+                variant="outline"
+                className="text-[10px] border-amber-500/40 text-amber-500 bg-amber-500/10 font-normal"
+                title={`Submission/Print deadline: ${draft.deadlineDate}`}
+              >
+                Cutoff: {draft.deadlineDate}
+              </Badge>
+            )}
+
             <CapacityProgressBadge
               maxSponsors={maxSponsorsNum}
               reservedSponsors={reservedSponsorsNum}
@@ -268,7 +278,7 @@ export function SponsorPackageCard({
           </div>
 
           {/* Pricing & Capacity Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl border border-border/60 bg-background">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-4 rounded-xl border border-border/60 bg-background">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-foreground">Price (IDR) *</Label>
               <Input
@@ -347,6 +357,22 @@ export function SponsorPackageCard({
               {hasCapacityError && (
                 <p className="text-[10px] text-destructive">Reserved cannot exceed Max</p>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">
+                Cutoff / Print Deadline
+              </Label>
+              <Input
+                type="date"
+                value={draft.deadlineDate}
+                onChange={(e) => onUpdateDraft({ deadlineDate: e.target.value })}
+                className="font-mono text-xs bg-background"
+                title="Auto-closes package after this date (blank = no deadline)"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {draft.deadlineDate ? `Auto-closes after ${draft.deadlineDate}` : "No cutoff date (always open)"}
+              </p>
             </div>
           </div>
 

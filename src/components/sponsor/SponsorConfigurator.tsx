@@ -20,6 +20,7 @@ import {
   formatPackagePrice,
   formatUsdAmount,
   hasRateDerivedUsd,
+  isDeadlinePassed,
   isSoldOut,
   maxSponsorsOf,
   minimumSpendOf,
@@ -157,7 +158,7 @@ export function SponsorConfigurator() {
 
   const startFromPackage = useMemo(() => {
     const eligible = (packages ?? []).filter(
-      (p) => p.isUnlocked && !isSoldOut(p) && minimumSpendOf(p) === null
+      (p) => p.isUnlocked && !isSoldOut(p) && !isDeadlinePassed(p) && minimumSpendOf(p) === null
     );
     if (eligible.length === 0) return null;
     const key = (p: (typeof eligible)[number]) =>
@@ -448,9 +449,10 @@ export function SponsorConfigurator() {
                           const minimumSpend = minimumSpendOf(p);
                           const maxSponsors = maxSponsorsOf(p);
                           const soldOut = isSoldOut(p);
+                          const deadlinePassed = isDeadlinePassed(p);
                           const spendLocked =
-                            !soldOut && minimumSpend !== null && total < minimumSpend;
-                          const locked = soldOut || spendLocked;
+                            !soldOut && !deadlinePassed && minimumSpend !== null && total < minimumSpend;
+                          const locked = soldOut || spendLocked || deadlinePassed;
                           const isChecked = locked ? false : !!effectiveSelection[p.id];
                           const remaining = remainingSponsorSlots(p);
                           const exceedsRemainingBudget =
@@ -472,6 +474,7 @@ export function SponsorConfigurator() {
                               adminLocked={false}
                               soldOut={soldOut}
                               spendLocked={spendLocked}
+                              deadlinePassed={deadlinePassed}
                               minimumSpend={minimumSpend}
                               maxSponsors={maxSponsors}
                               remaining={remaining}

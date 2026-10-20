@@ -44,6 +44,16 @@ import type {
   EventSpeakersResponse,
   AdminUserSearchResult,
   AdminUserSearchResponse,
+  EnrichedSpeaker,
+  EnrichedSession,
+  SessionizeDataResponse,
+  EventScheduleItem,
+  CreateScheduleItem,
+  UpdateScheduleItem,
+  ScheduleOrderItem,
+  SyncSessionizeRequest,
+  SyncSessionizeResponse,
+  EventScheduleResponse,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -851,6 +861,170 @@ export async function uploadSpeakerAsset(
     throw err;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Sessionize Integration API
+// ---------------------------------------------------------------------------
+
+export interface SessionizeQueryParams {
+  q?: string;
+  room?: string;
+  jobTitle?: string;
+  company?: string;
+  fresh?: boolean;
+}
+
+function buildSessionizeQuery(params?: SessionizeQueryParams): string {
+  if (!params) return "";
+  const qp = new URLSearchParams();
+  if (params.q) qp.set("q", params.q);
+  if (params.room) qp.set("room", params.room);
+  if (params.jobTitle) qp.set("jobTitle", params.jobTitle);
+  if (params.company) qp.set("company", params.company);
+  if (params.fresh) qp.set("fresh", "true");
+  const s = qp.toString();
+  return s ? `?${s}` : "";
+}
+
+/** GET /api/sessionize/speakers — cached list of enriched speakers */
+export async function fetchSessionizeSpeakers(
+  params?: SessionizeQueryParams,
+): Promise<{ speakers: EnrichedSpeaker[] }> {
+  return apiFetch<{ speakers: EnrichedSpeaker[] }>(
+    `/api/sessionize/speakers${buildSessionizeQuery(params)}`,
+  );
+}
+
+/** GET /api/sessionize/sessions — cached list of enriched sessions */
+export async function fetchSessionizeSessions(
+  params?: SessionizeQueryParams,
+): Promise<{ sessions: EnrichedSession[] }> {
+  return apiFetch<{ sessions: EnrichedSession[] }>(
+    `/api/sessionize/sessions${buildSessionizeQuery(params)}`,
+  );
+}
+
+/** GET /api/sessionize/data — full enriched Sessionize dataset with rooms, metadata, and speakers */
+export async function fetchSessionizeData(
+  params?: SessionizeQueryParams,
+): Promise<SessionizeDataResponse> {
+  return apiFetch<SessionizeDataResponse>(
+    `/api/sessionize/data${buildSessionizeQuery(params)}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Event Schedule API
+// ---------------------------------------------------------------------------
+
+/** GET /api/events/:eventSlug/schedule — public active schedule */
+export async function fetchPublicSchedule(
+  eventSlug: string,
+): Promise<EventScheduleResponse> {
+  return apiFetch<EventScheduleResponse>(
+    `/api/events/${encodeURIComponent(eventSlug)}/schedule`,
+  );
+}
+
+/** GET /api/admin/events/:eventSlug/schedule — admin all schedule items */
+export async function fetchAdminSchedule(
+  eventSlug: string,
+): Promise<EventScheduleResponse> {
+  return apiFetch<EventScheduleResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule`,
+    {
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/schedule — create schedule item */
+export async function createAdminScheduleItem(
+  eventSlug: string,
+  body: CreateScheduleItem,
+): Promise<EventScheduleItem> {
+  return apiFetch<EventScheduleItem>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/schedule/:itemId — update schedule item */
+export async function updateAdminScheduleItem(
+  eventSlug: string,
+  itemId: string,
+  body: UpdateScheduleItem,
+): Promise<EventScheduleItem> {
+  return apiFetch<EventScheduleItem>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/${encodeURIComponent(itemId)}`,
+    {
+      method: "PUT",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** DELETE /api/admin/events/:eventSlug/schedule/:itemId — delete schedule item */
+export async function deleteAdminScheduleItem(
+  eventSlug: string,
+  itemId: string,
+): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/${encodeURIComponent(itemId)}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/schedule/order — batch reorder schedule items */
+export async function reorderAdminSchedule(
+  eventSlug: string,
+  items: ScheduleOrderItem[],
+): Promise<EventScheduleResponse> {
+  return apiFetch<EventScheduleResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/order`,
+    {
+      method: "PUT",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ items }),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/schedule/sync-sessionize — sync from Sessionize */
+export async function syncSessionizeSchedule(
+  eventSlug: string,
+  body?: SyncSessionizeRequest,
+): Promise<SyncSessionizeResponse> {
+  return apiFetch<SyncSessionizeResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/sync-sessionize`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body ?? {}),
+    },
+  );
+}
+
 
 
 

@@ -162,32 +162,6 @@ export function SpeakerCarousel({
               {subtitle}
             </p>
           </div>
-
-          {/* Carousel Controls in Section Header */}
-          {speakers.length > 1 && (
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={handlePrev}
-                aria-label="Previous speaker"
-                className="h-10 w-10 rounded-full border-border bg-card/80 backdrop-blur-sm shadow-sm hover:bg-accent cursor-pointer"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={handleNext}
-                aria-label="Next speaker"
-                className="h-10 w-10 rounded-full border-border bg-card/80 backdrop-blur-sm shadow-sm hover:bg-accent cursor-pointer"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* Carousel Content: Exactly 1 Card per View */}

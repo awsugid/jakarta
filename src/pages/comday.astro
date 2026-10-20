@@ -9,8 +9,9 @@ import { ComDaySponsors } from "../components/community-day/ComDaySponsors";
 import { MobileStickyBar } from "../components/community-day/MobileStickyBar";
 import { PretixWidget } from "../components/PretixWidget";
 import { EventFAQ } from "../components/EventFAQ";
-import AgendaStatus from "@/components/AgendaStatus";
+import { ComDaySchedule } from "@/components/community-day/ComDaySchedule";
 import { SpeakerCarousel } from "@/components/speakers/SpeakerCarousel";
+import { Sparkles } from "lucide-react";
 import { VolunteerCallSection } from "../components/community-day/VolunteerCallSection";
 import PeopleList from "../components/people/PeopleList";
 import { getCollection } from "astro:content";
@@ -72,21 +73,24 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
     </section>
 
     <!-- Agenda / Schedule Section -->
-    <section id="agenda" class="py-20 px-4 bg-background border-b border-border">
-        <div class="container max-w-4xl mx-auto space-y-12">
+    <section id="agenda" class="py-20 px-4 bg-background border-b border-border relative overflow-hidden">
+        <div class="absolute left-1/2 -top-40 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-b from-orange-500/10 to-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
+        <div class="container max-w-5xl mx-auto space-y-12 relative z-10">
             <div class="text-center space-y-4">
-                <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Full Conference Agenda
+                </div>
+                <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">
                     Event Schedule
                 </h2>
                 <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
-                <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">
-                    An action-packed day of deep dives, technical sessions, panels, and networking tracks.
+                <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
+                    Explore keynote sessions, database architecture workshops, security deep dives, and cloud networking tracks across all stages.
                 </p>
             </div>
 
-            <div class="bg-card/50 border border-border rounded-3xl p-4 sm:p-6 shadow-2xl">
-                <AgendaStatus client:visible />
-            </div>
+            <ComDaySchedule client:visible />
         </div>
     </section>
 

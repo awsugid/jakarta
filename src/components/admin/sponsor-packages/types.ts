@@ -15,6 +15,8 @@ export interface PackageDraft {
   isUnlocked: boolean;
   /** Custom placement image URL override. */
   imageUrl: string;
+  /** Deadline date in YYYY-MM-DD format (empty string = no deadline). */
+  deadlineDate: string;
 }
 
 export interface GroupDraft {
@@ -36,6 +38,7 @@ export interface NewPackageInput {
   price: string;
   priceUsd: string;
   imageUrl?: string;
+  deadlineDate?: string;
 }
 
 export interface NewTierInput {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Award, Eye } from "lucide-react";
+import { Award, Eye, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import type { SponsorPackage } from "@/lib/types";
 import {
   ASSET_ICONS,
   DEFAULT_PLACEMENT_IMAGE,
+  formatDeadlineDisplay,
   formatIDR,
   formatPackagePrice,
   formatUsdAmount,
@@ -25,6 +26,7 @@ interface SponsorPackageCardProps {
   adminLocked: boolean;
   soldOut: boolean;
   spendLocked: boolean;
+  deadlinePassed: boolean;
   minimumSpend: number | null;
   maxSponsors: number | null;
   remaining: number | null;
@@ -42,6 +44,7 @@ export function SponsorPackageCard({
   adminLocked,
   soldOut,
   spendLocked,
+  deadlinePassed,
   minimumSpend,
   maxSponsors,
   remaining,
@@ -131,6 +134,23 @@ export function SponsorPackageCard({
                   {soldOut && (
                     <Badge variant="secondary" className="text-xs">
                       Sold out
+                    </Badge>
+                  )}
+                  {deadlinePassed && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs bg-red-500/10 text-red-500 border border-red-500/20 font-semibold"
+                    >
+                      Closed · Deadline passed{p.deadlineDate ? ` (${formatDeadlineDisplay(p.deadlineDate)})` : ""}
+                    </Badge>
+                  )}
+                  {!adminLocked && !soldOut && !deadlinePassed && p.deadlineDate && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-amber-500/40 text-amber-500 bg-amber-500/10 font-semibold flex items-center gap-1"
+                    >
+                      <Clock className="h-3 w-3" />
+                      Apply by {formatDeadlineDisplay(p.deadlineDate)}
                     </Badge>
                   )}
                   {!adminLocked && !soldOut && minimumSpend !== null && (

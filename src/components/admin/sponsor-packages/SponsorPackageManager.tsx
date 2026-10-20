@@ -64,6 +64,7 @@ function toPackageDrafts(
       reservedSponsors: String(p.reservedSponsors ?? 0),
       isUnlocked: p.isUnlocked,
       imageUrl: p.imageUrl || getPlacementImageUrl(p.id),
+      deadlineDate: p.deadlineDate ?? "",
     };
   }
   return drafts;
@@ -108,7 +109,8 @@ function isPackageDirty(
     draft.maxSponsors.trim() !== (pkg.maxSponsors == null ? "" : String(pkg.maxSponsors)) ||
     draft.reservedSponsors.trim() !== String(pkg.reservedSponsors ?? 0) ||
     draft.isUnlocked !== pkg.isUnlocked ||
-    draft.imageUrl.trim() !== currentImg
+    draft.imageUrl.trim() !== currentImg ||
+    draft.deadlineDate.trim() !== (pkg.deadlineDate ?? "").trim()
   );
 }
 
@@ -338,6 +340,7 @@ export function SponsorPackageManager() {
             reservedSponsors: Number(d.reservedSponsors) || 0,
             isUnlocked: d.isUnlocked,
             imageUrl: d.imageUrl.trim() || null,
+            deadlineDate: d.deadlineDate.trim() || null,
           };
         });
 
@@ -386,6 +389,7 @@ export function SponsorPackageManager() {
     priceIdr: number;
     priceUsd?: number | null;
     imageUrl?: string;
+    deadlineDate?: string;
   }) => {
     const refreshed = await createSponsorPackage(COMMUNITY_DAY_EVENT_SLUG, {
       name: data.name,
@@ -394,6 +398,7 @@ export function SponsorPackageManager() {
       priceIdr: data.priceIdr,
       priceUsd: data.priceUsd,
       imageUrl: data.imageUrl,
+      deadlineDate: data.deadlineDate?.trim() || null,
     });
     applyData(refreshed);
   };

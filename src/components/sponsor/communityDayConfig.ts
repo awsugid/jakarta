@@ -269,6 +269,7 @@ export interface SpendAwarePackage {
   minimumSpendIdr?: number | null;
   maxSponsors?: number | null;
   reservedSponsors?: number;
+  deadlineDate?: string | null;
 }
 
 export function minimumSpendOf(p: SpendAwarePackage): number | null {
@@ -287,6 +288,40 @@ export function reservedSponsorsOf(p: SpendAwarePackage): number {
 export function isSoldOut(p: SpendAwarePackage): boolean {
   const max = maxSponsorsOf(p);
   return max !== null && reservedSponsorsOf(p) >= max;
+}
+
+/** Check if package deadline (e.g. for print media cutoff) has passed. */
+export function isDeadlinePassed(
+  p: { deadlineDate?: string | null },
+  now: Date = new Date(),
+): boolean {
+  if (!p.deadlineDate || !p.deadlineDate.trim()) return false;
+  // Parse deadline cutoff as 23:59:59 WIB (+07:00), aligned with sessionize.ts
+  const cutoff = Date.parse(`${p.deadlineDate.trim()}T23:59:59+07:00`);
+  if (isNaN(cutoff)) return false;
+  return now.getTime() > cutoff;
+}
+
+/** Format YYYY-MM-DD into readable string like "Oct 25, 2026". */
+export function formatDeadlineDisplay(dateStr?: string | null): string {
+  if (!dateStr || !dateStr.trim()) return "";
+  try {
+    const parts = dateStr.trim().split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const monthIndex = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const date = new Date(year, monthIndex, day);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
 }
 
 /** Remaining selectable slots; null when capacity is unlimited. */
@@ -348,16 +383,22 @@ export function buildSponsorSections<P extends GroupAwarePackage>(
  * with no minimum requirement, then repeatedly include selected+unlocked
  * packages whose minimumSpendIdr is met by the current effective subtotal.
  * A package can never satisfy its own minimum, and chained thresholds resolve
- * in dependency order. Sold-out packages are excluded so totals/tier/email
- * reflect effective availability only; raw selection is never mutated, so a
- * selection returns automatically if capacity reopens.
+ * in dependency order. Sold-out and deadline-passed packages are excluded so
+ * totals/tier/email reflect effective availability only; raw selection is
+ * never mutated, so a selection returns automatically if capacity or deadline
+ * permits.
  */
 export function resolveEffectiveSelection(
   packages: SpendAwarePackage[],
   rawSelection: Record<string, boolean>,
+  now: Date = new Date(),
 ): Record<string, boolean> {
   const pending = packages.filter(
-    (p) => p.isUnlocked && !isSoldOut(p) && rawSelection[p.id] === true,
+    (p) =>
+      p.isUnlocked &&
+      !isSoldOut(p) &&
+      !isDeadlinePassed(p, now) &&
+      rawSelection[p.id] === true,
   );
   const effective: Record<string, boolean> = {};
   let total = 0;

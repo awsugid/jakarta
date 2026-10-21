@@ -41,6 +41,8 @@ interface DisplayScheduleSession {
   startsAt?: string | null;
   endsAt?: string | null;
   room?: string | null;
+  rooms: string[];
+  allRooms: boolean;
   track?: string | null;
   sessionType?: string | null;
   isServiceSession: boolean;
@@ -101,6 +103,13 @@ function getRoomBadgeClass(room?: string | null): string {
   return "bg-cyan-500/15 text-cyan-400 border-cyan-500/40";
 }
 
+/** Multi-room label: "All rooms", joined names, or legacy string. */
+function roomLabelOf(s: Pick<DisplayScheduleSession, "allRooms" | "rooms" | "room">): string {
+  if (s.allRooms) return "All rooms";
+  if (s.rooms.length > 0) return s.rooms.join(" · ");
+  return s.room || "";
+}
+
 export function ComDaySchedule({
   eventSlug = COMMUNITY_DAY_EVENT_SLUG,
   className,
@@ -133,6 +142,8 @@ export function ComDaySchedule({
             startsAt: item.startsAt,
             endsAt: item.endsAt,
             room: item.room,
+            rooms: item.rooms ?? [],
+            allRooms: Boolean(item.allRooms),
             track: item.track,
             sessionType: item.sessionType,
             isServiceSession: item.isServiceSession,
@@ -156,11 +167,13 @@ export function ComDaySchedule({
     };
   }, [eventSlug]);
 
-  // Extract distinct stages/rooms
+  // Extract distinct stages/rooms (multi-room sessions contribute each room)
   const availableRooms = useMemo(() => {
     const s = new Set<string>();
     sessions.forEach((item) => {
-      if (item.room && item.room.trim()) {
+      if (item.rooms.length > 0) {
+        item.rooms.forEach((r) => r.trim() && s.add(r.trim()));
+      } else if (item.room && item.room.trim()) {
         s.add(item.room.trim());
       }
     });
@@ -170,9 +183,13 @@ export function ComDaySchedule({
   // Filtered Sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter((sess) => {
-      // Room filter
+      // Room filter — all-rooms sessions appear under every stage
       if (selectedRoom !== "ALL") {
-        if ((sess.room || "").toLowerCase() !== selectedRoom.toLowerCase()) {
+        const target = selectedRoom.toLowerCase();
+        const inRooms =
+          sess.rooms.some((r) => r.toLowerCase() === target) ||
+          (!sess.rooms.length && (sess.room || "").toLowerCase() === target);
+        if (!sess.allRooms && !inRooms) {
           return false;
         }
       }
@@ -228,7 +245,10 @@ export function ComDaySchedule({
 
           {availableRooms.map((room) => {
             const count = sessions.filter(
-              (s) => (s.room || "").toLowerCase() === room.toLowerCase()
+              (s) =>
+                s.allRooms ||
+                s.rooms.some((r) => r.toLowerCase() === room.toLowerCase()) ||
+                (!s.rooms.length && (s.room || "").toLowerCase() === room.toLowerCase()),
             ).length;
             return (
               <button
@@ -310,16 +330,16 @@ export function ComDaySchedule({
                     </div>
 
                     {/* Room Badge */}
-                    {session.room && (
+                    {(roomLabelOf(session) || "") && (
                       <div>
                         <span
                           className={cn(
                             "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-sm",
-                            getRoomBadgeClass(session.room)
+                            getRoomBadgeClass(roomLabelOf(session))
                           )}
                         >
                           <MapPin className="h-3 w-3" />
-                          {session.room}
+                          {roomLabelOf(session)}
                         </span>
                       </div>
                     )}

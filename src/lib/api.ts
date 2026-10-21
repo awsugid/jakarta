@@ -54,8 +54,17 @@ import type {
   SyncSessionizeRequest,
   SyncSessionizeResponse,
   EventScheduleResponse,
+  AdminScheduleResponse,
   SyncSessionizeSpeakersRequest,
   SyncSpeakersResponse,
+  ScheduleRoom,
+  ScheduleFormat,
+  ScheduleEntityCreate,
+  ScheduleEntityUpdate,
+  ScheduleRoomsResponse,
+  ScheduleFormatsResponse,
+  ScheduleReview,
+  SchedulePublication,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -954,11 +963,11 @@ export async function fetchPublicSchedule(
   );
 }
 
-/** GET /api/admin/events/:eventSlug/schedule — admin all schedule items */
+/** GET /api/admin/events/:eventSlug/schedule — admin schedule + workspace revision */
 export async function fetchAdminSchedule(
   eventSlug: string,
-): Promise<EventScheduleResponse> {
-  return apiFetch<EventScheduleResponse>(
+): Promise<AdminScheduleResponse> {
+  return apiFetch<AdminScheduleResponse>(
     `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule`,
     {
       headers: authHeaders(),
@@ -1003,13 +1012,14 @@ export async function updateAdminScheduleItem(
   );
 }
 
-/** DELETE /api/admin/events/:eventSlug/schedule/:itemId — delete schedule item */
+/** DELETE /api/admin/events/:eventSlug/schedule/:itemId?revision=N — delete (optimistic concurrency) */
 export async function deleteAdminScheduleItem(
   eventSlug: string,
   itemId: string,
+  revision: number,
 ): Promise<{ success: boolean }> {
   return apiFetch<{ success: boolean }>(
-    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/${encodeURIComponent(itemId)}`,
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/${encodeURIComponent(itemId)}?revision=${revision}`,
     {
       method: "DELETE",
       headers: authHeaders(),
@@ -1021,8 +1031,8 @@ export async function deleteAdminScheduleItem(
 export async function reorderAdminSchedule(
   eventSlug: string,
   items: ScheduleOrderItem[],
-): Promise<EventScheduleResponse> {
-  return apiFetch<EventScheduleResponse>(
+): Promise<AdminScheduleResponse> {
+  return apiFetch<AdminScheduleResponse>(
     `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/order`,
     {
       method: "PUT",
@@ -1056,3 +1066,135 @@ export async function syncSessionizeSchedule(
 
 
 
+
+// ---------------------------------------------------------------------------
+// Schedule workspace — rooms, formats, review, publish (admin)
+// ---------------------------------------------------------------------------
+
+/** GET /api/admin/events/:eventSlug/rooms */
+export async function fetchScheduleRooms(
+  eventSlug: string,
+): Promise<ScheduleRoomsResponse> {
+  return apiFetch<ScheduleRoomsResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/rooms`,
+    {
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/rooms */
+export async function createScheduleRoom(
+  eventSlug: string,
+  body: ScheduleEntityCreate,
+): Promise<ScheduleRoom> {
+  return apiFetch<ScheduleRoom>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/rooms`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/rooms/:roomId */
+export async function updateScheduleRoom(
+  eventSlug: string,
+  roomId: string,
+  body: ScheduleEntityUpdate,
+): Promise<ScheduleRoom> {
+  return apiFetch<ScheduleRoom>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/rooms/${encodeURIComponent(roomId)}`,
+    {
+      method: "PUT",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** GET /api/admin/events/:eventSlug/formats */
+export async function fetchScheduleFormats(
+  eventSlug: string,
+): Promise<ScheduleFormatsResponse> {
+  return apiFetch<ScheduleFormatsResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/formats`,
+    {
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/formats */
+export async function createScheduleFormat(
+  eventSlug: string,
+  body: ScheduleEntityCreate,
+): Promise<ScheduleFormat> {
+  return apiFetch<ScheduleFormat>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/formats`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** PUT /api/admin/events/:eventSlug/formats/:formatId */
+export async function updateScheduleFormat(
+  eventSlug: string,
+  formatId: string,
+  body: ScheduleEntityUpdate,
+): Promise<ScheduleFormat> {
+  return apiFetch<ScheduleFormat>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/formats/${encodeURIComponent(formatId)}`,
+    {
+      method: "PUT",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/** GET /api/admin/events/:eventSlug/schedule/review — publish preview */
+export async function reviewSchedule(
+  eventSlug: string,
+): Promise<ScheduleReview> {
+  return apiFetch<ScheduleReview>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/review`,
+    {
+      headers: authHeaders(),
+    },
+  );
+}
+
+/** POST /api/admin/events/:eventSlug/schedule/publish */
+export async function publishSchedule(
+  eventSlug: string,
+  revision: number,
+): Promise<SchedulePublication> {
+  return apiFetch<SchedulePublication>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/schedule/publish`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ revision }),
+    },
+  );
+}

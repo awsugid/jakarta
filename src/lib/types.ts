@@ -718,13 +718,22 @@ export interface EventScheduleItem {
   speakerAvatar?: string | null;
   speakerSocialUrl?: string | null;
   room?: string | null;
+  roomIds: string[];
+  speakerIds: string[];
+  allRooms: boolean;
+  // Resolved room names (admin listing / published snapshot only; may be absent).
+  rooms?: string[] | null;
   track?: string | null;
   startsAt?: string | null;
   endsAt?: string | null;
   sessionType?: string | null;
+  formatId?: string | null;
+  // Resolved format name (admin listing / published snapshot only; may be absent).
+  format?: string | null;
   isServiceSession: boolean;
   isActive: boolean;
   displayOrder: number;
+  revision: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -732,6 +741,10 @@ export interface EventScheduleItem {
 export interface CreateScheduleItem {
   sessionId?: string | null;
   title: string;
+  formatId?: string | null;
+  roomIds?: string[];
+  allRooms?: boolean;
+  speakerIds?: string[];
   description?: string | null;
   speakers?: ScheduleSpeaker[];
   speakerId?: string | null;
@@ -753,6 +766,12 @@ export interface CreateScheduleItem {
 export interface UpdateScheduleItem {
   sessionId?: string | null;
   title?: string;
+  // Optimistic concurrency — must match the server's current item revision.
+  revision: number;
+  formatId?: string | null;
+  roomIds?: string[];
+  allRooms?: boolean;
+  speakerIds?: string[];
   description?: string | null;
   // Omitted preserves stored speakers; [] clears them.
   speakers?: ScheduleSpeaker[];
@@ -794,6 +813,12 @@ export interface EventScheduleResponse {
   schedule: EventScheduleItem[];
 }
 
+/** Admin listing: schedule plus workspace revision and last publication (if any). */
+export interface AdminScheduleResponse extends EventScheduleResponse {
+  revision: number;
+  publishedAt?: string | null;
+}
+
 export interface SyncSessionizeSpeakersRequest {
   speakerIds?: string[];
   overwrite?: boolean;
@@ -810,3 +835,80 @@ export interface SyncSpeakersResponse {
 
 
 
+
+// =============================================================================
+// Schedule workspace — rooms, formats, review, publish (admin)
+// =============================================================================
+
+export interface ScheduleRoom {
+  id: string;
+  eventSlug: string;
+  name: string;
+  displayOrder: number;
+  archived: boolean;
+  revision: number;
+}
+
+export interface ScheduleFormat {
+  id: string;
+  eventSlug: string;
+  name: string;
+  displayOrder: number;
+  archived: boolean;
+  revision: number;
+}
+
+export interface ScheduleEntityCreate {
+  name: string;
+  displayOrder?: number;
+}
+
+export interface ScheduleEntityUpdate {
+  name?: string;
+  displayOrder?: number;
+  archived?: boolean;
+  revision: number;
+}
+
+export interface ScheduleRoomsResponse {
+  eventSlug: string;
+  rooms: ScheduleRoom[];
+}
+
+export interface ScheduleFormatsResponse {
+  eventSlug: string;
+  formats: ScheduleFormat[];
+}
+
+export interface ScheduleReviewEntry {
+  id: string;
+  title: string;
+}
+
+export interface ScheduleReviewExclusion extends ScheduleReviewEntry {
+  reason: string;
+}
+
+export interface ScheduleReviewConflict {
+  type: string;
+  itemId?: string;
+  detail: string;
+}
+
+export interface ScheduleReview {
+  canPublish: boolean;
+  includedCount: number;
+  excluded: ScheduleReviewExclusion[];
+  conflicts: ScheduleReviewConflict[];
+  added: ScheduleReviewEntry[];
+  updated: ScheduleReviewEntry[];
+  removed: ScheduleReviewEntry[];
+  revision: number;
+  publishedAt?: string | null;
+}
+
+export interface SchedulePublication {
+  publishedAt: string;
+  itemCount: number;
+  revision: number;
+}

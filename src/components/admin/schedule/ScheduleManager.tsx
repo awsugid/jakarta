@@ -1,44 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarClock,
-  Clock,
-  MapPin,
-  Search,
-  Filter,
+  Loader2,
   Plus,
   RefreshCw,
-  Trash2,
-  Edit2,
-  ExternalLink,
+  Rocket,
   Sparkles,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  AlertCircle,
-  DownloadCloud,
-  Loader2,
-  X,
-  User,
-  Building,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -47,1334 +19,354 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  fetchAdminSchedule,
-  createAdminScheduleItem,
-  updateAdminScheduleItem,
   deleteAdminScheduleItem,
-  syncSessionizeSchedule,
-  fetchSessionizeData,
+  fetchAdminSchedule,
+  fetchAdminSpeakers,
+  fetchScheduleFormats,
+  fetchScheduleRooms,
+  publishSchedule,
+  reviewSchedule,
+  updateAdminScheduleItem,
 } from "@/lib/api";
 import type {
   EventScheduleItem,
-  CreateScheduleItem,
-  UpdateScheduleItem,
-  EnrichedSession,
-  SessionizeDataResponse,
-  ScheduleSpeaker,
+  EventSpeaker,
+  ScheduleFormat,
+  ScheduleReview,
+  ScheduleRoom,
 } from "@/lib/types";
-import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
-
-export const KNOWN_SCHEDULE_EVENTS = [
-  { slug: "community-day-2026", name: "AWS Community Day Jakarta 2026" },
-  { slug: "monthly-meetup", name: "Monthly Meetup (Global / General)" },
-  { slug: "voice-ai-agents-workshop-may-2026", name: "Voice AI Agents Workshop 2026" },
-];
-
-const SESSION_TYPES = [
-  "Technical Session",
-  "Workshop",
-  "Plenum / Keynote",
-  "Panel Discussion",
-  "Fireside Chat",
-  "Service Session",
-];
-
-const ROOM_OPTIONS = ["All Stages", "Atrium", "800", "Room 800", "Main Stage", "Breakout Room"];
-
-function formatTimeDisplay(startsAt?: string | null, endsAt?: string | null): string {
-  if (!startsAt) return "TBA";
-  try {
-    const s = new Date(startsAt);
-    const startStr = s.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: "Asia/Jakarta",
-    });
-    if (!endsAt) return `${startStr} WIB`;
-    const e = new Date(endsAt);
-    const endStr = e.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-      timeZone: "Asia/Jakarta",
-    });
-    return `${startStr} – ${endStr} WIB`;
-  } catch {
-    return startsAt;
-  }
-}
-
-const MAX_SPEAKERS_PER_SESSION = 20;
-
-function emptySpeaker(): ScheduleSpeaker {
-  return { name: "" };
-}
+import { RoomsDirectory } from "./RoomsDirectory";
+import { FormatsDirectory } from "./FormatsDirectory";
+import { SessionEditorDialog, type ItemWithSpeakerRefs } from "./SessionEditorDialog";
+import { ScheduleTimeline } from "./ScheduleTimeline";
+import { ReviewDialog } from "./ReviewDialog";
+import { SessionizeExplorer } from "./SessionizeExplorer";
+import { KNOWN_SCHEDULE_EVENTS, activeRooms, buildConflictMap, isScheduled } from "./schedule-helpers";
 
 export function ScheduleManager() {
-  const [selectedEventSlug, setSelectedEventSlug] = useState<string>(COMMUNITY_DAY_EVENT_SLUG);
-  const [scheduleItems, setScheduleItems] = useState<EventScheduleItem[]>([]);
+  const [eventSlug, setEventSlug] = useState(COMMUNITY_DAY_EVENT_SLUG);
+  const [schedule, setSchedule] = useState<EventScheduleItem[]>([]);
+  const [revision, setRevision] = useState(0);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [rooms, setRooms] = useState<ScheduleRoom[]>([]);
+  const [formats, setFormats] = useState<ScheduleFormat[]>([]);
+  const [speakers, setSpeakers] = useState<EventSpeaker[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [publishNote, setPublishNote] = useState<string | null>(null);
 
-  // Filters & Search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRoom, setSelectedRoom] = useState("All Stages");
-  const [selectedType, setSelectedType] = useState("ALL");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ItemWithSpeakerRefs | null>(null);
+  const [explorerOpen, setExplorerOpen] = useState(false);
 
-  // Edit / Create Dialog State
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<EventScheduleItem | null>(null);
-  const [formData, setFormData] = useState<CreateScheduleItem>({
-    title: "",
-    description: "",
-    speakers: [],
-    room: "Atrium",
-    track: "",
-    startsAt: "2026-10-31T02:00:00Z",
-    endsAt: "2026-10-31T02:40:00Z",
-    sessionType: "Technical Session",
-    isServiceSession: false,
-    isActive: true,
-    displayOrder: 0,
-  });
-  const [submitting, setSubmitting] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [review, setReview] = useState<ScheduleReview | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
-  // Sessionize Browser Modal State
-  const [sessionizeModalOpen, setSessionizeModalOpen] = useState(false);
-  const [sessionizeData, setSessionizeData] = useState<SessionizeDataResponse | null>(null);
-  const [sessionizeLoading, setSessionizeLoading] = useState(false);
-  const [sessionizeError, setSessionizeError] = useState<string | null>(null);
-  const [sessionizeSearch, setSessionizeSearch] = useState("");
-  const [sessionizeRoomFilter, setSessionizeRoomFilter] = useState("ALL");
-  const [sessionizeJobFilter, setSessionizeJobFilter] = useState("ALL");
-  const [sessionizeCompanyFilter, setSessionizeCompanyFilter] = useState("ALL");
-  const [syncingAll, setSyncingAll] = useState(false);
-  const [importingId, setImportingId] = useState<string | null>(null);
-  const [expandedDescIds, setExpandedDescIds] = useState<Record<string, boolean>>({});
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [roomsDirty, setRoomsDirty] = useState(false);
+  const [formatsDirty, setFormatsDirty] = useState(false);
+  const anyDirty = editorDirty || roomsDirty || formatsDirty;
 
-  // Load Schedule Items
-  const loadSchedule = async () => {
+  useEffect(() => {
+    if (!anyDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [anyDirty]);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const res = await fetchAdminSchedule(selectedEventSlug);
-      setScheduleItems(res.schedule || []);
+      const [sched, roomsRes, formatsRes, spk] = await Promise.all([
+        fetchAdminSchedule(eventSlug),
+        fetchScheduleRooms(eventSlug),
+        fetchScheduleFormats(eventSlug),
+        fetchAdminSpeakers(eventSlug),
+      ]);
+      setSchedule(sched.schedule || []);
+      setRevision(sched.revision ?? 0);
+      setPublishedAt(sched.publishedAt ?? null);
+      setRooms(roomsRes.rooms || []);
+      setFormats(formatsRes.formats || []);
+      setSpeakers(spk.speakers || []);
     } catch (err: any) {
-      setError(err?.message || "Failed to load schedule");
-      setScheduleItems([]);
+      setLoadError(err?.message || "Failed to load schedule workspace");
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventSlug]);
 
   useEffect(() => {
-    loadSchedule();
-  }, [selectedEventSlug]);
+    loadAll();
+  }, [loadAll]);
 
-  // Load Sessionize Data for Explorer
-  const loadSessionize = async (fresh = false) => {
-    try {
-      setSessionizeLoading(true);
-      setSessionizeError(null);
-      const data = await fetchSessionizeData({ fresh });
-      setSessionizeData(data);
-    } catch (err: any) {
-      setSessionizeError(err?.message || "Failed to load Sessionize data");
-    } finally {
-      setSessionizeLoading(false);
-    }
-  };
+  const conflicts = useMemo(() => buildConflictMap(schedule), [schedule]);
+  const unscheduledCount = useMemo(
+    () => schedule.filter((it) => !isScheduled(it)).length,
+    [schedule],
+  );
+  const includedCount = useMemo(() => schedule.filter((it) => it.isActive).length, [schedule]);
+  const existingSessionIds = useMemo(
+    () => new Set(schedule.map((it) => it.sessionId).filter(Boolean) as string[]),
+    [schedule],
+  );
 
-  // Open Sessionize Explorer Modal
-  const handleOpenSessionizeModal = () => {
-    setSessionizeModalOpen(true);
-    if (!sessionizeData) {
-      loadSessionize(false);
-    }
-  };
-
-  // Open Add Dialog
-  const handleOpenAdd = () => {
+  function openCreate() {
     setEditingItem(null);
-    setFormData({
-      title: "",
-      description: "",
-      speakers: [],
-      room: selectedRoom !== "All Stages" ? selectedRoom : "Atrium",
-      track: "",
-      startsAt: "2026-10-31T02:00:00Z",
-      endsAt: "2026-10-31T02:40:00Z",
-      sessionType: "Technical Session",
-      isServiceSession: false,
-      isActive: true,
-      displayOrder: scheduleItems.length,
-    });
-    setDialogOpen(true);
-  };
+    setEditorOpen(true);
+  }
 
-  // Open Edit Dialog
-  const handleOpenEdit = (item: EventScheduleItem) => {
-    setEditingItem(item);
-    setFormData({
-      sessionId: item.sessionId,
-      title: item.title,
-      description: item.description || "",
-      speakers: normalizeScheduleSpeakers(item),
-      room: item.room || "Atrium",
-      track: item.track || "",
-      startsAt: item.startsAt || "",
-      endsAt: item.endsAt || "",
-      sessionType: item.sessionType || "Technical Session",
-      isServiceSession: item.isServiceSession,
-      isActive: item.isActive,
-      displayOrder: item.displayOrder,
-    });
-    setDialogOpen(true);
-  };
+  function openEdit(item: EventScheduleItem) {
+    setEditingItem(item as ItemWithSpeakerRefs);
+    setEditorOpen(true);
+  }
 
-  // Save Item (Create or Update)
-  const handleSaveItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title.trim()) {
-      alert("Title is required");
-      return;
-    }
-
+  async function handleToggleInclude(item: EventScheduleItem) {
+    setBusyId(item.id);
+    setActionError(null);
     try {
-      setSubmitting(true);
-      // Blank rows never submit; [] still clears speakers on update.
-      const payload = {
-        ...formData,
-        speakers: (formData.speakers || []).filter((s) => s.name.trim()),
-      };
-      if (editingItem) {
-        await updateAdminScheduleItem(selectedEventSlug, editingItem.id, payload);
-      } else {
-        await createAdminScheduleItem(selectedEventSlug, payload);
-      }
-      setDialogOpen(false);
-      await loadSchedule();
-    } catch (err: any) {
-      alert(err?.message || "Failed to save schedule item");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Toggle Active Status
-  const handleToggleActive = async (item: EventScheduleItem) => {
-    try {
-      await updateAdminScheduleItem(selectedEventSlug, item.id, {
+      await updateAdminScheduleItem(eventSlug, item.id, {
+        revision: item.revision,
         isActive: !item.isActive,
       });
-      setScheduleItems((prev) =>
-        prev.map((it) => (it.id === item.id ? { ...it, isActive: !it.isActive } : it))
+    } catch (err: any) {
+      setActionError(
+        err?.message ||
+          `Failed to update “${item.title}” — it may have changed. Reload and retry.`,
       );
-    } catch (err: any) {
-      alert(err?.message || "Failed to toggle status");
-    }
-  };
-
-  // Delete Item
-  const handleDeleteItem = async (item: EventScheduleItem) => {
-    if (!confirm(`Are you sure you want to delete session "${item.title}"?`)) {
-      return;
-    }
-    try {
-      await deleteAdminScheduleItem(selectedEventSlug, item.id);
-      setScheduleItems((prev) => prev.filter((it) => it.id !== item.id));
-    } catch (err: any) {
-      alert(err?.message || "Failed to delete schedule item");
-    }
-  };
-
-  // Single Sessionize Session Import
-  const handleImportSingleSession = async (sess: EnrichedSession) => {
-    try {
-      setImportingId(sess.id);
-      await syncSessionizeSchedule(selectedEventSlug, {
-        sessionIds: [sess.id],
-        overwrite: false,
-      });
-      await loadSchedule();
-    } catch (err: any) {
-      alert(err?.message || "Failed to import session");
     } finally {
-      setImportingId(null);
+      setBusyId(null);
+      // Revisions are authoritative server-side; never guess locally.
+      await loadAll();
     }
-  };
+  }
 
-  // Full Sessionize Sync
-  const handleSyncAllSessionize = async () => {
-    if (!confirm("Sync all accepted sessions from Sessionize into this event schedule?")) {
-      return;
-    }
+  async function handleDelete(item: EventScheduleItem) {
+    if (!window.confirm(`Delete “${item.title}” from the schedule?`)) return;
+    setBusyId(item.id);
+    setActionError(null);
     try {
-      setSyncingAll(true);
-      const res = await syncSessionizeSchedule(selectedEventSlug, {
-        overwrite: false,
-        fresh: true,
-      });
-      alert(`Synchronized successfully! Imported: ${res.imported}, Updated: ${res.updated}.`);
-      await loadSchedule();
+      await deleteAdminScheduleItem(eventSlug, item.id, item.revision);
     } catch (err: any) {
-      alert(err?.message || "Sync from Sessionize failed");
+      setActionError(
+        err?.message ||
+          `Failed to delete “${item.title}” — it may have changed. Reload and retry.`,
+      );
     } finally {
-      setSyncingAll(false);
+      setBusyId(null);
+      await loadAll();
     }
-  };
+  }
 
-  // Filtered schedule items
-  const filteredSchedule = useMemo(() => {
-    return scheduleItems.filter((item) => {
-      // Room filter
-      if (selectedRoom !== "All Stages") {
-        const itemRoom = (item.room || "").toLowerCase();
-        const target = selectedRoom.toLowerCase();
-        if (!itemRoom.includes(target) && !target.includes(itemRoom)) {
-          return false;
-        }
-      }
+  async function openReview() {
+    setReviewOpen(true);
+    setReview(null); // avoid flashing a stale review against a fresh revision
+    setReviewError(null);
+    setPublishError(null);
+    setReviewLoading(true);
+    try {
+      setReview(await reviewSchedule(eventSlug));
+    } catch (err: any) {
+      setReviewError(err?.message || "Failed to review schedule");
+    } finally {
+      setReviewLoading(false);
+    }
+  }
 
-      // Type filter
-      if (selectedType !== "ALL") {
-        if (selectedType === "Service Session" && !item.isServiceSession) {
-          return false;
-        }
-        if (selectedType !== "Service Session" && item.sessionType !== selectedType) {
-          return false;
-        }
-      }
+  async function handlePublish() {
+    if (!review) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      const pub = await publishSchedule(eventSlug, review.revision);
+      setPublishNote(`Published ${pub.itemCount} items at ${new Date(pub.publishedAt).toLocaleString("en-GB", { timeZone: "Asia/Jakarta" })} WIB`);
+      setReviewOpen(false);
+      setReview(null);
+      await loadAll();
+    } catch (err: any) {
+      setPublishError(err?.message || "Publish failed — the draft may be stale. Reload and re-review.");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const inTitle = item.title.toLowerCase().includes(q);
-        const inDesc = item.description?.toLowerCase().includes(q) ?? false;
-        const inSpeaker = normalizeScheduleSpeakers(item).some(
-          (sp) =>
-            (sp.name || "").toLowerCase().includes(q) ||
-            (sp.company || "").toLowerCase().includes(q)
-        );
-        const inRoom = item.room?.toLowerCase().includes(q) ?? false;
-        if (!inTitle && !inDesc && !inSpeaker && !inRoom) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [scheduleItems, selectedRoom, selectedType, searchQuery]);
-
-  // Filtered Sessionize sessions in explorer modal
-  const filteredSessionizeSessions = useMemo(() => {
-    if (!sessionizeData || !Array.isArray(sessionizeData.sessions)) return [];
-    return sessionizeData.sessions.filter((sess) => {
-      const speakers = Array.isArray(sess.speakers) ? sess.speakers : [];
-      if (sessionizeRoomFilter !== "ALL") {
-        if ((sess.room || "").toLowerCase() !== sessionizeRoomFilter.toLowerCase()) {
-          return false;
-        }
-      }
-      if (sessionizeJobFilter !== "ALL") {
-        const hasJob = speakers.some((sp) =>
-          (sp.jobTitle || "").toLowerCase().includes(sessionizeJobFilter.toLowerCase())
-        );
-        if (!hasJob) return false;
-      }
-      if (sessionizeCompanyFilter !== "ALL") {
-        const hasComp = speakers.some((sp) =>
-          (sp.company || "").toLowerCase().includes(sessionizeCompanyFilter.toLowerCase())
-        );
-        if (!hasComp) return false;
-      }
-      if (sessionizeSearch.trim()) {
-        const q = sessionizeSearch.toLowerCase();
-        const inTitle = (sess.title || "").toLowerCase().includes(q);
-        const inDesc = (sess.description || "").toLowerCase().includes(q);
-        const inSpk = speakers.some(
-          (sp) =>
-            (sp.name || "").toLowerCase().includes(q) ||
-            (sp.company || "").toLowerCase().includes(q) ||
-            (sp.tagLine || "").toLowerCase().includes(q)
-        );
-        if (!inTitle && !inDesc && !inSpk) return false;
-      }
-      return true;
-    });
-  }, [
-    sessionizeData,
-    sessionizeRoomFilter,
-    sessionizeJobFilter,
-    sessionizeCompanyFilter,
-    sessionizeSearch,
-  ]);
-
-  // Set of session IDs already present in current schedule
-  const existingSessionIds = useMemo(() => {
-    return new Set((scheduleItems || []).map((it) => it.sessionId).filter(Boolean));
-  }, [scheduleItems]);
-
-  const distinctRooms = useMemo(() => {
-    const s = new Set<string>();
-    (scheduleItems || []).forEach((it) => {
-      if (it.room && it.room.trim()) s.add(it.room.trim());
-    });
-    return Array.from(s);
-  }, [scheduleItems]);
+  const liveRooms = activeRooms(rooms);
+  const publishedLabel = publishedAt
+    ? `Last published ${new Date(publishedAt).toLocaleString("en-GB", { timeZone: "Asia/Jakarta" })} WIB`
+    : "Not published yet";
 
   return (
-    <div className="space-y-8">
-      {/* Top Header Card */}
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-br from-card via-background to-muted/30 border border-border/80 shadow-xl relative overflow-hidden">
         <div className="space-y-1.5 relative z-10">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
-              Schedule & Agenda Configuration
-            </span>
-          </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-            Event Schedule Manager
+            Schedule Workspace
           </h2>
           <p className="text-sm text-muted-foreground max-w-xl">
-            Configure event timeline, session stages, rooms, and sync real-time speaker talks from
-            Sessionize.
+            Rooms, formats, sessions, and publication in one place. Drafts save anytime; publishing
+            requires a clean review.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {publishedLabel} · draft r{revision}
           </p>
         </div>
-
         <div className="flex flex-wrap items-center gap-2.5 relative z-10">
-          {/* Event Selector */}
-          <Select value={selectedEventSlug} onValueChange={setSelectedEventSlug}>
-            <SelectTrigger className="w-[260px] bg-card border-border h-10 text-xs font-medium">
-              <CalendarClock className="h-4 w-4 mr-2 text-primary" />
+          <Select value={eventSlug} onValueChange={setEventSlug}>
+            <SelectTrigger className="w-[260px] bg-card border-border h-10 text-xs font-medium" aria-label="Select event">
+              <CalendarClock className="h-4 w-4 mr-2 text-primary" aria-hidden="true" />
               <SelectValue placeholder="Select Event" />
             </SelectTrigger>
             <SelectContent>
               {KNOWN_SCHEDULE_EVENTS.map((evt) => (
-                <SelectItem key={evt.slug} value={evt.slug} className="text-xs">
-                  {evt.name}
-                </SelectItem>
+                <SelectItem key={evt.slug} value={evt.slug}>{evt.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-
-          {/* Sessionize Explorer Action */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleOpenSessionizeModal}
-            className="h-10 px-3.5 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 cursor-pointer text-xs font-semibold"
-          >
-            <Sparkles className="h-4 w-4 mr-1.5 text-orange-400" />
-            Sessionize Data
+          <Button type="button" variant="outline" size="sm" onClick={() => setExplorerOpen(true)} className="h-10 px-3.5 border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold">
+            <Sparkles className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            Sessionize
           </Button>
-
-          {/* Add Session Action */}
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleOpenAdd}
-            className="h-10 px-4 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer text-xs font-semibold shadow-md"
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            Add Session
+          <Button type="button" size="sm" onClick={openCreate} className="h-10 px-4 text-xs font-semibold shadow-md">
+            <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            New Session
+          </Button>
+          <Button type="button" size="sm" onClick={openReview} disabled={loading} className="h-10 px-4 text-xs font-semibold shadow-md">
+            <Rocket className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            Review &amp; Publish
           </Button>
         </div>
       </div>
 
-      {/* Metrics & Quick Stats */}
+      {publishNote && (
+        <p role="status" className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
+          {publishNote}
+          <button type="button" onClick={() => setPublishNote(null)} className="text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Dismiss publication note">
+            Dismiss
+          </button>
+        </p>
+      )}
+      {actionError && (
+        <p role="alert" className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
+          {actionError}
+          <Button type="button" size="sm" variant="outline" onClick={loadAll} className="h-7 text-[11px] shrink-0">
+            <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
+            Reload
+          </Button>
+        </p>
+      )}
+
+      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/80">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Total Sessions
-          </p>
-          <p className="text-2xl font-extrabold text-foreground mt-1">{scheduleItems.length}</p>
-        </Card>
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/80">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Active on Schedule
-          </p>
-          <p className="text-2xl font-extrabold text-emerald-400 mt-1">
-            {scheduleItems.filter((i) => i.isActive).length}
-          </p>
-        </Card>
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/80">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Stages & Rooms
-          </p>
-          <p className="text-2xl font-extrabold text-purple-400 mt-1">
-            {distinctRooms.length || 0}
-          </p>
-        </Card>
-        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/80">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            From Sessionize
-          </p>
-          <p className="text-2xl font-extrabold text-orange-400 mt-1">
-            {existingSessionIds.size}
-          </p>
-        </Card>
+        {[
+          { label: "Sessions", value: schedule.length, cls: "text-foreground" },
+          { label: "Included in publish", value: includedCount, cls: "text-emerald-400" },
+          { label: "Unscheduled", value: unscheduledCount, cls: "text-amber-400" },
+          { label: "Conflicts", value: conflicts.size, cls: conflicts.size ? "text-destructive" : "text-foreground" },
+        ].map((stat) => (
+          <Card key={stat.label} className="p-4 bg-card/60 border-border/80">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</p>
+            <p className={`text-2xl font-extrabold mt-1 ${stat.cls}`}>{stat.value}</p>
+          </Card>
+        ))}
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border shadow-sm">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search sessions by title, speaker, company, room, or topic..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-xs bg-background"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Room Filter */}
-          <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-            <SelectTrigger className="w-[140px] h-9 text-xs bg-background">
-              <MapPin className="h-3.5 w-3.5 mr-1 text-primary shrink-0" />
-              <SelectValue placeholder="Stage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All Stages" className="text-xs">
-                All Stages
-              </SelectItem>
-              {distinctRooms.map((r) => (
-                <SelectItem key={r} value={r} className="text-xs">
-                  {r}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Session Type Filter */}
-          <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="w-[150px] h-9 text-xs bg-background">
-              <Filter className="h-3.5 w-3.5 mr-1 text-primary shrink-0" />
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL" className="text-xs">
-                All Formats
-              </SelectItem>
-              {SESSION_TYPES.map((t) => (
-                <SelectItem key={t} value={t} className="text-xs">
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={loadSchedule}
-            disabled={loading}
-            className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Schedule List */}
+      {/* Body */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 space-y-3">
+        <div role="status" aria-live="polite" className="flex flex-col items-center justify-center py-16 gap-3">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          <p className="text-xs text-muted-foreground">Loading event schedule...</p>
+          <p className="text-xs text-muted-foreground">Loading schedule workspace…</p>
         </div>
-      ) : error ? (
-        <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-center space-y-2">
-          <AlertCircle className="h-6 w-6 mx-auto" />
-          <p className="text-sm font-semibold">{error}</p>
-          <Button size="sm" variant="outline" onClick={loadSchedule}>
-            Try Again
-          </Button>
+      ) : loadError ? (
+        <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-center space-y-3">
+          <p className="text-sm font-semibold">{loadError}</p>
+          <Button size="sm" variant="outline" onClick={loadAll}>Try Again</Button>
         </div>
-      ) : filteredSchedule.length === 0 ? (
-        <Card className="p-12 text-center border-dashed border-2 border-border/80 bg-card/40 space-y-4">
-          <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
-            <CalendarClock className="h-6 w-6" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-foreground">No Schedule Items Found</h3>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              {searchQuery || selectedRoom !== "All Stages"
-                ? "No sessions match your filter criteria. Try resetting filters."
-                : "This event does not have any schedule items configured yet. You can import talks directly from Sessionize or add custom agenda items."}
-            </p>
-          </div>
-          <div className="flex justify-center gap-3 pt-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleOpenSessionizeModal}
-              className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
-            >
-              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-              Import from Sessionize
-            </Button>
-            <Button size="sm" onClick={handleOpenAdd}>
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Add Custom Session
-            </Button>
-          </div>
-        </Card>
       ) : (
-        <div className="space-y-3.5">
-          {filteredSchedule.map((item, idx) => {
-            const isExpanded = expandedDescIds[item.id] || false;
-            return (
-              <Card
-                key={item.id}
-                className={`p-5 transition-all duration-200 border-border/80 ${
-                  item.isActive
-                    ? "bg-card/75 hover:border-orange-500/40"
-                    : "bg-muted/20 opacity-60 border-dashed"
-                }`}
-              >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  {/* Left: Time, Room, and Title */}
-                  <div className="space-y-2.5 flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Order Index */}
-                      <span className="font-mono text-[11px] text-muted-foreground/60 w-6">
-                        #{idx + 1}
-                      </span>
-
-                      {/* Time Badge */}
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/30">
-                        <Clock className="h-3 w-3" />
-                        {formatTimeDisplay(item.startsAt, item.endsAt)}
-                      </span>
-
-                      {/* Room Badge */}
-                      {item.room && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                          <MapPin className="h-3 w-3" />
-                          {item.room}
-                        </span>
-                      )}
-
-                      {/* Session Type Badge */}
-                      <Badge
-                        variant="secondary"
-                        className="text-[11px] font-medium bg-muted/60 text-foreground"
-                      >
-                        {item.sessionType || "Technical Session"}
-                      </Badge>
-
-                      {/* Sessionize Origin Badge */}
-                      {item.sessionId && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20">
-                          Sessionize #{item.sessionId}
-                        </span>
-                      )}
-
-                      {/* Active / Inactive Pill */}
-                      {!item.isActive && (
-                        <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">
-                          Draft / Inactive
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Session Title */}
-                    <h3 className="text-base sm:text-lg font-bold text-foreground leading-snug">
-                      {item.title}
-                    </h3>
-
-                    {/* Speakers Info Row — all assigned speakers */}
-                    {(() => {
-                      const spk = normalizeScheduleSpeakers(item);
-                      if (spk.length === 0) return null;
-                      return (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
-                          {spk.map((speaker, spkIdx) => (
-                            <div key={speaker.id || spkIdx} className="flex items-center gap-2.5">
-                              <Avatar className="h-7 w-7 rounded-full border border-border shrink-0">
-                                <AvatarImage src={speaker.avatar || undefined} />
-                                <AvatarFallback className="text-[10px] font-bold">
-                                  {speaker.name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="text-xs truncate">
-                                <span className="font-semibold text-foreground mr-1.5">
-                                  {speaker.socialUrl ? (
-                                    <a
-                                      href={speaker.socialUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="hover:text-primary transition-colors inline-flex items-center gap-1"
-                                    >
-                                      {speaker.name}
-                                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                                      <span className="sr-only"> — profile</span>
-                                    </a>
-                                  ) : (
-                                    speaker.name
-                                  )}
-                                </span>
-                                {(speaker.role || speaker.company) && (
-                                  <span className="text-muted-foreground">
-                                    · {speaker.role}
-                                    {speaker.company ? ` (${speaker.company})` : ""}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Description preview */}
-                    {item.description && (
-                      <div className="text-xs text-muted-foreground leading-relaxed pt-1">
-                        <p className={isExpanded ? "" : "line-clamp-2"}>{item.description}</p>
-                        {item.description.length > 140 && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedDescIds((prev) => ({
-                                ...prev,
-                                [item.id]: !isExpanded,
-                              }))
-                            }
-                            className="text-[11px] text-primary hover:underline font-semibold mt-1 inline-flex items-center gap-0.5 cursor-pointer"
-                          >
-                            {isExpanded ? (
-                              <>
-                                Show Less <ChevronUp className="h-3 w-3" />
-                              </>
-                            ) : (
-                              <>
-                                Read Full Abstract <ChevronDown className="h-3 w-3" />
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right Actions */}
-                  <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-border/40">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleActive(item)}
-                      className={`h-8 text-xs cursor-pointer ${
-                        item.isActive
-                          ? "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {item.isActive ? "Active" : "Activate"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleOpenEdit(item)}
-                      className="h-8 text-xs cursor-pointer"
-                    >
-                      <Edit2 className="h-3.5 w-3.5 mr-1" />
-                      Edit
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteItem(item)}
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+          <ScheduleTimeline
+            items={schedule}
+            rooms={rooms}
+            formats={formats}
+            busyId={busyId}
+            onEdit={openEdit}
+            onToggleInclude={handleToggleInclude}
+          />
+          <aside className="space-y-4 lg:sticky lg:top-4">
+            <RoomsDirectory
+              eventSlug={eventSlug}
+              rooms={rooms}
+              onChanged={loadAll}
+              onDirtyChange={setRoomsDirty}
+            />
+            <FormatsDirectory
+              eventSlug={eventSlug}
+              formats={formats}
+              onChanged={loadAll}
+              onDirtyChange={setFormatsDirty}
+            />
+          </aside>
         </div>
       )}
 
-      {/* Edit / Add Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingItem ? "Edit Schedule Session" : "Add New Schedule Session"}
-            </DialogTitle>
-            <DialogDescription>
-              Configure stage room, session title, time slot, and speaker presentation details.
-            </DialogDescription>
-          </DialogHeader>
+      <SessionEditorDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        eventSlug={eventSlug}
+        item={editingItem}
+        rooms={liveRooms}
+        formats={formats}
+        speakers={speakers}
+        peers={schedule}
+        onSaved={loadAll}
+        onDelete={handleDelete}
+        onSpeakerCreated={(spk) => setSpeakers((prev) => [spk, ...prev])}
+        onDirtyChange={setEditorDirty}
+      />
 
-          <form onSubmit={handleSaveItem} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="sess-title">Session Title *</Label>
-              <Input
-                id="sess-title"
-                placeholder="e.g. Architecting for the Future: Scaling Modern Workloads..."
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                required
-              />
-            </div>
+      <SessionizeExplorer
+        open={explorerOpen}
+        onOpenChange={setExplorerOpen}
+        eventSlug={eventSlug}
+        existingSessionIds={existingSessionIds}
+        onImported={loadAll}
+      />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="sess-room">Stage / Room</Label>
-                <Input
-                  id="sess-room"
-                  placeholder="e.g. Atrium, Room 800, Main Stage"
-                  value={formData.room || ""}
-                  onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="sess-type">Session Type</Label>
-                <Select
-                  value={formData.sessionType || "Technical Session"}
-                  onValueChange={(val) => setFormData({ ...formData, sessionType: val })}
-                >
-                  <SelectTrigger id="sess-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SESSION_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="sess-start">Starts At (ISO / Time string)</Label>
-                <Input
-                  id="sess-start"
-                  placeholder="2026-10-31T02:00:00Z"
-                  value={formData.startsAt || ""}
-                  onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="sess-end">Ends At (ISO / Time string)</Label>
-                <Input
-                  id="sess-end"
-                  placeholder="2026-10-31T02:40:00Z"
-                  value={formData.endsAt || ""}
-                  onChange={(e) => setFormData({ ...formData, endsAt: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Speakers Section — multiple assignments supported */}
-            <fieldset className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-3">
-              <legend className="px-2 flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />
-                <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Speakers ({(formData.speakers || []).length}/{MAX_SPEAKERS_PER_SESSION})
-                </span>
-              </legend>
-
-              {(formData.speakers || []).length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No speakers assigned — service sessions and breaks can stay empty.
-                </p>
-              )}
-
-              {(formData.speakers || []).map((speaker, idx) => (
-                <fieldset
-                  key={speaker.id || `spk-${idx}`}
-                  className="p-3 rounded-lg border border-border/70 bg-background/40 space-y-3"
-                >
-                  <legend className="px-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Speaker {idx + 1}
-                  </legend>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Avatar className="h-8 w-8 rounded-full border border-border shrink-0">
-                        <AvatarImage src={speaker.avatar || undefined} />
-                        <AvatarFallback className="text-[10px] font-bold">
-                          {(speaker.name || "?").charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs font-semibold text-foreground truncate">
-                        {speaker.name || "Unnamed speaker"}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setFormData({
-                          ...formData,
-                          speakers: (formData.speakers || []).filter((_, i) => i !== idx),
-                        })
-                      }
-                      aria-label={`Remove speaker ${idx + 1}${speaker.name ? ` (${speaker.name})` : ""}`}
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor={`spk-${idx}-name`} className="text-xs">
-                        Speaker Name
-                      </Label>
-                      <Input
-                        id={`spk-${idx}-name`}
-                        placeholder="e.g. Arief Nugraha"
-                        value={speaker.name}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            speakers: (formData.speakers || []).map((s, i) =>
-                              i === idx ? { ...s, name: e.target.value } : s
-                            ),
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor={`spk-${idx}-role`} className="text-xs">
-                        Job Title / Role
-                      </Label>
-                      <Input
-                        id={`spk-${idx}-role`}
-                        placeholder="e.g. Senior Solutions Architect"
-                        value={speaker.role || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            speakers: (formData.speakers || []).map((s, i) =>
-                              i === idx ? { ...s, role: e.target.value } : s
-                            ),
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor={`spk-${idx}-company`} className="text-xs">
-                        Company
-                      </Label>
-                      <Input
-                        id={`spk-${idx}-company`}
-                        placeholder="e.g. AWS"
-                        value={speaker.company || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            speakers: (formData.speakers || []).map((s, i) =>
-                              i === idx ? { ...s, company: e.target.value } : s
-                            ),
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor={`spk-${idx}-social`} className="text-xs">
-                        LinkedIn URL
-                      </Label>
-                      <Input
-                        id={`spk-${idx}-social`}
-                        placeholder="https://www.linkedin.com/in/..."
-                        value={speaker.socialUrl || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            speakers: (formData.speakers || []).map((s, i) =>
-                              i === idx ? { ...s, socialUrl: e.target.value } : s
-                            ),
-                          })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor={`spk-${idx}-avatar`} className="text-xs">
-                      Speaker Avatar URL
-                    </Label>
-                    <Input
-                      id={`spk-${idx}-avatar`}
-                      placeholder="https://cdn.sessionize.com/image/..."
-                      value={speaker.avatar || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          speakers: (formData.speakers || []).map((s, i) =>
-                            i === idx ? { ...s, avatar: e.target.value } : s
-                          ),
-                        })
-                      }
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </fieldset>
-              ))}
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={(formData.speakers || []).length >= MAX_SPEAKERS_PER_SESSION}
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    speakers: [...(formData.speakers || []), emptySpeaker()],
-                  })
-                }
-                className="h-8 text-xs border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
-                Add Speaker
-              </Button>
-            </fieldset>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="sess-desc">Description / Session Abstract</Label>
-              <Textarea
-                id="sess-desc"
-                rows={4}
-                placeholder="Full session details, architectural takeaways, and attendee learning points..."
-                value={formData.description || ""}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-
-            <div className="flex items-center gap-6 pt-2">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
-                <input
-                  type="checkbox"
-                  checked={formData.isActive ?? true}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="rounded border-border"
-                />
-                Published / Active on Schedule
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={formData.isServiceSession ?? false}
-                  onChange={(e) =>
-                    setFormData({ ...formData, isServiceSession: e.target.checked })
-                  }
-                  className="rounded border-border"
-                />
-                Service Session (Registration / Break / Lunch)
-              </label>
-            </div>
-
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                {editingItem ? "Update Session" : "Create Session"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Sessionize Live Explorer Modal */}
-      <Dialog open={sessionizeModalOpen} onOpenChange={setSessionizeModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="p-6 pb-4 border-b border-border/80">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                    Live Sessionize Integration
-                  </span>
-                </div>
-                <DialogTitle className="text-xl sm:text-2xl font-extrabold text-foreground">
-                  Sessionize Talks & Speaker Roster
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
-                  Browse confirmed submissions, stage assignments, and speaker profiles directly
-                  from Sessionize (edge-cached with search & filters).
-                </DialogDescription>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => loadSessionize(true)}
-                  disabled={sessionizeLoading}
-                  className="h-8 text-xs cursor-pointer"
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 mr-1.5 ${sessionizeLoading ? "animate-spin" : ""}`}
-                  />
-                  Refresh Cache
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSyncAllSessionize}
-                  disabled={syncingAll || sessionizeLoading}
-                  className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white font-semibold cursor-pointer shadow"
-                >
-                  {syncingAll ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  ) : (
-                    <DownloadCloud className="h-3.5 w-3.5 mr-1.5" />
-                  )}
-                  Sync All to Schedule
-                </Button>
-              </div>
-            </div>
-
-            {/* Filter Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-4">
-              <div className="relative sm:col-span-2">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search talk title, speaker, bio, company..."
-                  value={sessionizeSearch}
-                  onChange={(e) => setSessionizeSearch(e.target.value)}
-                  className="pl-8 h-8 text-xs bg-background"
-                />
-              </div>
-
-              {/* Room Filter */}
-              <Select value={sessionizeRoomFilter} onValueChange={setSessionizeRoomFilter}>
-                <SelectTrigger className="h-8 text-xs bg-background">
-                  <SelectValue placeholder="Room" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL" className="text-xs">
-                    All Rooms
-                  </SelectItem>
-                  {(sessionizeData?.metadata?.rooms || []).map((rm) => (
-                    <SelectItem key={rm} value={rm} className="text-xs">
-                      {rm}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Job Title Filter */}
-              <Select value={sessionizeJobFilter} onValueChange={setSessionizeJobFilter}>
-                <SelectTrigger className="h-8 text-xs bg-background">
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL" className="text-xs">
-                    All Roles
-                  </SelectItem>
-                  {(
-                    sessionizeData?.metadata?.jobTitles ||
-                    (sessionizeData?.metadata as any)?.job_titles ||
-                    []
-                  ).map((jb: string) => (
-                    <SelectItem key={jb} value={jb} className="text-xs">
-                      {jb}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </DialogHeader>
-
-          {/* Modal Content Scroll Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {sessionizeLoading ? (
-              <div className="flex flex-col items-center justify-center p-16 space-y-3">
-                <Loader2 className="h-8 w-8 text-orange-400 animate-spin" />
-                <p className="text-xs text-muted-foreground">Fetching Sessionize data...</p>
-              </div>
-            ) : sessionizeError ? (
-              <div className="p-6 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-center">
-                <AlertCircle className="h-6 w-6 mx-auto mb-2" />
-                <p className="text-sm font-semibold">{sessionizeError}</p>
-              </div>
-            ) : filteredSessionizeSessions.length === 0 ? (
-              <div className="text-center p-12 text-muted-foreground text-xs">
-                No sessions found matching your search and filter criteria.
-              </div>
-            ) : (
-              filteredSessionizeSessions.map((sess) => {
-                const isImported = existingSessionIds.has(sess.id);
-                const speakers = Array.isArray(sess.speakers) ? sess.speakers : [];
-
-                return (
-                  <Card
-                    key={sess.id}
-                    className="p-5 border-border/80 bg-card hover:border-orange-500/30 transition-all shadow-sm space-y-3"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                      <div className="space-y-2 flex-1 min-w-0">
-                        {/* Meta Tags */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/30">
-                            <Clock className="h-3 w-3" />
-                            {formatTimeDisplay(sess.startsAt, sess.endsAt)}
-                          </span>
-
-                          {sess.room && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                              <MapPin className="h-3 w-3" />
-                              {sess.room}
-                            </span>
-                          )}
-
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            Sessionize ID #{sess.id}
-                          </Badge>
-
-                          {sess.status && (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            >
-                              {sess.status}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Session Title */}
-                        <h4 className="text-base font-bold text-foreground leading-snug">
-                          {sess.title}
-                        </h4>
-
-                        {/* Speaker Preview — full roster */}
-                        {speakers.length > 0 && (
-                          <div className="space-y-2 pt-1">
-                            {speakers.map((sp, spIdx) => (
-                              <div key={sp.id || `spk-${spIdx}`} className="flex items-center gap-3">
-                                <Avatar className="h-9 w-9 rounded-full border border-border shadow-sm shrink-0">
-                                  <AvatarImage src={sp.profilePicture || undefined} />
-                                  <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
-                                    {(sp.name || "?").charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5">
-                                    {sp.name}
-                                    {sp.linkedinUrl && (
-                                      <a
-                                        href={sp.linkedinUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-primary hover:text-primary/80"
-                                      >
-                                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                                        <span className="sr-only"> — {sp.name}'s profile</span>
-                                      </a>
-                                    )}
-                                  </p>
-                                  <p className="text-[11px] text-muted-foreground truncate">
-                                    {sp.jobTitle || sp.tagLine || "Speaker"}
-                                    {sp.company ? ` · ${sp.company}` : ""}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Abstract */}
-                        {sess.description && (
-                          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 pt-1">
-                            {sess.description}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Action */}
-                      <div className="shrink-0 pt-2 md:pt-0">
-                        {isImported ? (
-                          <div className="flex flex-col items-end gap-1.5">
-                            <Badge
-                              variant="outline"
-                              className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border-emerald-500/30 px-2.5 py-1"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                              In Schedule
-                            </Badge>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleImportSingleSession(sess)}
-                              disabled={importingId === sess.id}
-                              className="h-7 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
-                            >
-                              {importingId === sess.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                              ) : null}
-                              Update Info
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => handleImportSingleSession(sess)}
-                            disabled={importingId === sess.id}
-                            className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-sm font-semibold"
-                          >
-                            {importingId === sess.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                            ) : (
-                              <Plus className="h-3.5 w-3.5 mr-1.5" />
-                            )}
-                            Import to Schedule
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ReviewDialog
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        review={review}
+        loading={reviewLoading}
+        error={reviewError}
+        currentRevision={revision}
+        publishing={publishing}
+        publishError={publishError}
+        onPublish={handlePublish}
+        onReload={async () => {
+          setReview(null);
+          await loadAll();
+          setReviewError(null);
+          setPublishError(null);
+          setReviewLoading(true);
+          try {
+            setReview(await reviewSchedule(eventSlug));
+          } catch (err: any) {
+            setReviewError(err?.message || "Failed to review schedule");
+          } finally {
+            setReviewLoading(false);
+          }
+        }}
+      />
     </div>
   );
 }
-
-(ScheduleManager as unknown as Record<symbol, string>)[Symbol.for("astro:renderer")] =
-  "@astrojs/react";

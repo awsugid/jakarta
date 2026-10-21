@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClock,
   Loader2,
@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+
 import {
   Select,
   SelectContent,
@@ -42,10 +42,18 @@ import { SessionEditorDialog, type ItemWithSpeakerRefs } from "./SessionEditorDi
 import { ScheduleTimeline } from "./ScheduleTimeline";
 import { ReviewDialog } from "./ReviewDialog";
 import { SessionizeExplorer } from "./SessionizeExplorer";
-import { KNOWN_SCHEDULE_EVENTS, activeRooms, buildConflictMap, isScheduled } from "./schedule-helpers";
+import { KNOWN_SCHEDULE_EVENTS, activeRooms, buildConflictMap, isScheduled, createRefreshGate } from "./schedule-helpers";
 
 export function ScheduleManager() {
   const [eventSlug, setEventSlug] = useState(COMMUNITY_DAY_EVENT_SLUG);
+  return <ScheduleWorkspace key={eventSlug} eventSlug={eventSlug} onEventChange={setEventSlug} />;
+}
+
+function ScheduleWorkspace({ eventSlug, onEventChange }: { eventSlug: string; onEventChange: (slug: string) => void }) {
+  const [view, setView] = useState("agenda");
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshGate = useRef(createRefreshGate());
+  const mutationLock = useRef(false);
   const [schedule, setSchedule] = useState<EventScheduleItem[]>([]);
   const [revision, setRevision] = useState(0);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
@@ -83,8 +91,8 @@ export function ScheduleManager() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [anyDirty]);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
+  const loadAll = useCallback(async () => refreshGate.current.run(async (isCurrent) => {
+    setRefreshing(true);
     setLoadError(null);
     try {
       const [sched, roomsRes, formatsRes, spk] = await Promise.all([
@@ -93,6 +101,7 @@ export function ScheduleManager() {
         fetchScheduleFormats(eventSlug),
         fetchAdminSpeakers(eventSlug),
       ]);
+      if (!isCurrent()) return;
       setSchedule(sched.schedule || []);
       setRevision(sched.revision ?? 0);
       setPublishedAt(sched.publishedAt ?? null);
@@ -100,14 +109,18 @@ export function ScheduleManager() {
       setFormats(formatsRes.formats || []);
       setSpeakers(spk.speakers || []);
     } catch (err: any) {
-      setLoadError(err?.message || "Failed to load schedule workspace");
+      if (isCurrent()) setLoadError(err?.message || "Failed to refresh schedule. Your edits are still here; retry before making more changes.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [eventSlug]);
+  }), [eventSlug]);
 
   useEffect(() => {
-    loadAll();
+    void loadAll();
+    return () => refreshGate.current.invalidate();
   }, [loadAll]);
 
   const conflicts = useMemo(() => buildConflictMap(schedule), [schedule]);
@@ -132,6 +145,8 @@ export function ScheduleManager() {
   }
 
   async function handleToggleInclude(item: EventScheduleItem) {
+    if (mutationLock.current || refreshing || loadError) return;
+    mutationLock.current = true;
     setBusyId(item.id);
     setActionError(null);
     try {
@@ -145,14 +160,17 @@ export function ScheduleManager() {
           `Failed to update “${item.title}” — it may have changed. Reload and retry.`,
       );
     } finally {
-      setBusyId(null);
-      // Revisions are authoritative server-side; never guess locally.
+      // Keep controls locked until authoritative revisions arrive.
       await loadAll();
+      setBusyId(null);
+      mutationLock.current = false;
     }
   }
 
   async function handleDelete(item: EventScheduleItem) {
+    if (mutationLock.current || refreshing || loadError) return;
     if (!window.confirm(`Delete “${item.title}” from the schedule?`)) return;
+    mutationLock.current = true;
     setBusyId(item.id);
     setActionError(null);
     try {
@@ -163,8 +181,9 @@ export function ScheduleManager() {
           `Failed to delete “${item.title}” — it may have changed. Reload and retry.`,
       );
     } finally {
-      setBusyId(null);
       await loadAll();
+      setBusyId(null);
+      mutationLock.current = false;
     }
   }
 
@@ -206,23 +225,23 @@ export function ScheduleManager() {
     : "Not published yet";
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-br from-card via-background to-muted/30 border border-border/80 shadow-xl relative overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="space-y-1.5 relative z-10">
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
             Schedule Workspace
           </h2>
-          <p className="text-sm text-muted-foreground max-w-xl">
-            Rooms, formats, sessions, and publication in one place. Drafts save anytime; publishing
-            requires a clean review.
-          </p>
+
           <p className="text-xs text-muted-foreground">
             {publishedLabel} · draft r{revision}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 relative z-10">
-          <Select value={eventSlug} onValueChange={setEventSlug}>
+          <Select value={eventSlug} disabled={refreshing || !!busyId || publishing || reviewLoading || editorOpen || explorerOpen} onValueChange={(slug) => {
+                      if (anyDirty && !window.confirm("Discard unsaved changes and switch events?")) return;
+                      onEventChange(slug);
+                    }}>
             <SelectTrigger className="w-[260px] bg-card border-border h-10 text-xs font-medium" aria-label="Select event">
               <CalendarClock className="h-4 w-4 mr-2 text-primary" aria-hidden="true" />
               <SelectValue placeholder="Select Event" />
@@ -233,15 +252,15 @@ export function ScheduleManager() {
               ))}
             </SelectContent>
           </Select>
-          <Button type="button" variant="outline" size="sm" onClick={() => setExplorerOpen(true)} className="h-10 px-3.5 border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold">
+          <Button type="button" variant="outline" size="sm" onClick={() => setExplorerOpen(true)} disabled={loading || !!loadError} className="h-10 px-3.5 border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold">
             <Sparkles className="h-4 w-4 mr-1.5" aria-hidden="true" />
             Sessionize
           </Button>
-          <Button type="button" size="sm" onClick={openCreate} className="h-10 px-4 text-xs font-semibold shadow-md">
+          <Button type="button" size="sm" onClick={openCreate} disabled={loading || !!loadError} className="h-10 px-4 text-xs font-semibold shadow-md">
             <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />
             New Session
           </Button>
-          <Button type="button" size="sm" onClick={openReview} disabled={loading} className="h-10 px-4 text-xs font-semibold shadow-md">
+          <Button type="button" size="sm" onClick={openReview} disabled={loading || refreshing || !!busyId || anyDirty || !!loadError} className="h-10 px-4 text-xs font-semibold shadow-md">
             <Rocket className="h-4 w-4 mr-1.5" aria-hidden="true" />
             Review &amp; Publish
           </Button>
@@ -266,56 +285,64 @@ export function ScheduleManager() {
         </p>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground" aria-live="polite">
         {[
           { label: "Sessions", value: schedule.length, cls: "text-foreground" },
           { label: "Included in publish", value: includedCount, cls: "text-emerald-400" },
           { label: "Unscheduled", value: unscheduledCount, cls: "text-amber-400" },
           { label: "Conflicts", value: conflicts.size, cls: conflicts.size ? "text-destructive" : "text-foreground" },
         ].map((stat) => (
-          <Card key={stat.label} className="p-4 bg-card/60 border-border/80">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</p>
-            <p className={`text-2xl font-extrabold mt-1 ${stat.cls}`}>{stat.value}</p>
-          </Card>
+          <span key={stat.label}><strong className={`font-semibold tabular-nums ${stat.cls}`}>{stat.value}</strong> {stat.label.toLowerCase()}</span>
         ))}
       </div>
 
+      <nav aria-label="Schedule views" className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
+        {[["agenda", "Agenda"], ["rooms", "Rooms"], ["formats", "Talk formats"]].map(([id, label]) => (
+          <Button key={id} size="sm" variant={view === id ? "secondary" : "ghost"} aria-pressed={view === id} onClick={() => setView(id)}>{label}{(id === "rooms" && roomsDirty) || (id === "formats" && formatsDirty) ? " •" : ""}</Button>
+        ))}
+        <Button size="sm" variant="ghost" className="ml-auto" disabled={refreshing} onClick={() => void loadAll()}>
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </Button>
+      </nav>
+      {loadError && <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">{loadError}</p>}
       {/* Body */}
       {loading ? (
         <div role="status" aria-live="polite" className="flex flex-col items-center justify-center py-16 gap-3">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
           <p className="text-xs text-muted-foreground">Loading schedule workspace…</p>
         </div>
-      ) : loadError ? (
-        <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-center space-y-3">
-          <p className="text-sm font-semibold">{loadError}</p>
-          <Button size="sm" variant="outline" onClick={loadAll}>Try Again</Button>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+        <div className="min-w-0">
+          <div hidden={view !== "agenda"}>
           <ScheduleTimeline
             items={schedule}
             rooms={rooms}
             formats={formats}
             busyId={busyId}
+            mutationsBlocked={refreshing || !!busyId || !!loadError}
             onEdit={openEdit}
             onToggleInclude={handleToggleInclude}
           />
-          <aside className="space-y-4 lg:sticky lg:top-4">
+          </div>
+          <div hidden={view !== "rooms"} className="max-w-3xl">
             <RoomsDirectory
               eventSlug={eventSlug}
               rooms={rooms}
               onChanged={loadAll}
               onDirtyChange={setRoomsDirty}
+              refreshFailed={!!loadError}
             />
+          </div>
+          <div hidden={view !== "formats"} className="max-w-3xl">
             <FormatsDirectory
               eventSlug={eventSlug}
               formats={formats}
               onChanged={loadAll}
               onDirtyChange={setFormatsDirty}
+              refreshFailed={!!loadError}
             />
-          </aside>
+          </div>
         </div>
       )}
 

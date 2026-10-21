@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ChevronDown,
@@ -13,6 +13,7 @@ import {
   MapPin,
   Pencil,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { EventScheduleItem, ScheduleFormat, ScheduleRoom } from "@/lib/types";
@@ -36,14 +37,17 @@ interface ScheduleTimelineProps {
   rooms: ScheduleRoom[];
   formats: ScheduleFormat[];
   busyId: string | null;
+  mutationsBlocked?: boolean;
   onEdit: (item: EventScheduleItem) => void;
   onToggleInclude: (item: EventScheduleItem) => void;
 }
 
 const GUTTER_PX = 56;
+const MutationsBlocked = createContext(false);
 
-export function ScheduleTimeline({ items, rooms, formats, busyId, onEdit, onToggleInclude }: ScheduleTimelineProps) {
-  const [trayOpen, setTrayOpen] = useState(true);
+export function ScheduleTimeline({ items, rooms, formats, busyId, mutationsBlocked, onEdit, onToggleInclude }: ScheduleTimelineProps) {
+  const [trayOpen, setTrayOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [mobileRoom, setMobileRoom] = useState<string>("ALL");
 
   const liveRooms = activeRooms(rooms);
@@ -69,30 +73,34 @@ export function ScheduleTimeline({ items, rooms, formats, busyId, onEdit, onTogg
   }, [scheduled]);
 
   return (
-    <div className="space-y-5 min-w-0">
+    <MutationsBlocked.Provider value={!!mutationsBlocked}>
+      <div className={`grid min-w-0 gap-4 ${trayOpen ? "xl:grid-cols-[minmax(0,1fr)_280px]" : ""}`}>
       {/* Unscheduled / needs-room tray */}
-      <section aria-label="Unscheduled sessions" className="rounded-2xl border border-dashed border-border bg-card/40">
+      <section aria-label="Unscheduled sessions" className={`min-w-0 self-start rounded-xl border border-border bg-card/40 ${trayOpen ? "xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:sticky xl:top-20" : ""}`}>
         <button
           type="button"
           onClick={() => setTrayOpen((v) => !v)}
           aria-expanded={trayOpen}
-          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left cursor-pointer"
+          aria-controls="unscheduled-tray"
+          className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-left cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Inbox className="h-4 w-4 text-primary" aria-hidden="true" />
-            Unscheduled &amp; drafts
+            Unscheduled
             <Badge variant="secondary" className="text-[10px]">{unscheduled.length}</Badge>
           </span>
           {trayOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </button>
         {trayOpen && (
-          <div className="px-4 pb-4 space-y-2">
+          <div id="unscheduled-tray" className="px-3 pb-3 space-y-2">
+            <Input aria-label="Search unscheduled sessions" placeholder="Search title or speaker…" value={query} onChange={(e) => setQuery(e.target.value)} className="h-9" />
+            <div className="max-h-[50vh] xl:max-h-[65vh] overflow-y-auto space-y-2">
             {unscheduled.length === 0 ? (
               <p className="text-xs text-muted-foreground py-2">
                 Everything is scheduled and roomed. New drafts and Sessionize imports land here.
               </p>
             ) : (
-              unscheduled.map((item) => (
+              unscheduled.filter((item) => `${item.title} ${speakersLine(item)}`.toLowerCase().includes(query.trim().toLowerCase())).map((item) => (
                 <TrayRow
                   key={item.id}
                   item={item}
@@ -105,10 +113,14 @@ export function ScheduleTimeline({ items, rooms, formats, busyId, onEdit, onTogg
                 />
               ))
             )}
+            {unscheduled.length > 0 && !unscheduled.some((item) => `${item.title} ${speakersLine(item)}`.toLowerCase().includes(query.trim().toLowerCase())) && <p className="py-3 text-sm text-muted-foreground">No drafts match your search.</p>}
+            </div>
           </div>
         )}
       </section>
 
+      <div className={`min-w-0 xl:col-start-1 ${trayOpen ? "xl:row-start-1" : "xl:row-start-2"}`}>
+      <h3 className="mb-3 text-sm font-semibold">Agenda <span className="font-normal text-muted-foreground">· WIB (UTC+7)</span></h3>
       {/* Desktop: time-axis room columns */}
       <div className="hidden lg:block space-y-8">
         {days.length === 0 ? (
@@ -182,7 +194,9 @@ export function ScheduleTimeline({ items, rooms, formats, busyId, onEdit, onTogg
           })
         )}
       </div>
-    </div>
+      </div>
+      </div>
+    </MutationsBlocked.Provider>
   );
 }
 
@@ -212,10 +226,12 @@ function IncludeButton({
   busy: boolean;
   onToggleInclude: (item: EventScheduleItem) => void;
 }) {
+  const blocked = useContext(MutationsBlocked);
   return (
     <button
       type="button"
       onClick={() => onToggleInclude(item)}
+      disabled={busy || blocked}
       aria-pressed={item.isActive}
       aria-label={
         item.isActive

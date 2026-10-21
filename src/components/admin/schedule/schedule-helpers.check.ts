@@ -2,6 +2,7 @@
 //   bun src/components/admin/schedule/schedule-helpers.check.ts
 import type { EventScheduleItem } from "@/lib/types";
 import {
+  createRefreshGate,
   axisRange,
   buildConflictMap,
   isScheduled,
@@ -70,4 +71,48 @@ const range = axisRange([a]);
 ok("axis floor/ceil", range !== null && range.startMin === 9 * 60 && range.endMin === 10 * 60);
 ok("axis height", range !== null && range.height === 1 * 60 * 1.6);
 
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+const gate = createRefreshGate();
+const first = deferred();
+const second = deferred();
+let revision = 0;
+let settled = false;
+const oldRefresh = gate.run(async (current) => {
+  await first.promise;
+  if (current()) revision = 1;
+}).then(() => { settled = true; });
+const newRefresh = gate.run(async (current) => {
+  await second.promise;
+  if (current()) revision = 2;
+});
+first.resolve();
+await Promise.resolve();
+await Promise.resolve();
+ok("superseded response ignored", revision === 0);
+ok("mutation waits for newest refresh", !settled);
+second.resolve();
+await Promise.all([oldRefresh, newRefresh]);
+ok("authoritative latest revision", revision === 2 && settled);
+const late = deferred();
+const leaving = gate.run(async (current) => {
+  await late.promise;
+  if (current()) revision = 3;
+});
+gate.invalidate();
+late.resolve();
+await leaving;
+ok("event change/unmount ignores late response", revision === 2);
+const slow = deferred();
+const stale = gate.run(async (current) => {
+  await slow.promise;
+  if (current()) revision = 4;
+});
+await gate.run(async (current) => { if (current()) revision = 5; });
+slow.resolve();
+await stale;
+ok("older request finishing last cannot overwrite", revision === 5);
 console.log(`schedule-helpers: ${passed} checks passed`);

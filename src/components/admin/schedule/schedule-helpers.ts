@@ -7,6 +7,24 @@ export const KNOWN_SCHEDULE_EVENTS = [
   { slug: "voice-ai-agents-workshop-may-2026", name: "Voice AI Agents Workshop 2026" },
 ];
 
+// Refresh callers wait for the newest request, including superseding refreshes.
+export function createRefreshGate() {
+  let sequence = 0;
+  let latest: Promise<void> = Promise.resolve();
+  return {
+    invalidate() { sequence++; },
+    async run(fetch: (isCurrent: () => boolean) => Promise<void>) {
+      const request = ++sequence;
+      latest = fetch(() => request === sequence);
+      let pending: Promise<void>;
+      do {
+        pending = latest;
+        await pending;
+      } while (pending !== latest);
+    },
+  };
+}
+
 export const PX_PER_MIN = 1.6; // 96px per hour
 
 /** WIB wall-clock "YYYY-MM-DDTHH:MM" for an RFC3339 string, or "". */

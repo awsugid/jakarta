@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, DoorOpen, Loader2, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,32 +12,45 @@ import { orderedRooms } from "./schedule-helpers";
 interface RoomsDirectoryProps {
   eventSlug: string;
   rooms: ScheduleRoom[];
-  onChanged: () => void;
+  onChanged: () => void | Promise<void>;
+  refreshFailed?: boolean;
   onDirtyChange: (dirty: boolean) => void;
 }
 
-export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: RoomsDirectoryProps) {
+export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange, refreshFailed }:  RoomsDirectoryProps) {
   const [newName, setNewName] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const lock = useRef(false);
+  const busy = pending !== null || refreshFailed;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const list = orderedRooms(rooms);
 
-  async function run(fn: () => Promise<unknown>, dirty = false) {
-    setBusy(true);
+  useEffect(() => {
+    onDirtyChange(!!newName.trim() || editingId !== null || pending !== null);
+  }, [newName, editingId, pending, onDirtyChange]);
+
+  async function run(fn: () => Promise<unknown>, control: string, onSuccess?: () => void) {
+    if (lock.current || refreshFailed) return;
+    lock.current = true;
+    setPending(control);
     setError(null);
     try {
       await fn();
+      onSuccess?.();
     } catch (err: any) {
       setError(err?.message || "Operation failed — the room may have changed. Reload and retry.");
     } finally {
       // Reorder is two non-atomic PUTs — always resync from the server so
       // stale revisions never linger, even after a failure.
-      setBusy(false);
-      onDirtyChange(dirty);
-      onChanged();
+      try {
+        await onChanged();
+      } finally {
+        setPending(null);
+        lock.current = false;
+      }
     }
   }
 
@@ -45,14 +58,12 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    run(() => createScheduleRoom(eventSlug, { name, displayOrder: list.length })).then(() =>
-      setNewName(""),
-    );
+    void run(() => createScheduleRoom(eventSlug, { name, displayOrder: list.length }), "add", () => setNewName(""));
   }
 
   function cancelEdit() {
     setEditingId(null);
-    onDirtyChange(false);
+    setEditName("");
   }
 
   function rename(room: ScheduleRoom) {
@@ -61,8 +72,7 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
       cancelEdit();
       return;
     }
-    setEditingId(null);
-    run(() => updateScheduleRoom(eventSlug, room.id, { name, revision: room.revision }));
+    void run(() => updateScheduleRoom(eventSlug, room.id, { name, revision: room.revision }), room.id, cancelEdit);
   }
 
   function move(room: ScheduleRoom, dir: -1 | 1) {
@@ -71,7 +81,7 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
     const swapWith = active[idx + dir];
     if (!swapWith) return;
     run(() =>
-      Promise.all([
+      Promise.allSettled([
         updateScheduleRoom(eventSlug, room.id, {
           displayOrder: swapWith.displayOrder,
           revision: room.revision,
@@ -80,7 +90,10 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
           displayOrder: room.displayOrder,
           revision: swapWith.revision,
         }),
-      ]),
+      ]).then((results) => {
+        const failure = results.find((result) => result.status === "rejected");
+        if (failure?.status === "rejected") throw failure.reason;
+      }), room.id,
     );
   }
 
@@ -109,7 +122,7 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
           disabled={busy}
         />
         <Button type="submit" size="sm" disabled={busy || !newName.trim()} className="h-9 text-xs shrink-0">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          {pending === "add" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           Add
         </Button>
       </form>
@@ -139,6 +152,7 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
                       id={`room-${room.id}`}
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
+                                            disabled={pending === room.id}
                       autoFocus
                       className="h-8 text-xs bg-background"
                       onKeyDown={(e) => {
@@ -146,10 +160,10 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
                         if (e.key === "Escape") cancelEdit();
                       }}
                     />
-                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Save name for ${room.name}`} onClick={() => rename(room)}>
-                      <Check className="h-4 w-4 text-emerald-400" />
+                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={busy || !editName.trim()} aria-label={`Save name for ${room.name}`} onClick={() => rename(room)}>
+                      {pending === room.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 text-emerald-400" />}
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Cancel rename" onClick={cancelEdit}>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={pending === room.id} aria-label="Cancel rename" onClick={cancelEdit}>
                       <X className="h-4 w-4" />
                     </Button>
                   </>
@@ -158,7 +172,7 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
                     <span className="flex-1 min-w-0 text-xs font-medium text-foreground truncate">{room.name}</span>
                     {room.archived && <Badge variant="outline" className="text-[10px] text-muted-foreground">Archived</Badge>}
                     <div className="flex items-center gap-0.5">
-                      <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Rename ${room.name}`} onClick={() => { setEditingId(room.id); setEditName(room.name); onDirtyChange(true); }}>
+                      <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" disabled={busy || editingId !== null} aria-label={`Rename ${room.name}`} onClick={() => { setEditingId(room.id); setEditName(room.name); }}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       {!room.archived && (
@@ -169,13 +183,13 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange }: R
                           <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Move ${room.name} down`} disabled={busy || idx === list.filter((r) => !r.archived).length - 1} onClick={() => move(room, 1)}>
                             <ArrowDown className="h-3.5 w-3.5" />
                           </Button>
-                          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Archive ${room.name}`} disabled={busy} onClick={() => run(() => updateScheduleRoom(eventSlug, room.id, { archived: true, revision: room.revision }))}>
+                          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Archive ${room.name}`} disabled={busy} onClick={() => run(() => updateScheduleRoom(eventSlug, room.id, { archived: true, revision: room.revision }), room.id)}>
                             <Archive className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       )}
                       {room.archived && (
-                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Restore ${room.name}`} disabled={busy} onClick={() => run(() => updateScheduleRoom(eventSlug, room.id, { archived: false, revision: room.revision }))}>
+                        <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Restore ${room.name}`} disabled={busy} onClick={() => run(() => updateScheduleRoom(eventSlug, room.id, { archived: false, revision: room.revision }), room.id)}>
                           <ArchiveRestore className="h-3.5 w-3.5" />
                         </Button>
                       )}

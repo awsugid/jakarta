@@ -251,7 +251,7 @@ function AdminDashboardInner({ admin }: { admin: AdminMe }) {
       />
 
       <main className="flex-1 pb-16">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className={`mx-auto w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 ${tab === "schedule" ? "max-w-[1800px]" : "max-w-7xl"}`}>
           {/* Section Heading */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/50 pb-4">
             <div>

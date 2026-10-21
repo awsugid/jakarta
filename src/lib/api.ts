@@ -54,6 +54,8 @@ import type {
   SyncSessionizeRequest,
   SyncSessionizeResponse,
   EventScheduleResponse,
+  SyncSessionizeSpeakersRequest,
+  SyncSpeakersResponse,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -860,6 +862,24 @@ export async function uploadSpeakerAsset(
     }
     throw err;
   }
+}
+
+/** POST /api/admin/events/:eventSlug/speakers/sync-sessionize — sync speakers from Sessionize (admin-only) */
+export async function syncSessionizeSpeakers(
+  eventSlug: string,
+  body?: SyncSessionizeSpeakersRequest,
+): Promise<SyncSpeakersResponse> {
+  return apiFetch<SyncSpeakersResponse>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/speakers/sync-sessionize`,
+    {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body || {}),
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

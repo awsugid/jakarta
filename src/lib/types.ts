@@ -781,5 +781,19 @@ export interface EventScheduleResponse {
   schedule: EventScheduleItem[];
 }
 
+export interface SyncSessionizeSpeakersRequest {
+  speakerIds?: string[];
+  overwrite?: boolean;
+  fresh?: boolean;
+}
+
+export interface SyncSpeakersResponse {
+  totalProcessed: number;
+  imported: number;
+  updated: number;
+  skipped: number;
+}
+
+
 
 

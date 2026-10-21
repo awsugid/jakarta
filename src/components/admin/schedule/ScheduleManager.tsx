@@ -367,32 +367,33 @@ export function ScheduleManager() {
 
   // Filtered Sessionize sessions in explorer modal
   const filteredSessionizeSessions = useMemo(() => {
-    if (!sessionizeData) return [];
+    if (!sessionizeData || !Array.isArray(sessionizeData.sessions)) return [];
     return sessionizeData.sessions.filter((sess) => {
+      const speakers = Array.isArray(sess.speakers) ? sess.speakers : [];
       if (sessionizeRoomFilter !== "ALL") {
         if ((sess.room || "").toLowerCase() !== sessionizeRoomFilter.toLowerCase()) {
           return false;
         }
       }
       if (sessionizeJobFilter !== "ALL") {
-        const hasJob = sess.speakers.some((sp) =>
+        const hasJob = speakers.some((sp) =>
           (sp.jobTitle || "").toLowerCase().includes(sessionizeJobFilter.toLowerCase())
         );
         if (!hasJob) return false;
       }
       if (sessionizeCompanyFilter !== "ALL") {
-        const hasComp = sess.speakers.some((sp) =>
+        const hasComp = speakers.some((sp) =>
           (sp.company || "").toLowerCase().includes(sessionizeCompanyFilter.toLowerCase())
         );
         if (!hasComp) return false;
       }
       if (sessionizeSearch.trim()) {
         const q = sessionizeSearch.toLowerCase();
-        const inTitle = sess.title.toLowerCase().includes(q);
+        const inTitle = (sess.title || "").toLowerCase().includes(q);
         const inDesc = (sess.description || "").toLowerCase().includes(q);
-        const inSpk = sess.speakers.some(
+        const inSpk = speakers.some(
           (sp) =>
-            sp.name.toLowerCase().includes(q) ||
+            (sp.name || "").toLowerCase().includes(q) ||
             (sp.company || "").toLowerCase().includes(q) ||
             (sp.tagLine || "").toLowerCase().includes(q)
         );
@@ -410,12 +411,12 @@ export function ScheduleManager() {
 
   // Set of session IDs already present in current schedule
   const existingSessionIds = useMemo(() => {
-    return new Set(scheduleItems.map((it) => it.sessionId).filter(Boolean));
+    return new Set((scheduleItems || []).map((it) => it.sessionId).filter(Boolean));
   }, [scheduleItems]);
 
   const distinctRooms = useMemo(() => {
     const s = new Set<string>();
-    scheduleItems.forEach((it) => {
+    (scheduleItems || []).forEach((it) => {
       if (it.room && it.room.trim()) s.add(it.room.trim());
     });
     return Array.from(s);
@@ -1076,7 +1077,7 @@ export function ScheduleManager() {
                   <SelectItem value="ALL" className="text-xs">
                     All Rooms
                   </SelectItem>
-                  {sessionizeData?.metadata.rooms.map((rm) => (
+                  {(sessionizeData?.metadata?.rooms || []).map((rm) => (
                     <SelectItem key={rm} value={rm} className="text-xs">
                       {rm}
                     </SelectItem>
@@ -1093,7 +1094,11 @@ export function ScheduleManager() {
                   <SelectItem value="ALL" className="text-xs">
                     All Roles
                   </SelectItem>
-                  {sessionizeData?.metadata.job_titles.map((jb) => (
+                  {(
+                    sessionizeData?.metadata?.jobTitles ||
+                    (sessionizeData?.metadata as any)?.job_titles ||
+                    []
+                  ).map((jb: string) => (
                     <SelectItem key={jb} value={jb} className="text-xs">
                       {jb}
                     </SelectItem>

@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { fetchPublicSpeakers } from "@/lib/api";
+import { fetchPublicSpeakers, fetchSessionizeSpeakers } from "@/lib/api";
 import type { EventSpeaker } from "@/lib/types";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 
@@ -57,9 +57,41 @@ export function SpeakerCarousel({
     async function load() {
       try {
         setLoading(true);
-        const data = await fetchPublicSpeakers(eventSlug);
+        // 1. Primary: load from configured event speakers in D1
+        const data = await fetchPublicSpeakers(eventSlug).catch(() => null);
+        if (!cancelled && data && data.speakers && data.speakers.length > 0) {
+          setSpeakers(data.speakers);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fallback: if Community Day has no D1 speakers yet, load from Sessionize
+        if (eventSlug === COMMUNITY_DAY_EVENT_SLUG) {
+          const sessionizeRes = await fetchSessionizeSpeakers().catch(() => null);
+          if (!cancelled && sessionizeRes && sessionizeRes.speakers && sessionizeRes.speakers.length > 0) {
+            const mapped: EventSpeaker[] = sessionizeRes.speakers.map((s, idx) => ({
+              id: s.id,
+              eventSlug,
+              name: s.fullName,
+              role: s.jobTitle || s.positionName || s.tagLine || "Speaker",
+              company: s.company || null,
+              photoUrl: s.profilePicture || "",
+              talkTitle: s.sessions?.[0]?.title || "AWS Community Day Jakarta 2026",
+              talkFormat: "Technical Talk",
+              topicImageUrl: null,
+              bio: s.bio || null,
+              socialUrl: s.linkedinUrl || null,
+              isActive: true,
+              displayOrder: idx,
+            }));
+            setSpeakers(mapped);
+            setLoading(false);
+            return;
+          }
+        }
+
         if (!cancelled) {
-          setSpeakers(data.speakers || []);
+          setSpeakers([]);
         }
       } catch {
         if (!cancelled) {

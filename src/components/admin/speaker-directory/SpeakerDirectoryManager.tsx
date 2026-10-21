@@ -23,6 +23,9 @@ import {
   UserCheck,
   AlertCircle,
   X,
+  DownloadCloud,
+  Clock,
+  MapPin,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +61,8 @@ import {
   reorderAdminSpeakers,
   searchAdminUsers,
   uploadSpeakerAsset,
+  fetchSessionizeSpeakers,
+  syncSessionizeSpeakers,
 } from "@/lib/api";
 import type {
   EventSpeaker,
@@ -65,6 +70,7 @@ import type {
   EventSpeakerUpdate,
   EventSpeakerOrderItem,
   AdminUserSearchResult,
+  EnrichedSpeaker,
 } from "@/lib/types";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 
@@ -266,6 +272,45 @@ export function SpeakerDirectoryManager() {
   const [selectedUser, setSelectedUser] = useState<AdminUserSearchResult | null>(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
+  // Sessionize Browser & Sync State
+  const [sessionizeModalOpen, setSessionizeModalOpen] = useState(false);
+  const [sessionizeSpeakers, setSessionizeSpeakers] = useState<EnrichedSpeaker[]>([]);
+  const [sessionizeLoading, setSessionizeLoading] = useState(false);
+  const [sessionizeError, setSessionizeError] = useState<string | null>(null);
+  const [sessionizeSearch, setSessionizeSearch] = useState("");
+  const [sessionizeRoleFilter, setSessionizeRoleFilter] = useState("ALL");
+  const [sessionizeCompanyFilter, setSessionizeCompanyFilter] = useState("ALL");
+  const [syncingAllSpeakers, setSyncingAllSpeakers] = useState(false);
+  const [importingSpeakerId, setImportingSpeakerId] = useState<string | null>(null);
+
+  // Autofill inside Add Speaker Dialog
+  const [autofillTab, setAutofillTab] = useState<"sessionize" | "cfp">("sessionize");
+  const [sessionizeAutofillSearch, setSessionizeAutofillSearch] = useState("");
+  const [selectedSessionizeSpeaker, setSelectedSessionizeSpeaker] = useState<EnrichedSpeaker | null>(null);
+
+  // Load Sessionize Speakers (edge-cached)
+  const loadSessionizeSpeakers = useCallback(async (fresh = false) => {
+    try {
+      setSessionizeLoading(true);
+      setSessionizeError(null);
+      const res = await fetchSessionizeSpeakers({ fresh });
+      setSessionizeSpeakers(res.speakers || []);
+    } catch (err: any) {
+      setSessionizeError(err?.message || "Failed to load Sessionize speakers");
+      setSessionizeSpeakers([]);
+    } finally {
+      setSessionizeLoading(false);
+    }
+  }, []);
+
+  // Open Sessionize Explorer Modal
+  const handleOpenSessionizeModal = () => {
+    setSessionizeModalOpen(true);
+    if (sessionizeSpeakers.length === 0) {
+      loadSessionizeSpeakers(false);
+    }
+  };
+
   // Asset Upload states & refs
   const photoInputRef = React.useRef<HTMLInputElement>(null);
   const topicInputRef = React.useRef<HTMLInputElement>(null);
@@ -340,6 +385,148 @@ export function SpeakerDirectoryManager() {
     const inactive = total - active;
     return { total, active, inactive };
   }, [filteredSpeakers]);
+
+  // Distinct roles & companies from Sessionize
+  const distinctSessionizeRoles = useMemo(() => {
+    const s = new Set<string>();
+    sessionizeSpeakers.forEach((spk) => {
+      const r = spk.jobTitle || spk.tagLine;
+      if (r && r.trim()) s.add(r.trim());
+    });
+    return Array.from(s);
+  }, [sessionizeSpeakers]);
+
+  const distinctSessionizeCompanies = useMemo(() => {
+    const s = new Set<string>();
+    sessionizeSpeakers.forEach((spk) => {
+      if (spk.company && spk.company.trim()) s.add(spk.company.trim());
+    });
+    return Array.from(s);
+  }, [sessionizeSpeakers]);
+
+  // Existing speaker names (case-insensitive) for import status tracking
+  const existingSpeakerNames = useMemo(() => {
+    return new Set(speakers.map((s) => s.name.trim().toLowerCase()));
+  }, [speakers]);
+
+  // Filtered Sessionize speakers in the Explorer modal
+  const filteredSessionizeSpeakers = useMemo(() => {
+    return sessionizeSpeakers.filter((spk) => {
+      if (sessionizeRoleFilter !== "ALL") {
+        const r = (spk.jobTitle || spk.tagLine || "").toLowerCase();
+        if (!r.includes(sessionizeRoleFilter.toLowerCase())) return false;
+      }
+      if (sessionizeCompanyFilter !== "ALL") {
+        const c = (spk.company || "").toLowerCase();
+        if (!c.includes(sessionizeCompanyFilter.toLowerCase())) return false;
+      }
+      if (sessionizeSearch.trim()) {
+        const q = sessionizeSearch.toLowerCase();
+        const inName = spk.fullName.toLowerCase().includes(q);
+        const inRole = (spk.jobTitle || spk.tagLine || "").toLowerCase().includes(q);
+        const inComp = (spk.company || "").toLowerCase().includes(q);
+        const inBio = (spk.bio || "").toLowerCase().includes(q);
+        const inTalk = (spk.sessions || []).some(
+          (s) =>
+            (s.title || "").toLowerCase().includes(q) ||
+            (s.description || "").toLowerCase().includes(q)
+        );
+        if (!inName && !inRole && !inComp && !inBio && !inTalk) return false;
+      }
+      return true;
+    });
+  }, [sessionizeSpeakers, sessionizeRoleFilter, sessionizeCompanyFilter, sessionizeSearch]);
+
+  // Filtered Sessionize speakers for Autofill dropdown in Add Modal
+  const filteredAutofillSessionizeSpeakers = useMemo(() => {
+    if (!sessionizeAutofillSearch.trim()) return sessionizeSpeakers.slice(0, 10);
+    const q = sessionizeAutofillSearch.toLowerCase().trim();
+    return sessionizeSpeakers.filter((spk) => {
+      const inName = spk.fullName.toLowerCase().includes(q);
+      const inRole = (spk.jobTitle || spk.tagLine || "").toLowerCase().includes(q);
+      const inComp = (spk.company || "").toLowerCase().includes(q);
+      const inTalk = (spk.sessions || []).some((s) => (s.title || "").toLowerCase().includes(q));
+      return inName || inRole || inComp || inTalk;
+    });
+  }, [sessionizeSpeakers, sessionizeAutofillSearch]);
+
+  // Handle single speaker direct import from Explorer
+  const handleImportSingleSpeaker = async (spk: EnrichedSpeaker) => {
+    try {
+      setImportingSpeakerId(spk.id);
+      const targetSlug =
+        selectedEventSlug && selectedEventSlug !== "ALL" && selectedEventSlug !== "CUSTOM"
+          ? selectedEventSlug
+          : COMMUNITY_DAY_EVENT_SLUG;
+
+      await syncSessionizeSpeakers(targetSlug, {
+        speakerIds: [spk.id],
+        overwrite: true,
+      });
+      await loadSpeakers();
+    } catch (err: any) {
+      alert(err?.message || "Failed to import speaker from Sessionize");
+    } finally {
+      setImportingSpeakerId(null);
+    }
+  };
+
+  // Handle bulk sync all from Explorer
+  const handleSyncAllSessionizeSpeakers = async () => {
+    const targetSlug =
+      selectedEventSlug && selectedEventSlug !== "ALL" && selectedEventSlug !== "CUSTOM"
+        ? selectedEventSlug
+        : COMMUNITY_DAY_EVENT_SLUG;
+
+    if (
+      !confirm(
+        `Sync all confirmed Sessionize speakers into event "${targetSlug}"?\nExisting speakers will be updated with latest session title and profile details.`
+      )
+    ) {
+      return;
+    }
+    try {
+      setSyncingAllSpeakers(true);
+      const res = await syncSessionizeSpeakers(targetSlug, {
+        overwrite: true,
+        fresh: false,
+      });
+      alert(
+        `Sync complete!\nImported: ${res.imported}\nUpdated: ${res.updated}\nSkipped: ${res.skipped}`
+      );
+      await loadSpeakers();
+    } catch (err: any) {
+      alert(err?.message || "Failed to sync Sessionize speakers");
+    } finally {
+      setSyncingAllSpeakers(false);
+    }
+  };
+
+  // Handle autofilling speaker form from selected Sessionize speaker
+  const handleSelectSessionizeSpeaker = (spk: EnrichedSpeaker) => {
+    const firstSession = spk.sessions && spk.sessions[0];
+    const role = spk.jobTitle || spk.tagLine || "Speaker";
+    const photo = spk.profilePicture || "";
+    const talkTitle = firstSession?.title || "Technical Session";
+    const talkFormat = spk.isTopSpeaker ? "Keynote" : "Technical Session";
+    const socialUrl = spk.linkedinUrl || (spk.links && spk.links[0]?.url) || "";
+
+    setFormData((prev) => ({
+      ...prev,
+      name: spk.fullName,
+      role,
+      company: spk.company || "",
+      bio: spk.bio || "",
+      photoUrl: photo,
+      topicImageUrl: prev.topicImageUrl || photo, // use profile picture as fallback if topic banner is empty
+      talkTitle,
+      talkFormat,
+      socialUrl,
+    }));
+    setSelectedSessionizeSpeaker(spk);
+    setSelectedUser(null);
+    setSessionizeAutofillSearch("");
+  };
 
   // Search Registered Users
   const handleSearchUsers = async (queryText?: string) => {
@@ -439,17 +626,25 @@ export function SpeakerDirectoryManager() {
     setFormCustomFormat(false);
     setFormError(null);
     setSelectedUser(null);
+    setSelectedSessionizeSpeaker(null);
     setSearchUserQuery("");
     setUserSearchResults([]);
     setShowUserDropdown(false);
+    setSessionizeAutofillSearch("");
     setPhotoUploadError(null);
     setTopicUploadError(null);
     setDialogOpen(true);
+
+    if (sessionizeSpeakers.length === 0) {
+      loadSessionizeSpeakers(false);
+    }
   };
 
   // Open Edit Dialog
   const handleOpenEdit = (speaker: EventSpeaker) => {
     setEditingSpeaker(speaker);
+    setSelectedSessionizeSpeaker(null);
+    setSelectedUser(null);
     const isKnown = KNOWN_EVENTS.some((e) => e.slug === speaker.eventSlug);
     setFormCustomSlug(!isKnown);
     const isStandardFormat = TALK_FORMAT_PRESETS.includes(speaker.talkFormat as any);
@@ -820,6 +1015,17 @@ export function SpeakerDirectoryManager() {
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOpenSessionizeModal}
+            className="gap-2 cursor-pointer border-orange-500/40 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 font-semibold"
+          >
+            <Sparkles className="h-4 w-4 text-orange-400" />
+            Import from Sessionize
+          </Button>
+
           <Button
             type="button"
             onClick={handleOpenAdd}

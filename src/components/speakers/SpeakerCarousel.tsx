@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Mic, ChevronLeft, ChevronRight, ExternalLink, Sparkles, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -81,16 +81,24 @@ export function SpeakerCarousel({
     };
   }, [eventSlug]);
 
-  const maxIndex = Math.max(0, speakers.length - 1);
+  const maxIndex = useMemo(() => Math.max(0, speakers.length - 1), [speakers.length]);
+
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev <= 0 ? maxIndex : prev - 1));
+  }, [maxIndex]);
+
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
+  }, [maxIndex]);
 
   // Auto-advance interval (6 seconds for single spotlight)
   useEffect(() => {
     if (isPaused || maxIndex === 0) return;
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
+      handleNext();
     }, 6000);
     return () => clearInterval(timer);
-  }, [isPaused, maxIndex]);
+  }, [isPaused, maxIndex, handleNext]);
 
   // Clamp index if list changes
   useEffect(() => {
@@ -99,20 +107,12 @@ export function SpeakerCarousel({
     }
   }, [maxIndex, currentIndex]);
 
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev <= 0 ? maxIndex : prev - 1));
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setIsPaused(true);
     touchStartX.current = e.touches[0].clientX;
-  };
+  }, []);
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     setIsPaused(false);
     if (touchStartX.current === null) return;
     const diff = touchStartX.current - e.changedTouches[0].clientX;
@@ -122,7 +122,7 @@ export function SpeakerCarousel({
       handlePrev();
     }
     touchStartX.current = null;
-  };
+  }, [handleNext, handlePrev]);
 
   if (loading) {
     return null;
@@ -150,13 +150,13 @@ export function SpeakerCarousel({
     <section
       id="speakers"
       className={cn(
-        "scroll-mt-20 py-20 bg-background relative border-b border-border overflow-hidden",
+        "scroll-mt-20 py-12 md:py-16 bg-background relative border-b border-border overflow-hidden",
         className
       )}
     >
       {/* Background glow effects */}
-      <div className="absolute right-0 top-1/4 w-[500px] h-[500px] bg-orange-500/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute left-0 bottom-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute right-0 top-1/4 w-[400px] h-[400px] bg-orange-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute left-0 bottom-1/4 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div
         className={cn(
@@ -164,17 +164,17 @@ export function SpeakerCarousel({
           containerClassName
         )}
       >
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
-          <div className="max-w-2xl space-y-3">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+          <div className="max-w-2xl space-y-2.5">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold uppercase tracking-wider">
               <Sparkles className="h-3.5 w-3.5" />
               {displayBadge}
             </span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
               {title}
             </h2>
-            <div className="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full" />
-            <p className="text-muted-foreground text-base sm:text-lg leading-relaxed">
+            <div className="w-16 h-1 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full" />
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
               {subtitle}
             </p>
           </div>
@@ -188,139 +188,83 @@ export function SpeakerCarousel({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="overflow-hidden -mx-2 sm:-mx-4 py-2">
+          <div className="overflow-hidden -mx-2 sm:-mx-3 py-1">
             <div
-              className="flex transition-transform duration-500 ease-out"
+              className="flex items-stretch transition-transform duration-500 ease-out"
               style={{
                 transform: `translateX(-${currentIndex * 100}%)`,
               }}
             >
-              {speakers.map((speaker, idx) => {
-                const hasLandscapeImage = Boolean(
-                  speaker.topicImageUrl && speaker.topicImageUrl.trim().length > 0
-                );
-                const landscapeImage = hasLandscapeImage ? speaker.topicImageUrl! : null;
-                const profilePhoto = speaker.photoUrl;
+              {speakers.map((speaker) => {
+                const rawTopicImage = speaker.topicImageUrl?.trim();
+                const rawPhoto = speaker.photoUrl?.trim();
+                const displayImage =
+                  rawTopicImage && rawTopicImage.length > 0 ? rawTopicImage : rawPhoto;
 
                 return (
                   <div
                     key={speaker.id}
-                    className="shrink-0 w-full px-2 sm:px-4"
+                    className="shrink-0 w-full px-2 sm:px-3 flex"
                   >
-                    <Card className="border-border/80 bg-card/75 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl hover:border-orange-500/40 transition-all duration-300">
-                      <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[440px]">
-                        {/* Media Column (Landscape stage image or ambient profile spotlight fallback) */}
-                        <div className="lg:col-span-6 relative overflow-hidden bg-muted flex items-center justify-center min-h-[280px] sm:min-h-[340px] lg:min-h-[440px]">
-                          {hasLandscapeImage ? (
-                            /* 1. Primary: Speaker while speaking on stage / 16:9 Landscape Banner */
-                            <div className="relative w-full h-full min-h-[280px] sm:min-h-[340px] lg:min-h-[440px] overflow-hidden group">
-                              <img
-                                src={landscapeImage!}
-                                alt={speaker.talkTitle}
-                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                loading="lazy"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
+                    <Card className="w-full h-full border-border/80 bg-card/75 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl hover:border-orange-500/40 transition-all duration-300 flex flex-col justify-between">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 h-full w-full min-h-[340px] lg:min-h-[380px] flex-1">
+                        {/* Media Column (Strictly constrained container with absolute inset-0 auto-crop for both portrait & landscape) */}
+                        <div className="lg:col-span-5 xl:col-span-5 relative w-full h-64 sm:h-72 lg:h-full min-h-[260px] sm:min-h-[300px] lg:min-h-0 overflow-hidden bg-muted group min-w-0 min-h-0">
+                          {/* Ambient blurred backdrop for rich atmospheric glow */}
+                          <img
+                            src={displayImage}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
+                            aria-hidden="true"
+                          />
 
-                              {/* Format Badge Overlay */}
-                              <div className="absolute top-4 left-4 z-10">
-                                <Badge
-                                  className={cn(
-                                    "font-semibold text-xs shadow-lg backdrop-blur-md border",
-                                    getTalkFormatBadgeClass(speaker.talkFormat)
-                                  )}
-                                >
-                                  {speaker.talkFormat || "Technical Session"}
-                                </Badge>
-                              </div>
+                          {/* Main Full-Bleed Presenter Photo with absolute inset-0 (Zero layout influence, auto-cropped) */}
+                          <img
+                            src={displayImage}
+                            alt={speaker.name}
+                            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 pointer-events-none select-none"
+                            loading="lazy"
+                            decoding="async"
+                          />
 
-                              {/* Stage Session Indicator */}
-                              <div className="absolute top-4 right-4 z-10">
-                                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md text-xs font-medium text-white/90 border border-white/10 shadow-lg">
-                                  <BookOpen className="h-3.5 w-3.5 text-orange-400" />
-                                  Stage Session
-                                </span>
-                              </div>
+                          {/* Gradient scrim for readable badges & sleek transition */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none z-1" />
 
-                              {/* Bottom Overlay Snippet */}
-                              <div className="absolute bottom-4 left-4 z-10">
-                                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-[11px] font-medium text-white/90 border border-white/10">
-                                  <Mic className="h-3 w-3 text-orange-400" />
-                                  Presenter on Stage
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            /* 2. Fallback: Use Profile Photo with Ambient Blurred Backdrop & Stage Spotlight */
-                            <div className="relative w-full h-full min-h-[280px] sm:min-h-[340px] lg:min-h-[440px] overflow-hidden bg-gradient-to-br from-card via-background to-muted/60 flex items-center justify-center p-6 sm:p-8">
-                              {/* Ambient blurred backdrop of profile photo */}
-                              <img
-                                src={profilePhoto}
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-cover blur-3xl scale-150 opacity-25 pointer-events-none"
-                                loading="lazy"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+                          {/* Format Badge Overlay (Top Left) */}
+                          <div className="absolute top-3.5 left-3.5 z-10">
+                            <Badge
+                              className={cn(
+                                "font-semibold text-xs shadow-md backdrop-blur-md border",
+                                getTalkFormatBadgeClass(speaker.talkFormat)
+                              )}
+                            >
+                              {speaker.talkFormat || "Technical Session"}
+                            </Badge>
+                          </div>
 
-                              {/* Format Badge Overlay */}
-                              <div className="absolute top-4 left-4 z-10">
-                                <Badge
-                                  className={cn(
-                                    "font-semibold text-xs shadow-lg backdrop-blur-md border",
-                                    getTalkFormatBadgeClass(speaker.talkFormat)
-                                  )}
-                                >
-                                  {speaker.talkFormat || "Technical Session"}
-                                </Badge>
-                              </div>
+                          {/* Stage Session Indicator (Top Right) */}
+                          <div className="absolute top-3.5 right-3.5 z-10">
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-[11px] font-medium text-white/90 border border-white/10 shadow-md">
+                              <BookOpen className="h-3 w-3 text-orange-400" />
+                              Stage Session
+                            </span>
+                          </div>
 
-                              {/* Stage Session Indicator */}
-                              <div className="absolute top-4 right-4 z-10">
-                                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md text-xs font-medium text-white/90 border border-white/10 shadow-lg">
-                                  <BookOpen className="h-3.5 w-3.5 text-orange-400" />
-                                  Featured Speaker
-                                </span>
-                              </div>
-
-                              {/* Spotlight Avatar */}
-                              <div className="relative z-10 flex flex-col items-center text-center space-y-3.5 max-w-xs">
-                                <div className="relative group">
-                                  <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-orange-500 to-pink-500 opacity-60 blur-lg group-hover:opacity-100 transition duration-500" />
-                                  <Avatar className="relative h-32 w-32 sm:h-40 sm:w-40 rounded-3xl border-4 border-background shadow-2xl">
-                                    <AvatarImage
-                                      src={profilePhoto}
-                                      alt={speaker.name}
-                                      className="object-cover"
-                                    />
-                                    <AvatarFallback className="rounded-3xl bg-primary/20 text-primary font-extrabold text-3xl">
-                                      {speaker.name.slice(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl border-2 border-background">
-                                    <Mic className="h-4 w-4" />
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-xs font-semibold text-orange-400 border border-orange-500/30 shadow">
-                                    <Sparkles className="h-3 w-3" />
-                                    Presenter Spotlight
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Bottom Overlay Snippet */}
-                              <div className="absolute bottom-4 left-4 z-10">
-                                <span className="text-[11px] text-white/70 font-medium">
-                                  AWS Community Lineup
-                                </span>
-                              </div>
-                            </div>
-                          )}
+                          {/* Bottom Overlay Snippet with Presenter Name */}
+                          <div className="absolute bottom-3.5 left-3.5 right-3.5 z-10 flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/75 backdrop-blur-md text-xs font-semibold text-white/95 border border-white/15 shadow-lg">
+                              <Mic className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                              <span className="truncate">{speaker.name}</span>
+                            </span>
+                            <span className="text-[11px] text-white/70 font-medium hidden sm:inline">
+                              AWS Community Day
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Narrative & Details Column */}
-                        <div className="lg:col-span-6 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-6">
-                          <div className="space-y-4">
+                        {/* Narrative & Details Column (Normalized heights prevent section jumping on slide changes) */}
+                        <div className="lg:col-span-7 xl:col-span-7 p-5 sm:p-7 lg:p-8 flex flex-col justify-between space-y-4 sm:space-y-6 min-w-0">
+                          <div className="space-y-3">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
                                 <Mic className="h-3.5 w-3.5" />
@@ -328,35 +272,35 @@ export function SpeakerCarousel({
                               </span>
                             </div>
 
-                            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
+                            <h3 className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground leading-tight line-clamp-2 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem]">
                               {speaker.talkTitle}
                             </h3>
 
-                            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-4 min-h-[4.5rem] sm:min-h-[5.25rem] lg:min-h-[5.5rem]">
                               {speaker.bio ||
                                 "Join this featured session at AWS User Group Jakarta to learn deep architecture insights, production lessons learned, and real-world implementations directly from experienced practitioners."}
                             </p>
                           </div>
 
-                          <div className="pt-6 border-t border-border/70">
+                          <div className="pt-4 border-t border-border/70 mt-auto">
                             {/* Speaker Profile Row */}
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-3.5 min-w-0">
-                                <Avatar className="h-12 w-12 rounded-2xl border-2 border-primary/30 shadow shrink-0">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Avatar className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl border-2 border-primary/30 shadow shrink-0">
                                   <AvatarImage
                                     src={speaker.photoUrl}
                                     alt={speaker.name}
                                     className="object-cover"
                                   />
-                                  <AvatarFallback className="rounded-2xl bg-primary/20 text-primary font-bold">
+                                  <AvatarFallback className="rounded-xl sm:rounded-2xl bg-primary/20 text-primary font-bold text-xs sm:text-sm">
                                     {speaker.name.slice(0, 2).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0">
-                                  <h4 className="text-lg font-bold text-foreground truncate">
+                                  <h4 className="text-sm sm:text-base font-bold text-foreground truncate">
                                     {speaker.name}
                                   </h4>
-                                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                                  <p className="text-xs text-muted-foreground truncate">
                                     {speaker.role}{" "}
                                     {speaker.company ? `· ${speaker.company}` : ""}
                                   </p>
@@ -368,10 +312,10 @@ export function SpeakerCarousel({
                                   href={speaker.socialUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-colors shrink-0 shadow-sm"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-colors shrink-0 shadow-sm"
                                 >
-                                  <span>Speaker Profile</span>
-                                  <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                                  <span>Profile</span>
+                                  <ExternalLink className="h-3 w-3 text-primary" />
                                 </a>
                               )}
                             </div>
@@ -386,33 +330,25 @@ export function SpeakerCarousel({
           </div>
         </div>
 
-        {/* Carousel Controls & Slide Status Below Speaker Card */}
+        {/* Carousel Controls & Sleek Compact Status */}
         {speakers.length > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 px-2">
-            {/* Slide Status */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 mt-5 sm:mt-6 px-1">
+            {/* Slide Status Badge */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Speaker</span>
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Speaker</span>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/30">
                 {currentIndex + 1} of {speakers.length}
               </span>
             </div>
 
-            {/* Slide Indicator Dots */}
-            <div className="flex items-center gap-2">
-              {speakers.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setCurrentIndex(i)}
-                  aria-label={`Go to speaker ${i + 1}`}
-                  className={cn(
-                    "h-2 rounded-full transition-all duration-300 cursor-pointer",
-                    currentIndex === i
-                      ? "w-8 bg-orange-500 shadow-sm shadow-orange-500/40"
-                      : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
-                  )}
+            {/* Sleek Progress Indicator (Never wraps or adds vertical space) */}
+            <div className="flex items-center gap-2 flex-1 max-w-[180px] sm:max-w-xs mx-auto w-full">
+              <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-orange-500 to-pink-500 rounded-full transition-all duration-300"
+                  style={{ width: `${((currentIndex + 1) / speakers.length) * 100}%` }}
                 />
-              ))}
+              </div>
             </div>
 
             {/* Prev and Next Buttons */}
@@ -423,10 +359,10 @@ export function SpeakerCarousel({
                 size="sm"
                 onClick={handlePrev}
                 aria-label="Previous speaker"
-                className="h-9 px-3.5 rounded-full border-border bg-card hover:bg-accent cursor-pointer text-xs font-medium"
+                className="h-8 sm:h-9 px-3 rounded-full border-border bg-card hover:bg-accent cursor-pointer text-xs font-medium"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
+                Prev
               </Button>
               <Button
                 type="button"
@@ -434,7 +370,7 @@ export function SpeakerCarousel({
                 size="sm"
                 onClick={handleNext}
                 aria-label="Next speaker"
-                className="h-9 px-3.5 rounded-full border-border bg-card hover:bg-accent cursor-pointer text-xs font-medium"
+                className="h-8 sm:h-9 px-3 rounded-full border-border bg-card hover:bg-accent cursor-pointer text-xs font-medium"
               >
                 Next
                 <ChevronRight className="h-4 w-4 ml-1" />

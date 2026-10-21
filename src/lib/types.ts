@@ -695,12 +695,22 @@ export interface SessionizeDataResponse {
 // Event Schedule Types
 // =============================================================================
 
+export interface ScheduleSpeaker {
+  id?: string;
+  name: string;
+  role?: string;
+  company?: string;
+  avatar?: string;
+  socialUrl?: string;
+}
+
 export interface EventScheduleItem {
   id: string;
   eventSlug: string;
   sessionId?: string | null;
   title: string;
   description?: string | null;
+  speakers?: ScheduleSpeaker[] | null;
   speakerId?: string | null;
   speakerName?: string | null;
   speakerRole?: string | null;
@@ -723,6 +733,7 @@ export interface CreateScheduleItem {
   sessionId?: string | null;
   title: string;
   description?: string | null;
+  speakers?: ScheduleSpeaker[];
   speakerId?: string | null;
   speakerName?: string | null;
   speakerRole?: string | null;
@@ -743,6 +754,8 @@ export interface UpdateScheduleItem {
   sessionId?: string | null;
   title?: string;
   description?: string | null;
+  // Omitted preserves stored speakers; [] clears them.
+  speakers?: ScheduleSpeaker[];
   speakerId?: string | null;
   speakerName?: string | null;
   speakerRole?: string | null;

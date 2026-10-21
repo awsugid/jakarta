@@ -23,8 +23,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { fetchPublicSchedule, fetchSessionizeSessions } from "@/lib/api";
-import type { EventScheduleItem, EnrichedSession } from "@/lib/types";
+import { fetchPublicSchedule } from "@/lib/api";
+import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
+import type { ScheduleSpeaker } from "@/lib/types";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 import { cn } from "@/lib/utils";
 
@@ -43,11 +44,7 @@ interface DisplayScheduleSession {
   track?: string | null;
   sessionType?: string | null;
   isServiceSession: boolean;
-  speakerName?: string | null;
-  speakerRole?: string | null;
-  speakerCompany?: string | null;
-  speakerAvatar?: string | null;
-  speakerSocialUrl?: string | null;
+  speakers: ScheduleSpeaker[];
 }
 
 function formatTime(startsAt?: string | null, endsAt?: string | null): string {
@@ -126,10 +123,10 @@ export function ComDaySchedule({
         setLoading(true);
         setError(null);
 
-        // 1. First try fetching configured schedule from backend D1
-        const d1Res = await fetchPublicSchedule(eventSlug).catch(() => null);
-        if (!cancelled && d1Res && d1Res.schedule && d1Res.schedule.length > 0) {
-          const mapped: DisplayScheduleSession[] = d1Res.schedule.map((item) => ({
+        // Schedule comes from backend D1 only — no Sessionize fallback.
+        const d1Res = await fetchPublicSchedule(eventSlug);
+        if (!cancelled) {
+          const mapped: DisplayScheduleSession[] = (d1Res.schedule || []).map((item) => ({
             id: item.id,
             title: item.title,
             description: item.description,
@@ -139,50 +136,9 @@ export function ComDaySchedule({
             track: item.track,
             sessionType: item.sessionType,
             isServiceSession: item.isServiceSession,
-            speakerName: item.speakerName,
-            speakerRole: item.speakerRole,
-            speakerCompany: item.speakerCompany,
-            speakerAvatar: item.speakerAvatar,
-            speakerSocialUrl: item.speakerSocialUrl,
+            speakers: normalizeScheduleSpeakers(item),
           }));
           setSessions(mapped);
-          setLoading(false);
-          return;
-        }
-
-        // 2. Fallback: fetch confirmed sessions from Sessionize cached endpoint
-        const sessionizeRes = await fetchSessionizeSessions().catch(() => null);
-        if (!cancelled && sessionizeRes && sessionizeRes.sessions && sessionizeRes.sessions.length > 0) {
-          const mapped: DisplayScheduleSession[] = sessionizeRes.sessions.map((s) => {
-            const firstSpeaker = s.speakers[0];
-            return {
-              id: s.id,
-              title: s.title,
-              description: s.description,
-              startsAt: s.startsAt,
-              endsAt: s.endsAt,
-              room: s.room,
-              track: null,
-              sessionType: s.isServiceSession
-                ? "Service Session"
-                : s.isPlenumSession
-                ? "Plenum / Keynote"
-                : "Technical Session",
-              isServiceSession: s.isServiceSession,
-              speakerName: firstSpeaker?.name,
-              speakerRole: firstSpeaker?.jobTitle || firstSpeaker?.tagLine,
-              speakerCompany: firstSpeaker?.company,
-              speakerAvatar: firstSpeaker?.profilePicture,
-              speakerSocialUrl: firstSpeaker?.linkedinUrl,
-            };
-          });
-          setSessions(mapped);
-          setLoading(false);
-          return;
-        }
-
-        if (!cancelled) {
-          setSessions([]);
           setLoading(false);
         }
       } catch (err: any) {
@@ -236,10 +192,13 @@ export function ComDaySchedule({
         const q = searchQuery.toLowerCase();
         const inTitle = sess.title.toLowerCase().includes(q);
         const inDesc = (sess.description || "").toLowerCase().includes(q);
-        const inSpeaker = (sess.speakerName || "").toLowerCase().includes(q);
-        const inCompany = (sess.speakerCompany || "").toLowerCase().includes(q);
+        const inSpeaker = sess.speakers.some(
+          (sp) =>
+            (sp.name || "").toLowerCase().includes(q) ||
+            (sp.company || "").toLowerCase().includes(q)
+        );
         const inRoom = (sess.room || "").toLowerCase().includes(q);
-        if (!inTitle && !inDesc && !inSpeaker && !inCompany && !inRoom) {
+        if (!inTitle && !inDesc && !inSpeaker && !inRoom) {
           return false;
         }
       }
@@ -416,45 +375,53 @@ export function ComDaySchedule({
                     )}
                   </div>
 
-                  {/* Right Column: Presenter Spotlight */}
-                  {session.speakerName && (
+                  {/* Right Column: Presenter Spotlight — all speakers */}
+                  {session.speakers.length > 0 && (
                     <div className="lg:w-64 shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-border/60">
-                      <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-2.5">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-11 w-11 rounded-2xl border-2 border-orange-500/30 shadow-md shrink-0">
-                            <AvatarImage src={session.speakerAvatar || undefined} />
-                            <AvatarFallback className="rounded-2xl bg-primary/20 text-primary font-bold text-sm">
-                              {session.speakerName.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-foreground truncate">
-                              {session.speakerName}
-                            </h4>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {session.speakerRole || "Presenter"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {session.speakerCompany && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/90 truncate">
-                            <Building className="h-3 w-3 shrink-0 text-orange-400" />
-                            <span className="truncate">{session.speakerCompany}</span>
-                          </div>
-                        )}
-
-                        {session.speakerSocialUrl && (
-                          <a
-                            href={session.speakerSocialUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                      <div className="space-y-2.5">
+                        {session.speakers.map((speaker, spkIdx) => (
+                          <div
+                            key={speaker.id || `${session.id}-spk-${spkIdx}`}
+                            className="p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-2.5"
                           >
-                            <span>Speaker Profile</span>
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-11 w-11 rounded-2xl border-2 border-orange-500/30 shadow-md shrink-0">
+                                <AvatarImage src={speaker.avatar || undefined} />
+                                <AvatarFallback className="rounded-2xl bg-primary/20 text-primary font-bold text-sm">
+                                  {speaker.name.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <h4 className="text-sm font-bold text-foreground truncate">
+                                  {speaker.socialUrl ? (
+                                    <a
+                                      href={speaker.socialUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="hover:text-primary transition-colors inline-flex items-center gap-1"
+                                    >
+                                      <span>{speaker.name}</span>
+                                      <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                      <span className="sr-only"> — {speaker.name}'s profile</span>
+                                    </a>
+                                  ) : (
+                                    speaker.name
+                                  )}
+                                </h4>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {speaker.role || "Presenter"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {speaker.company && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground/90 truncate">
+                                <Building className="h-3 w-3 shrink-0 text-orange-400" />
+                                <span className="truncate">{speaker.company}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

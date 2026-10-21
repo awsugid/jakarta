@@ -307,7 +307,8 @@ export function SpeakerDirectoryManager() {
   const handleOpenSessionizeModal = () => {
     setSessionizeModalOpen(true);
     if (sessionizeSpeakers.length === 0) {
-      loadSessionizeSpeakers(false);
+      // Bootstrap: cached snapshot may not exist yet, fetch fresh (admin-auth) to seed it.
+      loadSessionizeSpeakers(true);
     }
   };
 
@@ -461,7 +462,7 @@ export function SpeakerDirectoryManager() {
 
       await syncSessionizeSpeakers(targetSlug, {
         speakerIds: [spk.id],
-        overwrite: true,
+        overwrite: false,
       });
       await loadSpeakers();
     } catch (err: any) {
@@ -480,7 +481,7 @@ export function SpeakerDirectoryManager() {
 
     if (
       !confirm(
-        `Sync all confirmed Sessionize speakers into event "${targetSlug}"?\nExisting speakers will be updated with latest session title and profile details.`
+        `Sync all confirmed Sessionize speakers into event "${targetSlug}"?\nAlready-imported speakers are kept as-is; only new speakers are imported.`
       )
     ) {
       return;
@@ -488,7 +489,7 @@ export function SpeakerDirectoryManager() {
     try {
       setSyncingAllSpeakers(true);
       const res = await syncSessionizeSpeakers(targetSlug, {
-        overwrite: true,
+        overwrite: false,
         fresh: false,
       });
       alert(
@@ -636,7 +637,8 @@ export function SpeakerDirectoryManager() {
     setDialogOpen(true);
 
     if (sessionizeSpeakers.length === 0) {
-      loadSessionizeSpeakers(false);
+      // Bootstrap snapshot if absent (admin-auth fresh fetch).
+      loadSessionizeSpeakers(true);
     }
   };
 
@@ -1019,6 +1021,20 @@ export function SpeakerDirectoryManager() {
           <Button
             type="button"
             variant="outline"
+            size="sm"
+            onClick={() => loadSessionizeSpeakers(true)}
+            disabled={sessionizeLoading}
+            className="h-9 text-xs cursor-pointer"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 mr-1.5 ${sessionizeLoading ? "animate-spin" : ""}`}
+            />
+            Refresh Sessionize Cache
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
             onClick={handleOpenSessionizeModal}
             className="gap-2 cursor-pointer border-orange-500/40 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 font-semibold"
           >
@@ -1036,6 +1052,12 @@ export function SpeakerDirectoryManager() {
           </Button>
         </div>
       </div>
+
+      {sessionizeError && (
+        <div className="p-3 text-xs rounded-xl bg-destructive/10 text-destructive border border-destructive/20">
+          {sessionizeError}
+        </div>
+      )}
 
       {/* Main Speakers List */}
       {loading ? (

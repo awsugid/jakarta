@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { fetchPublicSpeakers, fetchSessionizeSpeakers } from "@/lib/api";
+import { fetchPublicSpeakers } from "@/lib/api";
 import type { EventSpeaker } from "@/lib/types";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 
@@ -48,6 +48,7 @@ export function SpeakerCarousel({
 }: SpeakerCarouselProps) {
   const [speakers, setSpeakers] = useState<EventSpeaker[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -57,44 +58,15 @@ export function SpeakerCarousel({
     async function load() {
       try {
         setLoading(true);
-        // 1. Primary: load from configured event speakers in D1
-        const data = await fetchPublicSpeakers(eventSlug).catch(() => null);
-        if (!cancelled && data && data.speakers && data.speakers.length > 0) {
-          setSpeakers(data.speakers);
-          setLoading(false);
-          return;
-        }
-
-        // 2. Fallback: if Community Day has no D1 speakers yet, load from Sessionize
-        if (eventSlug === COMMUNITY_DAY_EVENT_SLUG) {
-          const sessionizeRes = await fetchSessionizeSpeakers().catch(() => null);
-          if (!cancelled && sessionizeRes && sessionizeRes.speakers && sessionizeRes.speakers.length > 0) {
-            const mapped: EventSpeaker[] = sessionizeRes.speakers.map((s, idx) => ({
-              id: s.id,
-              eventSlug,
-              name: s.fullName,
-              role: s.jobTitle || s.positionName || s.tagLine || "Speaker",
-              company: s.company || null,
-              photoUrl: s.profilePicture || "",
-              talkTitle: s.sessions?.[0]?.title || "AWS Community Day Jakarta 2026",
-              talkFormat: "Technical Talk",
-              topicImageUrl: null,
-              bio: s.bio || null,
-              socialUrl: s.linkedinUrl || null,
-              isActive: true,
-              displayOrder: idx,
-            }));
-            setSpeakers(mapped);
-            setLoading(false);
-            return;
-          }
-        }
-
+        setError(null);
+        // Speakers come from backend D1 only — no Sessionize fallback.
+        const data = await fetchPublicSpeakers(eventSlug);
         if (!cancelled) {
-          setSpeakers([]);
+          setSpeakers(data.speakers || []);
         }
-      } catch {
+      } catch (err: any) {
         if (!cancelled) {
+          setError(err?.message || "Failed to load speakers");
           setSpeakers([]);
         }
       } finally {
@@ -152,7 +124,19 @@ export function SpeakerCarousel({
     touchStartX.current = null;
   };
 
-  if (loading || speakers.length === 0) {
+  if (loading) {
+    return null;
+  }
+
+  if (error) {
+    return (
+      <section id="speakers" className={cn("py-20", className)}>
+        <p className="text-center text-sm text-muted-foreground">{error}</p>
+      </section>
+    );
+  }
+
+  if (speakers.length === 0) {
     return null;
   }
 

@@ -60,7 +60,9 @@ import type {
   UpdateScheduleItem,
   EnrichedSession,
   SessionizeDataResponse,
+  ScheduleSpeaker,
 } from "@/lib/types";
+import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 
 export const KNOWN_SCHEDULE_EVENTS = [
@@ -104,6 +106,12 @@ function formatTimeDisplay(startsAt?: string | null, endsAt?: string | null): st
   }
 }
 
+const MAX_SPEAKERS_PER_SESSION = 20;
+
+function emptySpeaker(): ScheduleSpeaker {
+  return { name: "" };
+}
+
 export function ScheduleManager() {
   const [selectedEventSlug, setSelectedEventSlug] = useState<string>(COMMUNITY_DAY_EVENT_SLUG);
   const [scheduleItems, setScheduleItems] = useState<EventScheduleItem[]>([]);
@@ -121,11 +129,7 @@ export function ScheduleManager() {
   const [formData, setFormData] = useState<CreateScheduleItem>({
     title: "",
     description: "",
-    speakerName: "",
-    speakerRole: "",
-    speakerCompany: "",
-    speakerAvatar: "",
-    speakerSocialUrl: "",
+    speakers: [],
     room: "Atrium",
     track: "",
     startsAt: "2026-10-31T02:00:00Z",
@@ -197,11 +201,7 @@ export function ScheduleManager() {
     setFormData({
       title: "",
       description: "",
-      speakerName: "",
-      speakerRole: "",
-      speakerCompany: "",
-      speakerAvatar: "",
-      speakerSocialUrl: "",
+      speakers: [],
       room: selectedRoom !== "All Stages" ? selectedRoom : "Atrium",
       track: "",
       startsAt: "2026-10-31T02:00:00Z",
@@ -221,12 +221,7 @@ export function ScheduleManager() {
       sessionId: item.sessionId,
       title: item.title,
       description: item.description || "",
-      speakerId: item.speakerId,
-      speakerName: item.speakerName || "",
-      speakerRole: item.speakerRole || "",
-      speakerCompany: item.speakerCompany || "",
-      speakerAvatar: item.speakerAvatar || "",
-      speakerSocialUrl: item.speakerSocialUrl || "",
+      speakers: normalizeScheduleSpeakers(item),
       room: item.room || "Atrium",
       track: item.track || "",
       startsAt: item.startsAt || "",
@@ -249,10 +244,15 @@ export function ScheduleManager() {
 
     try {
       setSubmitting(true);
+      // Blank rows never submit; [] still clears speakers on update.
+      const payload = {
+        ...formData,
+        speakers: (formData.speakers || []).filter((s) => s.name.trim()),
+      };
       if (editingItem) {
-        await updateAdminScheduleItem(selectedEventSlug, editingItem.id, formData);
+        await updateAdminScheduleItem(selectedEventSlug, editingItem.id, payload);
       } else {
-        await createAdminScheduleItem(selectedEventSlug, formData);
+        await createAdminScheduleItem(selectedEventSlug, payload);
       }
       setDialogOpen(false);
       await loadSchedule();
@@ -296,7 +296,7 @@ export function ScheduleManager() {
       setImportingId(sess.id);
       await syncSessionizeSchedule(selectedEventSlug, {
         sessionIds: [sess.id],
-        overwrite: true,
+        overwrite: false,
       });
       await loadSchedule();
     } catch (err: any) {
@@ -314,7 +314,7 @@ export function ScheduleManager() {
     try {
       setSyncingAll(true);
       const res = await syncSessionizeSchedule(selectedEventSlug, {
-        overwrite: true,
+        overwrite: false,
         fresh: true,
       });
       alert(`Synchronized successfully! Imported: ${res.imported}, Updated: ${res.updated}.`);
@@ -353,10 +353,13 @@ export function ScheduleManager() {
         const q = searchQuery.toLowerCase();
         const inTitle = item.title.toLowerCase().includes(q);
         const inDesc = item.description?.toLowerCase().includes(q) ?? false;
-        const inSpeaker = item.speakerName?.toLowerCase().includes(q) ?? false;
-        const inCompany = item.speakerCompany?.toLowerCase().includes(q) ?? false;
+        const inSpeaker = normalizeScheduleSpeakers(item).some(
+          (sp) =>
+            (sp.name || "").toLowerCase().includes(q) ||
+            (sp.company || "").toLowerCase().includes(q)
+        );
         const inRoom = item.room?.toLowerCase().includes(q) ?? false;
-        if (!inTitle && !inDesc && !inSpeaker && !inCompany && !inRoom) {
+        if (!inTitle && !inDesc && !inSpeaker && !inRoom) {
           return false;
         }
       }
@@ -686,39 +689,49 @@ export function ScheduleManager() {
                       {item.title}
                     </h3>
 
-                    {/* Speaker Info Row */}
-                    {item.speakerName && (
-                      <div className="flex items-center gap-2.5 pt-1">
-                        <Avatar className="h-7 w-7 rounded-full border border-border shrink-0">
-                          <AvatarImage src={item.speakerAvatar || undefined} />
-                          <AvatarFallback className="text-[10px] font-bold">
-                            {item.speakerName.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="text-xs truncate">
-                          <span className="font-semibold text-foreground mr-1.5">
-                            {item.speakerName}
-                          </span>
-                          {(item.speakerRole || item.speakerCompany) && (
-                            <span className="text-muted-foreground">
-                              · {item.speakerRole}
-                              {item.speakerCompany ? ` (${item.speakerCompany})` : ""}
-                            </span>
-                          )}
+                    {/* Speakers Info Row — all assigned speakers */}
+                    {(() => {
+                      const spk = normalizeScheduleSpeakers(item);
+                      if (spk.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+                          {spk.map((speaker, spkIdx) => (
+                            <div key={speaker.id || spkIdx} className="flex items-center gap-2.5">
+                              <Avatar className="h-7 w-7 rounded-full border border-border shrink-0">
+                                <AvatarImage src={speaker.avatar || undefined} />
+                                <AvatarFallback className="text-[10px] font-bold">
+                                  {speaker.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="text-xs truncate">
+                                <span className="font-semibold text-foreground mr-1.5">
+                                  {speaker.socialUrl ? (
+                                    <a
+                                      href={speaker.socialUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="hover:text-primary transition-colors inline-flex items-center gap-1"
+                                    >
+                                      {speaker.name}
+                                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                                      <span className="sr-only"> — profile</span>
+                                    </a>
+                                  ) : (
+                                    speaker.name
+                                  )}
+                                </span>
+                                {(speaker.role || speaker.company) && (
+                                  <span className="text-muted-foreground">
+                                    · {speaker.role}
+                                    {speaker.company ? ` (${speaker.company})` : ""}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        {item.speakerSocialUrl && (
-                          <a
-                            href={item.speakerSocialUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:text-primary/80 transition-colors shrink-0"
-                            title="LinkedIn Profile"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Description preview */}
                     {item.description && (
@@ -871,84 +884,180 @@ export function ScheduleManager() {
               </div>
             </div>
 
-            {/* Speaker Information Section */}
-            <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-3">
-              <div className="flex items-center gap-2">
+            {/* Speakers Section — multiple assignments supported */}
+            <fieldset className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-3">
+              <legend className="px-2 flex items-center gap-2">
                 <User className="h-4 w-4 text-primary" />
                 <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Presenter & Speaker Details
+                  Speakers ({(formData.speakers || []).length}/{MAX_SPEAKERS_PER_SESSION})
                 </span>
-              </div>
+              </legend>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="sp-name" className="text-xs">
-                    Speaker Name
-                  </Label>
-                  <Input
-                    id="sp-name"
-                    placeholder="e.g. Arief Nugraha"
-                    value={formData.speakerName || ""}
-                    onChange={(e) => setFormData({ ...formData, speakerName: e.target.value })}
-                    className="h-8 text-xs"
-                  />
-                </div>
+              {(formData.speakers || []).length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No speakers assigned — service sessions and breaks can stay empty.
+                </p>
+              )}
 
-                <div className="space-y-1">
-                  <Label htmlFor="sp-role" className="text-xs">
-                    Job Title / Role
-                  </Label>
-                  <Input
-                    id="sp-role"
-                    placeholder="e.g. Senior Solutions Architect"
-                    value={formData.speakerRole || ""}
-                    onChange={(e) => setFormData({ ...formData, speakerRole: e.target.value })}
-                    className="h-8 text-xs"
-                  />
-                </div>
+              {(formData.speakers || []).map((speaker, idx) => (
+                <fieldset
+                  key={speaker.id || `spk-${idx}`}
+                  className="p-3 rounded-lg border border-border/70 bg-background/40 space-y-3"
+                >
+                  <legend className="px-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Speaker {idx + 1}
+                  </legend>
 
-                <div className="space-y-1">
-                  <Label htmlFor="sp-company" className="text-xs">
-                    Company
-                  </Label>
-                  <Input
-                    id="sp-company"
-                    placeholder="e.g. AWS"
-                    value={formData.speakerCompany || ""}
-                    onChange={(e) => setFormData({ ...formData, speakerCompany: e.target.value })}
-                    className="h-8 text-xs"
-                  />
-                </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-8 w-8 rounded-full border border-border shrink-0">
+                        <AvatarImage src={speaker.avatar || undefined} />
+                        <AvatarFallback className="text-[10px] font-bold">
+                          {(speaker.name || "?").charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-semibold text-foreground truncate">
+                        {speaker.name || "Unnamed speaker"}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          speakers: (formData.speakers || []).filter((_, i) => i !== idx),
+                        })
+                      }
+                      aria-label={`Remove speaker ${idx + 1}${speaker.name ? ` (${speaker.name})` : ""}`}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  </div>
 
-                <div className="space-y-1">
-                  <Label htmlFor="sp-social" className="text-xs">
-                    LinkedIn URL
-                  </Label>
-                  <Input
-                    id="sp-social"
-                    placeholder="https://www.linkedin.com/in/..."
-                    value={formData.speakerSocialUrl || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, speakerSocialUrl: e.target.value })
-                    }
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor={`spk-${idx}-name`} className="text-xs">
+                        Speaker Name
+                      </Label>
+                      <Input
+                        id={`spk-${idx}-name`}
+                        placeholder="e.g. Arief Nugraha"
+                        value={speaker.name}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            speakers: (formData.speakers || []).map((s, i) =>
+                              i === idx ? { ...s, name: e.target.value } : s
+                            ),
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="sp-avatar" className="text-xs">
-                  Speaker Avatar URL
-                </Label>
-                <Input
-                  id="sp-avatar"
-                  placeholder="https://cdn.sessionize.com/image/..."
-                  value={formData.speakerAvatar || ""}
-                  onChange={(e) => setFormData({ ...formData, speakerAvatar: e.target.value })}
-                  className="h-8 text-xs"
-                />
-              </div>
-            </div>
+                    <div className="space-y-1">
+                      <Label htmlFor={`spk-${idx}-role`} className="text-xs">
+                        Job Title / Role
+                      </Label>
+                      <Input
+                        id={`spk-${idx}-role`}
+                        placeholder="e.g. Senior Solutions Architect"
+                        value={speaker.role || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            speakers: (formData.speakers || []).map((s, i) =>
+                              i === idx ? { ...s, role: e.target.value } : s
+                            ),
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor={`spk-${idx}-company`} className="text-xs">
+                        Company
+                      </Label>
+                      <Input
+                        id={`spk-${idx}-company`}
+                        placeholder="e.g. AWS"
+                        value={speaker.company || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            speakers: (formData.speakers || []).map((s, i) =>
+                              i === idx ? { ...s, company: e.target.value } : s
+                            ),
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor={`spk-${idx}-social`} className="text-xs">
+                        LinkedIn URL
+                      </Label>
+                      <Input
+                        id={`spk-${idx}-social`}
+                        placeholder="https://www.linkedin.com/in/..."
+                        value={speaker.socialUrl || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            speakers: (formData.speakers || []).map((s, i) =>
+                              i === idx ? { ...s, socialUrl: e.target.value } : s
+                            ),
+                          })
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor={`spk-${idx}-avatar`} className="text-xs">
+                      Speaker Avatar URL
+                    </Label>
+                    <Input
+                      id={`spk-${idx}-avatar`}
+                      placeholder="https://cdn.sessionize.com/image/..."
+                      value={speaker.avatar || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          speakers: (formData.speakers || []).map((s, i) =>
+                            i === idx ? { ...s, avatar: e.target.value } : s
+                          ),
+                        })
+                      }
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </fieldset>
+              ))}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={(formData.speakers || []).length >= MAX_SPEAKERS_PER_SESSION}
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    speakers: [...(formData.speakers || []), emptySpeaker()],
+                  })
+                }
+                className="h-8 text-xs border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+                Add Speaker
+              </Button>
+            </fieldset>
 
             <div className="space-y-1.5">
               <Label htmlFor="sess-desc">Description / Session Abstract</Label>
@@ -1127,7 +1236,7 @@ export function ScheduleManager() {
             ) : (
               filteredSessionizeSessions.map((sess) => {
                 const isImported = existingSessionIds.has(sess.id);
-                const speaker = sess.speakers[0];
+                const speakers = Array.isArray(sess.speakers) ? sess.speakers : [];
 
                 return (
                   <Card
@@ -1169,34 +1278,39 @@ export function ScheduleManager() {
                           {sess.title}
                         </h4>
 
-                        {/* Speaker Preview */}
-                        {speaker && (
-                          <div className="flex items-center gap-3 pt-1">
-                            <Avatar className="h-9 w-9 rounded-full border border-border shadow-sm">
-                              <AvatarImage src={speaker.profilePicture || undefined} />
-                              <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
-                                {speaker.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5">
-                                {speaker.name}
-                                {speaker.linkedinUrl && (
-                                  <a
-                                    href={speaker.linkedinUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-primary hover:text-primary/80"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                )}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground truncate">
-                                {speaker.jobTitle || speaker.tagLine || "Speaker"}
-                                {speaker.company ? ` · ${speaker.company}` : ""}
-                              </p>
-                            </div>
+                        {/* Speaker Preview — full roster */}
+                        {speakers.length > 0 && (
+                          <div className="space-y-2 pt-1">
+                            {speakers.map((sp, spIdx) => (
+                              <div key={sp.id || `spk-${spIdx}`} className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9 rounded-full border border-border shadow-sm shrink-0">
+                                  <AvatarImage src={sp.profilePicture || undefined} />
+                                  <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                                    {(sp.name || "?").charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5">
+                                    {sp.name}
+                                    {sp.linkedinUrl && (
+                                      <a
+                                        href={sp.linkedinUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:text-primary/80"
+                                      >
+                                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                                        <span className="sr-only"> — {sp.name}'s profile</span>
+                                      </a>
+                                    )}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground truncate">
+                                    {sp.jobTitle || sp.tagLine || "Speaker"}
+                                    {sp.company ? ` · ${sp.company}` : ""}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
 

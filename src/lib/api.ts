@@ -906,12 +906,18 @@ function buildSessionizeQuery(params?: SessionizeQueryParams): string {
   return s ? `?${s}` : "";
 }
 
+/** Fresh pulls bypass the edge cache and require admin auth upstream. */
+function sessionizeFetchInit(params?: SessionizeQueryParams): RequestInit {
+  return params?.fresh ? { headers: authHeaders() } : {};
+}
+
 /** GET /api/sessionize/speakers — cached list of enriched speakers */
 export async function fetchSessionizeSpeakers(
   params?: SessionizeQueryParams,
 ): Promise<{ speakers: EnrichedSpeaker[] }> {
   return apiFetch<{ speakers: EnrichedSpeaker[] }>(
     `/api/sessionize/speakers${buildSessionizeQuery(params)}`,
+    sessionizeFetchInit(params),
   );
 }
 
@@ -921,6 +927,7 @@ export async function fetchSessionizeSessions(
 ): Promise<{ sessions: EnrichedSession[] }> {
   return apiFetch<{ sessions: EnrichedSession[] }>(
     `/api/sessionize/sessions${buildSessionizeQuery(params)}`,
+    sessionizeFetchInit(params),
   );
 }
 
@@ -930,6 +937,7 @@ export async function fetchSessionizeData(
 ): Promise<SessionizeDataResponse> {
   return apiFetch<SessionizeDataResponse>(
     `/api/sessionize/data${buildSessionizeQuery(params)}`,
+    sessionizeFetchInit(params),
   );
 }
 

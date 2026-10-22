@@ -730,6 +730,9 @@ export interface EventScheduleItem {
   formatId?: string | null;
   // Resolved format name (admin listing / published snapshot only; may be absent).
   format?: string | null;
+  // Session metadata; the API always emits both (defaults to []).
+  languages: string[];
+  levels: string[];
   isServiceSession: boolean;
   isActive: boolean;
   displayOrder: number;
@@ -761,6 +764,8 @@ export interface CreateScheduleItem {
   isServiceSession?: boolean;
   isActive?: boolean;
   displayOrder?: number;
+  languages?: string[];
+  levels?: string[];
 }
 
 export interface UpdateScheduleItem {
@@ -789,6 +794,9 @@ export interface UpdateScheduleItem {
   isServiceSession?: boolean;
   isActive?: boolean;
   displayOrder?: number;
+  // Omitted preserves stored values; [] clears them.
+  languages?: string[];
+  levels?: string[];
 }
 
 export interface ScheduleOrderItem {

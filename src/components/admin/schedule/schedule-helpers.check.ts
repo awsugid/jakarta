@@ -43,6 +43,8 @@ function item(partial: Partial<EventScheduleItem>): EventScheduleItem {
     roomIds: [],
     allRooms: false,
     rooms: [],
+    languages: [],
+    levels: [],
     isServiceSession: false,
     isActive: true,
     displayOrder: 0,

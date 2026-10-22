@@ -398,6 +398,13 @@ function ScheduleWorkspace({ eventSlug, onEventChange }: { eventSlug: string; on
         open={reviewOpen}
         onOpenChange={setReviewOpen}
         review={review}
+        items={schedule}
+        onEditSession={(itemId) => {
+          const item = schedule.find((it) => it.id === itemId);
+          if (!item) return;
+          setReviewOpen(false);
+          openEdit(item);
+        }}
         loading={reviewLoading}
         error={reviewError}
         currentRevision={revision}

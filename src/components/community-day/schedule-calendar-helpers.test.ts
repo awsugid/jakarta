@@ -35,6 +35,8 @@ describe("schedule-calendar-helpers", () => {
         company: "Amazon Web Services",
       },
     ],
+    languages: ["English"],
+    levels: ["Advanced"],
   };
 
   test("formatTime formats in WIB (24h)", () => {

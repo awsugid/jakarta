@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchSessionizeData, syncSessionizeSchedule } from "@/lib/api";
+import { sessionizeCategoryValues } from "@/lib/schedule-metadata";
 import type { EnrichedSession, SessionizeDataResponse } from "@/lib/types";
 
 interface SessionizeExplorerProps {
@@ -247,6 +248,18 @@ export function SessionizeExplorer({ open, onOpenChange, eventSlug, existingSess
                             {sess.room}
                           </span>
                         )}
+                        {sessionizeCategoryValues(sess.categories, "Language").map((lang) => (
+                          <Badge key={`lang-${lang}`} variant="outline" className="text-[10px] text-muted-foreground">
+                            <span className="sr-only">Language: </span>
+                            {lang}
+                          </Badge>
+                        ))}
+                        {sessionizeCategoryValues(sess.categories, "Level").map((level) => (
+                          <Badge key={`level-${level}`} variant="outline" className="text-[10px] text-muted-foreground">
+                            <span className="sr-only">Level: </span>
+                            {level}
+                          </Badge>
+                        ))}
                         <Badge variant="outline" className="text-[10px] text-muted-foreground">Sessionize #{sess.id}</Badge>
                         {sess.status && (
                           <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

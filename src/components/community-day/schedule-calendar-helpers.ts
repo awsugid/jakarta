@@ -13,6 +13,8 @@ export interface DisplayScheduleSession {
   sessionType?: string | null;
   isServiceSession: boolean;
   speakers: ScheduleSpeaker[];
+  languages: string[];
+  levels: string[];
 }
 
 /** Multi-room label: "All rooms", joined names, or legacy string. */

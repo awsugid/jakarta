@@ -39,6 +39,8 @@ import type {
 } from "@/lib/types";
 import { localInputToWibRfc3339, shareRoom, wibToLocalInput } from "@/lib/schedule-workspace";
 import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
+import { LANGUAGE_SUGGESTIONS, LEVEL_SUGGESTIONS, metadataListError } from "@/lib/schedule-metadata";
+import { MetadataField } from "@/components/admin/schedule/MetadataField";
 import { cn } from "@/lib/utils";
 
 /** Backend returns speakerIds on items; lib types not updated yet (owned elsewhere). */
@@ -80,6 +82,9 @@ interface FormState {
   adhoc: AdhocSpeakerForm[];
   isServiceSession: boolean;
   isActive: boolean;
+  // [] = not set. Never defaulted; saved verbatim.
+  languages: string[];
+  levels: string[];
 }
 
 // ---- WIB time helpers (pure; exported for the self-check) -------------------
@@ -143,6 +148,8 @@ function initialState(item: ItemWithSpeakerRefs | null): FormState {
       adhoc: [],
       isServiceSession: false,
       isActive: false, // docs: unscheduled excluded — drafts start excluded
+      languages: [],
+      levels: [],
     };
   }
   const s = wibToLocalInput(item.startsAt);
@@ -165,6 +172,8 @@ function initialState(item: ItemWithSpeakerRefs | null): FormState {
     })),
     isServiceSession: item.isServiceSession,
     isActive: item.isActive,
+    languages: [...(item.languages ?? [])],
+    levels: [...(item.levels ?? [])],
   };
 }
 
@@ -272,6 +281,7 @@ export function SessionEditorDialog({
   const [formError, setFormError] = useState<string | null>(null);
   const [descOpen, setDescOpen] = useState(false);
   const [adhocOpen, setAdhocOpen] = useState(false);
+
   const [query, setQuery] = useState("");
   // Directory speaker creation (persists immediately, independent of session save)
   const [showAddSpeaker, setShowAddSpeaker] = useState(false);
@@ -302,6 +312,7 @@ export function SessionEditorDialog({
       setFormError(null);
       setDescOpen(false);
       setAdhocOpen(false);
+
       setQuery("");
       setShowAddSpeaker(false);
       setSpkError(null);
@@ -367,6 +378,7 @@ export function SessionEditorDialog({
   const duration = timeInvalid ? null : minutesBetween(startsAt, endsAt);
   const includedButUnscheduled = form.isActive && (!startsAt || !endsAt);
   const noRoom = !form.allRooms && form.roomIds.length === 0;
+
 
   const conflictTitles = useMemo(() => {
     if (!startsAt || !endsAt || timeInvalid) return [];
@@ -485,6 +497,12 @@ export function SessionEditorDialog({
       setFormError("End time must be after start time (WIB).");
       return;
     }
+    const { languages, levels } = form;
+    const metadataError = metadataListError(languages) ?? metadataListError(levels);
+    if (metadataError) {
+      setFormError(metadataError);
+      return;
+    }
     setSubmitting(true);
     setFormError(null);
     const base = {
@@ -502,6 +520,8 @@ export function SessionEditorDialog({
       endsAt: localInputToWibRfc3339(endsAt),
       isServiceSession: form.isServiceSession,
       isActive: form.isActive,
+      languages,
+      levels,
     };
     try {
       if (item) {
@@ -631,6 +651,25 @@ export function SessionEditorDialog({
                       {formatError && <Notice tone="error">{formatError}</Notice>}
                     </div>
                   )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 rounded-lg border border-border p-3 sm:grid-cols-2 [&>*]:min-w-0">
+                  <MetadataField
+                    label="Language"
+                    values={form.languages}
+                    onChange={(languages) => patch({ languages })}
+                    suggestions={LANGUAGE_SUGGESTIONS}
+                    placeholder="Other language"
+                    hint="Select all that apply. Leave empty if unknown."
+                  />
+                  <MetadataField
+                    label="Level"
+                    values={form.levels}
+                    onChange={(levels) => patch({ levels })}
+                    suggestions={LEVEL_SUGGESTIONS}
+                    placeholder="e.g. 100 - Introductory"
+                    hint="Add level manually if Sessionize does not provide it."
+                  />
                 </div>
 
                 <SwitchRow

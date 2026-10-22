@@ -22,7 +22,8 @@ import {
   X,
   Trash2,
   ArrowRight,
-  Bookmark,
+  Globe,
+  Gauge,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -155,6 +156,8 @@ export function ComDaySchedule({
             sessionType: item.sessionType,
             isServiceSession: item.isServiceSession,
             speakers: normalizeScheduleSpeakers(item),
+            languages: item.languages ?? [],
+            levels: item.levels ?? [],
           }));
           setSessions(mapped);
           setLoading(false);
@@ -242,7 +245,10 @@ export function ComDaySchedule({
             (sp.company || "").toLowerCase().includes(q)
         );
         const inRoom = (roomLabelOf(sess) || "").toLowerCase().includes(q);
-        if (!inTitle && !inDesc && !inSpeaker && !inRoom) {
+        const inMeta = [...sess.languages, ...sess.levels].some((v) =>
+          v.toLowerCase().includes(q)
+        );
+        if (!inTitle && !inDesc && !inSpeaker && !inRoom && !inMeta) {
           return false;
         }
       }
@@ -269,7 +275,8 @@ export function ComDaySchedule({
     }, 0);
   }, [savedSessions]);
 
-  const hasActiveFilters = selectedRoom !== "ALL" || selectedFormat !== "ALL" || searchQuery.trim().length > 0;
+  const hasActiveFilters =
+    selectedRoom !== "ALL" || selectedFormat !== "ALL" || searchQuery.trim().length > 0;
 
   const resetFilters = useCallback(() => {
     setSelectedRoom("ALL");
@@ -327,7 +334,9 @@ export function ComDaySchedule({
             <Star
               className={cn(
                 "h-3.5 w-3.5",
-                savedSessionIds.length > 0 && viewMode !== "my-schedule" ? "text-amber-400 fill-amber-400" : ""
+                savedSessionIds.length > 0 && viewMode !== "my-schedule"
+                  ? "text-amber-400 fill-amber-400"
+                  : ""
               )}
             />
             <span>My Itinerary</span>
@@ -380,7 +389,7 @@ export function ComDaySchedule({
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search topic, speaker, room..."
+              placeholder="Search topic, speaker, room, language..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 pr-8 h-9 text-xs bg-background/80 border-border/80 focus:border-orange-500/50"
@@ -568,7 +577,8 @@ export function ComDaySchedule({
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {savedSessions.length} sessions bookmarked
-                  {totalSavedDurationMinutes > 0 && ` • ~${formatDuration(totalSavedDurationMinutes)} total`}
+                  {totalSavedDurationMinutes > 0 &&
+                    ` • ~${formatDuration(totalSavedDurationMinutes)} total`}
                 </p>
               </div>
 
@@ -652,7 +662,8 @@ export function ComDaySchedule({
                                         getFormatBadgeClass(session.sessionType)
                                       )}
                                     >
-                                      {session.sessionType || (session.isServiceSession ? "Rundown" : "Keynote")}
+                                      {session.sessionType ||
+                                        (session.isServiceSession ? "Rundown" : "Keynote")}
                                     </Badge>
 
                                     <span
@@ -664,6 +675,24 @@ export function ComDaySchedule({
                                       <MapPin className="h-3 w-3" />
                                       {roomLabelOf(session)}
                                     </span>
+
+                                    {session.languages.map((lang) => (
+                                      <span
+                                        key={lang}
+                                        className="text-[10px] px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground border border-border/50 font-medium"
+                                      >
+                                        {lang}
+                                      </span>
+                                    ))}
+
+                                    {session.levels.map((lvl) => (
+                                      <span
+                                        key={lvl}
+                                        className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium"
+                                      >
+                                        {lvl}
+                                      </span>
+                                    ))}
 
                                     {session.track && (
                                       <span className="text-[11px] text-muted-foreground">
@@ -710,7 +739,9 @@ export function ComDaySchedule({
                                   <button
                                     type="button"
                                     onClick={(e) => toggleBookmark(session.id, e)}
-                                    aria-label={isBookmarked ? "Remove from itinerary" : "Save to itinerary"}
+                                    aria-label={
+                                      isBookmarked ? "Remove from itinerary" : "Save to itinerary"
+                                    }
                                     className={cn(
                                       "h-9 w-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border",
                                       isBookmarked
@@ -777,12 +808,23 @@ export function ComDaySchedule({
                                         {formatDuration(durationMin)}
                                       </span>
                                     )}
+
+                                    {session.languages.map((lang) => (
+                                      <span
+                                        key={lang}
+                                        className="text-[10px] px-1.5 py-0.2 rounded bg-muted/50 text-muted-foreground border border-border/40 font-medium"
+                                      >
+                                        {lang}
+                                      </span>
+                                    ))}
                                   </div>
 
                                   <button
                                     type="button"
                                     onClick={(e) => toggleBookmark(session.id, e)}
-                                    aria-label={isBookmarked ? "Remove from itinerary" : "Save to itinerary"}
+                                    aria-label={
+                                      isBookmarked ? "Remove from itinerary" : "Save to itinerary"
+                                    }
                                     className={cn(
                                       "h-8 w-8 rounded-xl flex items-center justify-center transition-all cursor-pointer border shrink-0",
                                       isBookmarked
@@ -829,13 +871,17 @@ export function ComDaySchedule({
                                       {session.speakers[0].company && (
                                         <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
                                           <Building className="h-2.5 w-2.5 text-orange-400" />
-                                          <span className="truncate">{session.speakers[0].company}</span>
+                                          <span className="truncate">
+                                            {session.speakers[0].company}
+                                          </span>
                                         </p>
                                       )}
                                     </div>
                                   </div>
                                 ) : (
-                                  <span className="text-[11px] text-muted-foreground">AWS Community Day</span>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    AWS Community Day
+                                  </span>
                                 )}
 
                                 <span className="text-[11px] text-orange-400 font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-0.5 shrink-0">
@@ -914,6 +960,26 @@ export function ComDaySchedule({
                               </span>
                             )}
                           </div>
+
+                          {/* Language & Level Details */}
+                          {(!session.isServiceSession ||
+                            session.languages.length > 0 ||
+                            session.levels.length > 0) && (
+                            <div className="space-y-1 text-xs pt-1 border-t border-border/40">
+                              {session.languages.length > 0 && (
+                                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                                  <Globe className="h-3 w-3 text-orange-400" />
+                                  <span>{session.languages.join(", ")}</span>
+                                </div>
+                              )}
+                              {session.levels.length > 0 && (
+                                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                                  <Gauge className="h-3 w-3 text-purple-400" />
+                                  <span>{session.levels.join(", ")}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Quick Calendar Export Links */}
                           <div className="pt-2 flex items-center gap-2">
@@ -1015,8 +1081,14 @@ export function ComDaySchedule({
                                             className="hover:text-primary transition-colors inline-flex items-center gap-1"
                                           >
                                             <span>{speaker.name}</span>
-                                            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                            <span className="sr-only"> — {speaker.name}'s profile</span>
+                                            <ExternalLink
+                                              className="h-3 w-3 shrink-0"
+                                              aria-hidden="true"
+                                            />
+                                            <span className="sr-only">
+                                              {" "}
+                                              — {speaker.name}'s profile
+                                            </span>
                                           </a>
                                         ) : (
                                           speaker.name
@@ -1050,7 +1122,10 @@ export function ComDaySchedule({
       )}
 
       {/* INTERACTIVE SESSION DETAIL MODAL DIALOG */}
-      <Dialog open={Boolean(selectedSession)} onOpenChange={(open) => !open && setSelectedSession(null)}>
+      <Dialog
+        open={Boolean(selectedSession)}
+        onOpenChange={(open) => !open && setSelectedSession(null)}
+      >
         {selectedSession && (
           <DialogContent className="max-w-2xl bg-card border-border/80 shadow-2xl rounded-3xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader className="space-y-3 text-left">
@@ -1062,7 +1137,8 @@ export function ComDaySchedule({
                     getFormatBadgeClass(selectedSession.sessionType)
                   )}
                 >
-                  {selectedSession.sessionType || (selectedSession.isServiceSession ? "Rundown" : "Technical Session")}
+                  {selectedSession.sessionType ||
+                    (selectedSession.isServiceSession ? "Rundown" : "Technical Session")}
                 </Badge>
 
                 {(roomLabelOf(selectedSession) || "") && (
@@ -1079,9 +1155,29 @@ export function ComDaySchedule({
 
                 {getDurationMinutes(selectedSession.startsAt, selectedSession.endsAt) && (
                   <span className="text-[11px] text-muted-foreground font-medium px-2 py-0.5 rounded-md bg-muted/40">
-                    {formatDuration(getDurationMinutes(selectedSession.startsAt, selectedSession.endsAt))}
+                    {formatDuration(
+                      getDurationMinutes(selectedSession.startsAt, selectedSession.endsAt)
+                    )}
                   </span>
                 )}
+
+                {selectedSession.languages.map((lang) => (
+                  <span
+                    key={lang}
+                    className="text-[10px] px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground border border-border/50 font-medium"
+                  >
+                    {lang}
+                  </span>
+                ))}
+
+                {selectedSession.levels.map((lvl) => (
+                  <span
+                    key={lvl}
+                    className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium"
+                  >
+                    {lvl}
+                  </span>
+                ))}
               </div>
 
               {/* Title */}
@@ -1103,7 +1199,9 @@ export function ComDaySchedule({
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="h-4 w-4 text-orange-400" />
-                  <span>{formatTime(selectedSession.startsAt, selectedSession.endsAt)} (Asia/Jakarta)</span>
+                  <span>
+                    {formatTime(selectedSession.startsAt, selectedSession.endsAt)} (Asia/Jakarta)
+                  </span>
                 </div>
               </div>
 
@@ -1198,7 +1296,9 @@ export function ComDaySchedule({
                     savedSessionIds.includes(selectedSession.id) ? "fill-white text-white" : ""
                   )}
                 />
-                {savedSessionIds.includes(selectedSession.id) ? "Saved in Itinerary" : "Add to My Itinerary"}
+                {savedSessionIds.includes(selectedSession.id)
+                  ? "Saved in Itinerary"
+                  : "Add to My Itinerary"}
               </Button>
 
               <div className="flex items-center gap-2">

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { EventScheduleItem, ScheduleFormat, ScheduleRoom } from "@/lib/types";
 import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
+import { formatMetadataList } from "@/lib/schedule-metadata";
 import { roomLabel } from "@/lib/schedule-workspace";
 import {
   DEFAULT_ZOOM_ID,
@@ -333,7 +334,15 @@ function speakersLine(item: EventScheduleItem): string {
 }
 
 function metaLine(item: EventScheduleItem, formatName?: string): string {
-  return [speakersLine(item), formatName, item.isServiceSession ? "Service" : ""].filter(Boolean).join(" · ");
+  return [
+    speakersLine(item),
+    formatName,
+    formatMetadataList(item.languages),
+    formatMetadataList(item.levels),
+    item.isServiceSession ? "Service" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function wibTimeOf(item: EventScheduleItem): string {
@@ -603,6 +612,15 @@ function CardPopover({
       </p>
       <p className="mt-0.5 text-xs font-semibold text-foreground">{item.title}</p>
       {meta && <p className="mt-0.5 text-[10px] text-muted-foreground">{meta}</p>}
+      {item.languages.length > 0 && (
+        <p className="mt-0.5 text-[10px] text-muted-foreground">
+          <span className="font-semibold text-foreground/80">Languages:</span> {formatMetadataList(item.languages)}
+        </p>
+      )}
+      <p className="mt-0.5 text-[10px] text-muted-foreground">
+        <span className="font-semibold text-foreground/80">Level:</span>{" "}
+        {formatMetadataList(item.levels) || "Not specified"}
+      </p>
       <div className="pointer-events-auto mt-1.5 flex items-center gap-1">
         <EditButton item={item} onEdit={onEdit} compact />
         <IncludeButton item={item} busy={busy} onToggleInclude={onToggleInclude} />
@@ -761,10 +779,16 @@ function TrayRow({
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
-          {roomLabel(item, rooms) || "No room"}
-          {speakersLine(item) ? ` · ${speakersLine(item)}` : ""}
-          {formatName ? ` · ${formatName}` : ""}
-          {!isScheduled(item) ? " · No time set" : ""}
+          {[
+            roomLabel(item, rooms) || "No room",
+            speakersLine(item),
+            formatName,
+            formatMetadataList(item.languages),
+            formatMetadataList(item.levels),
+            !isScheduled(item) ? "No time set" : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
       <IncludeButton item={item} busy={busy} onToggleInclude={onToggleInclude} />
@@ -807,9 +831,15 @@ function ListRow({
       </p>
       <div className="flex items-end justify-between gap-2 mt-0.5">
         <p className="text-[11px] text-muted-foreground min-w-0">
-          {item.allRooms ? "All rooms" : roomLabel(item, rooms) || "No room"}
-          {formatName ? ` · ${formatName}` : ""}
-          {speakersLine(item) ? ` · ${speakersLine(item)}` : ""}
+          {[
+            item.allRooms ? "All rooms" : roomLabel(item, rooms) || "No room",
+            formatName,
+            speakersLine(item),
+            formatMetadataList(item.languages),
+            formatMetadataList(item.levels),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
         <div className="flex items-center gap-0.5 shrink-0">
           <EditButton item={item} onEdit={onEdit} />

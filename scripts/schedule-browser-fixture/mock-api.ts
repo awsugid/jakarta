@@ -5,7 +5,7 @@ let revision = 1;
 export const rooms = [{ id: "room-1", name: "Main Hall", displayOrder: 0, archived: false, revision: 1 }];
 export const formats = [{ id: "format-1", name: "Talk", displayOrder: 0, archived: false, revision: 1 }];
 export const speakers = ["Arief Nugraha", "Dewi Lestari", "Budi Santoso"].map((name, i) => ({ id: `speaker-${i}`, name, role: "Engineer", company: "Example", photoUrl: "" }));
-let items: any[] = [{ id: "session-1", title: "Opening Keynote", sessionId: null, roomIds: ["room-1"], allRooms: false, rooms: [], track: null, startsAt: time("09:00"), endsAt: time("09:30"), sessionType: null, formatId: "format-1", isServiceSession: false, isActive: true, displayOrder: 0, revision: 1, createdAt: "", updatedAt: "", description: "Welcome", speakerIds: ["speaker-0"], speakers: [] }];
+let items: any[] = [{ id: "session-1", title: "Opening Keynote", sessionId: null, roomIds: [], allRooms: false, rooms: [], track: null, startsAt: time("09:00"), endsAt: time("09:30"), sessionType: null, formatId: "format-1", isServiceSession: false, isActive: true, displayOrder: 0, revision: 1, createdAt: "", updatedAt: "", description: "Welcome", speakerIds: ["speaker-0"], speakers: [], languages: ["English", "Bahasa Indonesia"], levels: ["Beginner"] }];
 const wait = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function fetchAdminSchedule() { await wait(); return { schedule: items, revision, publishedAt: null }; }
 export async function fetchScheduleRooms() { await wait(); return { rooms }; }
@@ -26,7 +26,26 @@ export async function createScheduleRoom(_slug: string, room: any) { return { id
 export async function updateScheduleRoom(_slug: string, id: string, patch: any) { const room = rooms.find((entry) => entry.id === id)!; Object.assign(room, patch); room.revision++; return room; }
 export async function createScheduleFormat(_slug: string, format: any) { const created = { id: "format-new", archived: false, revision: 1, ...format }; formats.push(created); return created; }
 export async function updateScheduleFormat(_slug: string, id: string, patch: any) { const format = formats.find((entry) => entry.id === id)!; Object.assign(format, patch); format.revision++; return format; }
-export async function reviewSchedule() { return { canPublish: false, includedCount: items.length, excluded: [], conflicts: [], added: [], updated: [], removed: [], revision, publishedAt: null }; }
+export async function reviewSchedule() {
+  await wait();
+  return {
+    canPublish: false,
+    includedCount: items.filter((it) => it.isActive).length,
+    excluded: [
+      { id: "session-2", title: "Sponsor Booth Tour", reason: "excluded draft" },
+      { id: "session-3", title: "Closing Panel Draft", reason: "excluded draft" },
+    ],
+    conflicts: [
+      { type: "missing-fields", itemId: "session-1", detail: "item is included in publication but has no room assignment" },
+      { type: "missing-fields", itemId: "session-gone", detail: "item is included in publication but is unscheduled (missing startsAt/endsAt)" },
+    ],
+    added: [{ id: "session-1", title: "Opening Keynote" }],
+    updated: [],
+    removed: [],
+    revision,
+    publishedAt: null,
+  };
+}
 export async function publishSchedule() { return { publishedAt: new Date().toISOString(), itemCount: items.length, revision }; }
 export async function fetchSessionizeData() { return { sessions: [], metadata: { rooms: [], jobTitles: [] } }; }
 export async function syncSessionizeSchedule() { return { imported: 0, updated: 0 }; }

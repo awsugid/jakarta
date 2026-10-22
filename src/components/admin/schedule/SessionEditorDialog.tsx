@@ -39,6 +39,7 @@ import type {
 } from "@/lib/types";
 import { localInputToWibRfc3339, shareRoom, wibToLocalInput } from "@/lib/schedule-workspace";
 import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
+import { formatMetadataList, metadataListError, parseMetadataList } from "@/lib/schedule-metadata";
 import { cn } from "@/lib/utils";
 
 /** Backend returns speakerIds on items; lib types not updated yet (owned elsewhere). */
@@ -80,6 +81,9 @@ interface FormState {
   adhoc: AdhocSpeakerForm[];
   isServiceSession: boolean;
   isActive: boolean;
+  // Comma-separated free-form metadata; parsed to arrays on save.
+  languages: string;
+  levels: string;
 }
 
 // ---- WIB time helpers (pure; exported for the self-check) -------------------
@@ -143,6 +147,8 @@ function initialState(item: ItemWithSpeakerRefs | null): FormState {
       adhoc: [],
       isServiceSession: false,
       isActive: false, // docs: unscheduled excluded — drafts start excluded
+      languages: "",
+      levels: "",
     };
   }
   const s = wibToLocalInput(item.startsAt);
@@ -165,6 +171,8 @@ function initialState(item: ItemWithSpeakerRefs | null): FormState {
     })),
     isServiceSession: item.isServiceSession,
     isActive: item.isActive,
+    languages: formatMetadataList(item.languages),
+    levels: formatMetadataList(item.levels),
   };
 }
 
@@ -272,6 +280,7 @@ export function SessionEditorDialog({
   const [formError, setFormError] = useState<string | null>(null);
   const [descOpen, setDescOpen] = useState(false);
   const [adhocOpen, setAdhocOpen] = useState(false);
+  const [metaOpen, setMetaOpen] = useState(false);
   const [query, setQuery] = useState("");
   // Directory speaker creation (persists immediately, independent of session save)
   const [showAddSpeaker, setShowAddSpeaker] = useState(false);
@@ -302,6 +311,7 @@ export function SessionEditorDialog({
       setFormError(null);
       setDescOpen(false);
       setAdhocOpen(false);
+      setMetaOpen(Boolean(item?.languages?.length || item?.levels?.length));
       setQuery("");
       setShowAddSpeaker(false);
       setSpkError(null);
@@ -367,6 +377,10 @@ export function SessionEditorDialog({
   const duration = timeInvalid ? null : minutesBetween(startsAt, endsAt);
   const includedButUnscheduled = form.isActive && (!startsAt || !endsAt);
   const noRoom = !form.allRooms && form.roomIds.length === 0;
+  // Collapsed-disclosure summary: actual values so metadata stays visible when set.
+  const metaSummary = [parseMetadataList(form.languages).join(", "), parseMetadataList(form.levels).join(", ")]
+    .filter(Boolean)
+    .join(" · ");
 
   const conflictTitles = useMemo(() => {
     if (!startsAt || !endsAt || timeInvalid) return [];
@@ -485,6 +499,13 @@ export function SessionEditorDialog({
       setFormError("End time must be after start time (WIB).");
       return;
     }
+    const languages = parseMetadataList(form.languages);
+    const levels = parseMetadataList(form.levels);
+    const metadataError = metadataListError(languages) ?? metadataListError(levels);
+    if (metadataError) {
+      setFormError(metadataError);
+      return;
+    }
     setSubmitting(true);
     setFormError(null);
     const base = {
@@ -502,6 +523,8 @@ export function SessionEditorDialog({
       endsAt: localInputToWibRfc3339(endsAt),
       isServiceSession: form.isServiceSession,
       isActive: form.isActive,
+      languages,
+      levels,
     };
     try {
       if (item) {
@@ -629,6 +652,54 @@ export function SessionEditorDialog({
                       </div>
                       <p className="text-xs text-muted-foreground">Added to the event's formats right away.</p>
                       {formatError && <Notice tone="error">{formatError}</Notice>}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border">
+                  <button
+                    type="button"
+                    aria-expanded={metaOpen}
+                    aria-controls="sess-metadata"
+                    onClick={() => setMetaOpen((v) => !v)}
+                    className="flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronDown
+                      className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150", metaOpen && "rotate-180")}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      Metadata
+                      <span className="sr-only"> — language and level</span>
+                    </span>
+                    <span className="max-w-[55%] shrink-0 truncate text-xs text-muted-foreground" title={metaSummary}>
+                      {metaSummary || "Optional"}
+                    </span>
+                  </button>
+                  {metaOpen && (
+                    <div id="sess-metadata" className="grid grid-cols-1 gap-3 border-t border-border px-3 pb-3 pt-3 sm:grid-cols-2 [&>*]:min-w-0">
+                      <div className="space-y-1">
+                        <Label htmlFor="sess-languages">Language</Label>
+                        <Input
+                          id="sess-languages"
+                          value={form.languages}
+                          onChange={(e) => patch({ languages: e.target.value })}
+                          placeholder="e.g. English, Bahasa Indonesia"
+                          autoComplete="off"
+                        />
+                        <p className="text-xs text-muted-foreground">Optional — comma-separated.</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="sess-levels">Level</Label>
+                        <Input
+                          id="sess-levels"
+                          value={form.levels}
+                          onChange={(e) => patch({ levels: e.target.value })}
+                          placeholder="e.g. Beginner, Intermediate"
+                          autoComplete="off"
+                        />
+                        <p className="text-xs text-muted-foreground">Optional — comma-separated.</p>
+                      </div>
                     </div>
                   )}
                 </div>

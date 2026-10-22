@@ -47,6 +47,8 @@ interface DisplayScheduleSession {
   sessionType?: string | null;
   isServiceSession: boolean;
   speakers: ScheduleSpeaker[];
+  languages: string[];
+  levels: string[];
 }
 
 function formatTime(startsAt?: string | null, endsAt?: string | null): string {
@@ -148,6 +150,9 @@ export function ComDaySchedule({
             sessionType: item.sessionType,
             isServiceSession: item.isServiceSession,
             speakers: normalizeScheduleSpeakers(item),
+            // ?? [] guards the parallel backend rollout window; API defaults both to [].
+            languages: item.languages ?? [],
+            levels: item.levels ?? [],
           }));
           setSessions(mapped);
           setLoading(false);
@@ -215,7 +220,8 @@ export function ComDaySchedule({
             (sp.company || "").toLowerCase().includes(q)
         );
         const inRoom = (sess.room || "").toLowerCase().includes(q);
-        if (!inTitle && !inDesc && !inSpeaker && !inRoom) {
+        const inMeta = [...sess.languages, ...sess.levels].some((v) => v.toLowerCase().includes(q));
+        if (!inTitle && !inDesc && !inSpeaker && !inRoom && !inMeta) {
           return false;
         }
       }
@@ -355,6 +361,24 @@ export function ComDaySchedule({
                         {session.sessionType || "Technical Session"}
                       </Badge>
                     </div>
+
+                    {/* Languages & levels — quiet pills, only when set */}
+                    {(session.languages.length > 0 || session.levels.length > 0) && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {session.languages.map((lang) => (
+                          <Badge key={`lang-${lang}`} variant="secondary" className="text-[10px] bg-secondary/80">
+                            <span className="sr-only">Language: </span>
+                            {lang}
+                          </Badge>
+                        ))}
+                        {session.levels.map((level) => (
+                          <Badge key={`level-${level}`} variant="secondary" className="text-[10px] bg-secondary/80">
+                            <span className="sr-only">Level: </span>
+                            {level}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Center Column: Session Title, Abstract & Details */}

@@ -7,7 +7,6 @@ import {
   Clock,
   MapPin,
   Search,
-  Sparkles,
   Star,
   Download,
   ExternalLink,
@@ -22,19 +21,12 @@ import {
   Trash2,
   Globe,
   Gauge,
-  ArrowRight,
+  Check,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { fetchPublicSchedule } from "@/lib/api";
 import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
@@ -68,20 +60,20 @@ export function ComDaySchedule({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // View Mode: 'grid' (Matrix) | 'timeline' (List rail) | 'my-schedule' (Bookmarked itinerary)
-  const [viewMode, setViewMode] = useState<"grid" | "timeline" | "my-schedule">("grid");
+  // Exactly 2 View Modes: 'grid' (Calendar Matrix) vs 'list' (Detailed Timeline)
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // Filters & Search
+  // Filter States
   const [selectedRoom, setSelectedRoom] = useState("ALL");
   const [selectedFormat, setSelectedFormat] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [onlySaved, setOnlySaved] = useState(false);
+
+  // Inline Expandable Details: Map of sessionId -> boolean (No modal dialog!)
+  const [expandedSessionIds, setExpandedSessionIds] = useState<Record<string, boolean>>({});
 
   // Bookmarks (Saved Sessions)
   const [savedSessionIds, setSavedSessionIds] = useState<string[]>([]);
-
-  // Selected session for Detail Modal Dialog
-  const [selectedSession, setSelectedSession] = useState<DisplayScheduleSession | null>(null);
 
   // Load bookmarks safely from localStorage on client mount
   useEffect(() => {
@@ -116,9 +108,19 @@ export function ComDaySchedule({
     });
   }, []);
 
+  // Toggle inline detail expansion
+  const toggleExpand = useCallback((sessionId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setExpandedSessionIds((prev) => ({
+      ...prev,
+      [sessionId]: !prev[sessionId],
+    }));
+  }, []);
+
   // Clear all bookmarks
   const clearAllBookmarks = useCallback(() => {
     setSavedSessionIds([]);
+    setOnlySaved(false);
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem(STORAGE_KEY);
@@ -173,7 +175,7 @@ export function ComDaySchedule({
     };
   }, [eventSlug]);
 
-  // Extract distinct stages/rooms (multi-room sessions contribute each room)
+  // Extract distinct stages/rooms
   const availableRooms = useMemo(() => {
     const s = new Set<string>();
     sessions.forEach((item) => {
@@ -199,15 +201,15 @@ export function ComDaySchedule({
     return Array.from(set).sort();
   }, [sessions]);
 
-  // Filtered Sessions according to active view, stage, format, and search
+  // Filtered Sessions according to active stage, format, search, and bookmarks
   const filteredSessions = useMemo(() => {
     return sessions.filter((sess) => {
-      // My Schedule view filter
-      if (viewMode === "my-schedule") {
-        if (!savedSessionIds.includes(sess.id)) return false;
+      // Saved filter
+      if (onlySaved && !savedSessionIds.includes(sess.id)) {
+        return false;
       }
 
-      // Room filter — all-rooms sessions appear under every stage
+      // Room filter
       if (selectedRoom !== "ALL") {
         const target = selectedRoom.toLowerCase();
         const inRooms =
@@ -241,46 +243,42 @@ export function ComDaySchedule({
 
       return true;
     });
-  }, [sessions, viewMode, savedSessionIds, selectedRoom, selectedFormat, searchQuery]);
+  }, [sessions, onlySaved, savedSessionIds, selectedRoom, selectedFormat, searchQuery]);
 
   // Group filtered sessions into chronological time slots for Matrix view
   const timeSlots = useMemo(() => {
     return groupSessionsIntoTimeSlots(filteredSessions);
   }, [filteredSessions]);
 
-  // Saved sessions list for export
+  // Saved sessions for bulk export
   const savedSessions = useMemo(() => {
     return sessions.filter((s) => savedSessionIds.includes(s.id));
   }, [sessions, savedSessionIds]);
 
-  // Total saved duration in minutes
-  const totalSavedDurationMinutes = useMemo(() => {
-    return savedSessions.reduce((acc, s) => {
-      const dur = getDurationMinutes(s.startsAt, s.endsAt);
-      return acc + (dur || 0);
-    }, 0);
-  }, [savedSessions]);
-
   const hasActiveFilters =
-    selectedRoom !== "ALL" || selectedFormat !== "ALL" || searchQuery.trim().length > 0;
+    selectedRoom !== "ALL" ||
+    selectedFormat !== "ALL" ||
+    searchQuery.trim().length > 0 ||
+    onlySaved;
 
   const resetFilters = useCallback(() => {
     setSelectedRoom("ALL");
     setSelectedFormat("ALL");
     setSearchQuery("");
+    setOnlySaved(false);
   }, []);
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* MINIMALIST HEADER & CONTROLS TOOLBAR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-2 rounded-2xl bg-card/60 backdrop-blur-md border border-border/60 text-xs">
-        {/* Left: View Mode Toggle */}
+    <div className={cn("space-y-5", className)}>
+      {/* 2-MODE SELECTOR & COMPACT CONTROLS BAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-2.5 rounded-2xl bg-card/60 backdrop-blur-md border border-border/60 text-xs">
+        {/* Left: 2 View Modes (Grid vs Detailed List) */}
         <div className="flex items-center gap-1 p-0.5 rounded-xl bg-muted/40 border border-border/40 shrink-0">
           <button
             type="button"
             onClick={() => setViewMode("grid")}
             className={cn(
-              "px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer",
+              "px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer",
               viewMode === "grid"
                 ? "bg-background text-foreground shadow-xs font-semibold"
                 : "text-muted-foreground hover:text-foreground"
@@ -293,90 +291,94 @@ export function ComDaySchedule({
 
           <button
             type="button"
-            onClick={() => setViewMode("timeline")}
+            onClick={() => setViewMode("list")}
             className={cn(
-              "px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer",
-              viewMode === "timeline"
+              "px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer",
+              viewMode === "list"
                 ? "bg-background text-foreground shadow-xs font-semibold"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            aria-pressed={viewMode === "timeline"}
+            aria-pressed={viewMode === "list"}
           >
             <ListFilter className="h-3.5 w-3.5" />
-            <span>Timeline</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode("my-schedule")}
-            className={cn(
-              "px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer relative",
-              viewMode === "my-schedule"
-                ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            aria-pressed={viewMode === "my-schedule"}
-          >
-            <Star
-              className={cn(
-                "h-3.5 w-3.5",
-                savedSessionIds.length > 0 ? "text-amber-400 fill-amber-400" : ""
-              )}
-            />
-            <span>Saved</span>
-            {savedSessionIds.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                {savedSessionIds.length}
-              </span>
-            )}
+            <span>List</span>
           </button>
         </div>
 
-        {/* Center: Stage Pills (Quick Track Selector) */}
-        {viewMode !== "my-schedule" && availableRooms.length > 0 && (
-          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0 scrollbar-none">
+        {/* Center: Track Filter Pills & Saved Shortcut */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:pb-0 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedRoom("ALL");
+              setOnlySaved(false);
+            }}
+            className={cn(
+              "px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer",
+              selectedRoom === "ALL" && !onlySaved
+                ? "bg-primary text-primary-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            )}
+          >
+            All Tracks
+          </button>
+
+          {availableRooms.map((room) => (
             <button
+              key={room}
               type="button"
-              onClick={() => setSelectedRoom("ALL")}
+              onClick={() => {
+                setSelectedRoom(room);
+                setOnlySaved(false);
+              }}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer",
-                selectedRoom === "ALL"
+                "px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer",
+                selectedRoom === room && !onlySaved
                   ? "bg-primary text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
             >
-              All Tracks
-            </button>
-            {availableRooms.map((room) => (
-              <button
-                key={room}
-                type="button"
-                onClick={() => setSelectedRoom(room)}
+              <span
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer",
-                  selectedRoom === room
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  "h-1.5 w-1.5 rounded-full shrink-0",
+                  room.toLowerCase().includes("800") ? "bg-purple-400" : "bg-orange-400"
                 )}
-              >
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full shrink-0",
-                    room.toLowerCase().includes("800") ? "bg-purple-400" : "bg-orange-400"
-                  )}
-                />
-                <span>{room}</span>
-              </button>
-            ))}
-          </div>
-        )}
+              />
+              <span>{room}</span>
+            </button>
+          ))}
 
-        {/* Right: Search Input & Export Button */}
+          {/* Saved / Starred Shortcut Pill */}
+          <button
+            type="button"
+            onClick={() => setOnlySaved((prev) => !prev)}
+            className={cn(
+              "px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer border",
+              onlySaved
+                ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold"
+                : "text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/50"
+            )}
+            title="Filter to bookmarked talks"
+          >
+            <Star
+              className={cn(
+                "h-3 w-3",
+                savedSessionIds.length > 0 || onlySaved ? "fill-amber-400 text-amber-400" : ""
+              )}
+            />
+            <span>Saved</span>
+            {savedSessionIds.length > 0 && (
+              <span className="text-[10px] font-bold opacity-80">({savedSessionIds.length})</span>
+            )}
+          </button>
+        </div>
+
+        {/* Right: Search & Export */}
         <div className="flex items-center gap-2">
-          <div className="relative w-full md:w-48">
+          <div className="relative w-full md:w-44">
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search talks, speakers..."
+              placeholder="Search talks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-7 pr-6 h-7.5 text-xs bg-background/60 border-border/60 focus:border-orange-500/50"
@@ -392,37 +394,31 @@ export function ComDaySchedule({
             )}
           </div>
 
-          {viewMode === "my-schedule" && savedSessions.length > 0 ? (
-            <Button
-              size="sm"
-              onClick={() =>
-                downloadIcsFile(savedSessions, "AWS-Community-Day-2026-My-Schedule.ics")
-              }
-              className="h-7.5 px-2.5 text-xs font-medium bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
-            >
-              <Download className="h-3 w-3" />
-              <span>Export .ICS</span>
-            </Button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => downloadIcsFile(sessions, "AWS-Community-Day-2026-Agenda.ics")}
-              className="h-7.5 px-2 rounded-lg border border-border/60 bg-background/40 hover:bg-background text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 shrink-0"
-              title="Download entire agenda (.ics)"
-            >
-              <CalendarPlus className="h-3.5 w-3.5 text-orange-400" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() =>
+              downloadIcsFile(
+                onlySaved && savedSessions.length > 0 ? savedSessions : sessions,
+                onlySaved
+                  ? "AWS-Community-Day-2026-My-Schedule.ics"
+                  : "AWS-Community-Day-2026-Agenda.ics"
+              )
+            }
+            className="h-7.5 px-2.5 rounded-lg border border-border/60 bg-background/40 hover:bg-background text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+            title="Export schedule to calendar (.ics)"
+          >
+            <Download className="h-3.5 w-3.5 text-orange-400" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
         </div>
       </div>
 
-      {/* FILTER ACTIVE SUMMARY (Discreet & Minimalist) */}
-      {hasActiveFilters && viewMode !== "my-schedule" && (
+      {/* FILTER ACTIVE STATUS */}
+      {hasActiveFilters && (
         <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
           <span>
-            Filtered: <strong className="text-foreground">{filteredSessions.length}</strong> of{" "}
-            {sessions.length} sessions
+            Showing <strong className="text-foreground">{filteredSessions.length}</strong> of{" "}
+            {sessions.length} talks {onlySaved && "• Filtered by saved"}
           </span>
           <button
             type="button"
@@ -445,64 +441,30 @@ export function ComDaySchedule({
           <AlertCircle className="h-5 w-5 mx-auto" />
           <p className="text-xs font-medium">{error}</p>
         </div>
-      ) : viewMode === "my-schedule" && savedSessionIds.length === 0 ? (
-        /* Empty State for Saved Itinerary */
-        <div className="p-12 text-center border border-dashed border-border/60 bg-card/20 rounded-2xl space-y-3">
-          <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
-            <Star className="h-5 w-5" />
-          </div>
-          <div className="space-y-1 max-w-sm mx-auto">
-            <h4 className="text-sm font-semibold text-foreground">No bookmarked sessions</h4>
-            <p className="text-xs text-muted-foreground">
-              Click the star icon on any talk to save it here and build your personal schedule.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => setViewMode("grid")}
-            className="h-8 px-3 text-xs bg-primary text-primary-foreground cursor-pointer"
-          >
-            Browse Schedule
-          </Button>
-        </div>
       ) : filteredSessions.length === 0 ? (
         <div className="p-12 text-center border border-dashed border-border/60 bg-card/20 rounded-2xl space-y-2">
           <Calendar className="h-6 w-6 text-muted-foreground mx-auto" />
-          <h4 className="text-sm font-semibold text-foreground">No talks found</h4>
-          <p className="text-xs text-muted-foreground">Try clearing your search query or filters.</p>
+          <h4 className="text-sm font-semibold text-foreground">No sessions found</h4>
+          <p className="text-xs text-muted-foreground">
+            {onlySaved
+              ? "You haven't bookmarked any sessions yet. Click the star icon on any talk to save it."
+              : "Try adjusting your search query or filters."}
+          </p>
           {hasActiveFilters && (
             <button
               type="button"
               onClick={resetFilters}
               className="text-xs text-orange-400 hover:underline cursor-pointer"
             >
-              Reset filters
+              Reset all filters
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Banner for My Schedule View */}
-          {viewMode === "my-schedule" && (
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/20 border border-border/60 text-xs">
-              <span className="text-muted-foreground">
-                <strong className="text-foreground">{savedSessions.length}</strong> sessions
-                bookmarked
-                {totalSavedDurationMinutes > 0 &&
-                  ` (~${formatDuration(totalSavedDurationMinutes)})`}
-              </span>
-              <button
-                type="button"
-                onClick={clearAllBookmarks}
-                className="text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>Clear All</span>
-              </button>
-            </div>
-          )}
-
-          {/* VIEW 1: MINIMALIST CALENDAR GRID MATRIX */}
+        <div className="space-y-5">
+          {/* ============================================================ */}
+          {/* MODE 1: CALENDAR GRID (Matrix with In-Place Detail Expansion) */}
+          {/* ============================================================ */}
           {viewMode === "grid" && (
             <div className="space-y-4">
               {/* Optional Room Track Headers on desktop */}
@@ -543,96 +505,132 @@ export function ComDaySchedule({
 
                     {/* Cards: Plenary Banner vs Parallel Breakout Columns */}
                     {isPlenarySlot || isSingleSession ? (
-                      /* Plenary / Hero Banner Strip (Compact & Minimalist) */
+                      /* Plenary / Hero Banner Strip */
                       <div className="space-y-2">
                         {slot.sessions.map((session) => {
                           const isBookmarked = savedSessionIds.includes(session.id);
+                          const isExpanded = expandedSessionIds[session.id] || false;
 
                           return (
                             <div
                               key={session.id}
-                              onClick={() => setSelectedSession(session)}
                               className={cn(
-                                "group flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all cursor-pointer shadow-2xs",
+                                "group rounded-xl border transition-all shadow-2xs overflow-hidden",
                                 session.isServiceSession
-                                  ? "bg-card/40 border-border/60 hover:bg-card/70 hover:border-emerald-500/30"
-                                  : "bg-card/50 border-border/60 hover:bg-card/80 hover:border-orange-500/40"
+                                  ? "bg-card/40 border-border/60 hover:border-emerald-500/30"
+                                  : "bg-card/50 border-border/60 hover:border-orange-500/40",
+                                isExpanded && "border-orange-500/50 bg-card/80 shadow-md"
                               )}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <span
-                                  className={cn(
-                                    "px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider shrink-0 border",
-                                    session.isServiceSession
-                                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                                      : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                                  )}
-                                >
-                                  {session.sessionType ||
-                                    (session.isServiceSession ? "Rundown" : "Keynote")}
-                                </span>
-
-                                <h4 className="text-sm font-semibold text-foreground group-hover:text-orange-400 transition-colors truncate">
-                                  {session.title}
-                                </h4>
-                              </div>
-
-                              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                                {session.speakers.length > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <Avatar className="h-5 w-5 rounded-full border border-orange-500/30">
-                                      <AvatarImage src={session.speakers[0].avatar || undefined} />
-                                      <AvatarFallback className="text-[9px] bg-primary/20 text-primary">
-                                        {session.speakers[0].name.slice(0, 2).toUpperCase()}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-xs text-muted-foreground truncate max-w-[130px]">
-                                      {session.speakers.map((s) => s.name).join(", ")}
-                                    </span>
-                                  </div>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={(e) => toggleBookmark(session.id, e)}
-                                  aria-label={
-                                    isBookmarked ? "Remove bookmark" : "Bookmark session"
-                                  }
-                                  className={cn(
-                                    "h-7 w-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer",
-                                    isBookmarked
-                                      ? "text-amber-400 bg-amber-500/10"
-                                      : "text-muted-foreground/50 hover:text-foreground hover:bg-muted"
-                                  )}
-                                >
-                                  <Star
+                              {/* Clickable Header Row */}
+                              <div
+                                onClick={() => toggleExpand(session.id)}
+                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span
                                     className={cn(
-                                      "h-3.5 w-3.5",
-                                      isBookmarked ? "fill-amber-400 text-amber-400" : ""
+                                      "px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider shrink-0 border",
+                                      session.isServiceSession
+                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                        : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                                     )}
-                                  />
-                                </button>
+                                  >
+                                    {session.sessionType ||
+                                      (session.isServiceSession ? "Rundown" : "Keynote")}
+                                  </span>
+
+                                  <h4 className="text-sm font-semibold text-foreground group-hover:text-orange-400 transition-colors truncate">
+                                    {session.title}
+                                  </h4>
+                                </div>
+
+                                <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                                  {session.speakers.length > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <Avatar className="h-5 w-5 rounded-full border border-orange-500/30">
+                                        <AvatarImage
+                                          src={session.speakers[0].avatar || undefined}
+                                        />
+                                        <AvatarFallback className="text-[9px] bg-primary/20 text-primary">
+                                          {session.speakers[0].name.slice(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span className="text-xs text-muted-foreground truncate max-w-[130px]">
+                                        {session.speakers.map((s) => s.name).join(", ")}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => toggleBookmark(session.id, e)}
+                                    aria-label={
+                                      isBookmarked ? "Remove bookmark" : "Bookmark session"
+                                    }
+                                    className={cn(
+                                      "h-7 w-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer",
+                                      isBookmarked
+                                        ? "text-amber-400 bg-amber-500/10"
+                                        : "text-muted-foreground/50 hover:text-foreground hover:bg-muted"
+                                    )}
+                                  >
+                                    <Star
+                                      className={cn(
+                                        "h-3.5 w-3.5",
+                                        isBookmarked ? "fill-amber-400 text-amber-400" : ""
+                                      )}
+                                    />
+                                  </button>
+
+                                  <div className="text-muted-foreground group-hover:text-foreground transition-transform">
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4" />
+                                    )}
+                                  </div>
+                                </div>
                               </div>
+
+                              {/* INLINE EXPANDED DETAIL VIEW (No Modal!) */}
+                              {isExpanded && (
+                                <SessionDetailInline
+                                  session={session}
+                                  isBookmarked={isBookmarked}
+                                  onToggleBookmark={(e) => toggleBookmark(session.id, e)}
+                                  onCollapse={() => toggleExpand(session.id)}
+                                />
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      /* Parallel Breakout Tracks (Sleek Compact Cards Side-by-Side) */
+                      /* Parallel Breakout Tracks */
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {slot.sessions.map((session) => {
                           const isBookmarked = savedSessionIds.includes(session.id);
+                          const isExpanded = expandedSessionIds[session.id] || false;
                           const durationMin = getDurationMinutes(session.startsAt, session.endsAt);
 
                           return (
                             <div
                               key={session.id}
-                              onClick={() => setSelectedSession(session)}
-                              className="group flex flex-col justify-between p-3.5 rounded-xl border border-border/60 bg-card/40 hover:bg-card/80 hover:border-orange-500/40 transition-all cursor-pointer shadow-2xs min-h-[105px]"
+                              className={cn(
+                                "group rounded-xl border border-border/60 bg-card/40 transition-all shadow-2xs overflow-hidden flex flex-col justify-between",
+                                isExpanded
+                                  ? "border-orange-500/50 bg-card/80 shadow-md col-span-1 md:col-span-2"
+                                  : "hover:bg-card/80 hover:border-orange-500/40"
+                              )}
                             >
-                              <div>
-                                {/* Card Top Row: Room & Bookmark */}
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                              {/* Clickable Card Header */}
+                              <div
+                                onClick={() => toggleExpand(session.id)}
+                                className="p-3.5 cursor-pointer space-y-2"
+                              >
+                                {/* Top Meta Row */}
+                                <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span
                                       className={cn(
@@ -659,60 +657,84 @@ export function ComDaySchedule({
                                     ))}
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={(e) => toggleBookmark(session.id, e)}
-                                    aria-label={
-                                      isBookmarked ? "Remove bookmark" : "Bookmark session"
-                                    }
-                                    className={cn(
-                                      "h-6 w-6 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0",
-                                      isBookmarked
-                                        ? "text-amber-400 bg-amber-500/10"
-                                        : "text-muted-foreground/50 hover:text-foreground hover:bg-muted"
-                                    )}
-                                  >
-                                    <Star
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => toggleBookmark(session.id, e)}
+                                      aria-label={
+                                        isBookmarked ? "Remove bookmark" : "Bookmark session"
+                                      }
                                       className={cn(
-                                        "h-3.5 w-3.5",
-                                        isBookmarked ? "fill-amber-400 text-amber-400" : ""
+                                        "h-6 w-6 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0",
+                                        isBookmarked
+                                          ? "text-amber-400 bg-amber-500/10"
+                                          : "text-muted-foreground/50 hover:text-foreground hover:bg-muted"
                                       )}
-                                    />
-                                  </button>
+                                    >
+                                      <Star
+                                        className={cn(
+                                          "h-3.5 w-3.5",
+                                          isBookmarked ? "fill-amber-400 text-amber-400" : ""
+                                        )}
+                                      />
+                                    </button>
+
+                                    <div className="text-muted-foreground group-hover:text-foreground">
+                                      {isExpanded ? (
+                                        <ChevronUp className="h-4 w-4" />
+                                      ) : (
+                                        <ChevronDown className="h-4 w-4" />
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
 
                                 {/* Title */}
-                                <h4 className="text-sm font-semibold text-foreground group-hover:text-orange-400 transition-colors leading-snug line-clamp-2">
+                                <h4 className="text-sm font-semibold text-foreground group-hover:text-orange-400 transition-colors leading-snug">
                                   {session.title}
                                 </h4>
-                              </div>
 
-                              {/* Card Bottom Row: Speaker & Duration */}
-                              <div className="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-border/40 text-xs">
-                                {session.speakers.length > 0 ? (
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <Avatar className="h-5 w-5 rounded-full border border-orange-500/30 shrink-0">
-                                      <AvatarImage src={session.speakers[0].avatar || undefined} />
-                                      <AvatarFallback className="text-[8px] bg-primary/20 text-primary font-bold">
-                                        {session.speakers[0].name.slice(0, 2).toUpperCase()}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-xs text-muted-foreground truncate">
-                                      {session.speakers[0].name}
-                                    </span>
+                                {/* Speaker & Duration (Collapsed state) */}
+                                {!isExpanded && (
+                                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border/40 text-xs">
+                                    {session.speakers.length > 0 ? (
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <Avatar className="h-5 w-5 rounded-full border border-orange-500/30 shrink-0">
+                                          <AvatarImage
+                                            src={session.speakers[0].avatar || undefined}
+                                          />
+                                          <AvatarFallback className="text-[8px] bg-primary/20 text-primary font-bold">
+                                            {session.speakers[0].name.slice(0, 2).toUpperCase()}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-xs text-muted-foreground truncate">
+                                          {session.speakers[0].name}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] text-muted-foreground/60">
+                                        Community Day
+                                      </span>
+                                    )}
+
+                                    {durationMin && (
+                                      <span className="text-[11px] text-muted-foreground/70 shrink-0">
+                                        {formatDuration(durationMin)}
+                                      </span>
+                                    )}
                                   </div>
-                                ) : (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    Community Day
-                                  </span>
-                                )}
-
-                                {durationMin && (
-                                  <span className="text-[11px] text-muted-foreground/70 shrink-0">
-                                    {formatDuration(durationMin)}
-                                  </span>
                                 )}
                               </div>
+
+                              {/* INLINE EXPANDED DETAIL VIEW (No Modal!) */}
+                              {isExpanded && (
+                                <SessionDetailInline
+                                  session={session}
+                                  isBookmarked={isBookmarked}
+                                  onToggleBookmark={(e) => toggleBookmark(session.id, e)}
+                                  onCollapse={() => toggleExpand(session.id)}
+                                />
+                              )}
                             </div>
                           );
                         })}
@@ -724,17 +746,19 @@ export function ComDaySchedule({
             </div>
           )}
 
-          {/* VIEW 2: MINIMALIST TIMELINE LIST (Also used for My Schedule) */}
-          {(viewMode === "timeline" || viewMode === "my-schedule") && (
+          {/* ============================================================ */}
+          {/* MODE 2: DETAILED LIST VIEW (Timeline Rail with Rich Details) */}
+          {/* ============================================================ */}
+          {viewMode === "list" && (
             <div className="space-y-3 relative before:absolute before:inset-0 before:left-3 before:w-px before:bg-border/60">
               {filteredSessions.map((session) => {
-                const isExpanded = expandedIds[session.id] || false;
                 const isBookmarked = savedSessionIds.includes(session.id);
+                const isExpanded = expandedSessionIds[session.id] || false;
                 const durationMin = getDurationMinutes(session.startsAt, session.endsAt);
 
                 return (
                   <div key={session.id} className="relative pl-7">
-                    {/* Minimalist Timeline Dot */}
+                    {/* Timeline Rail Dot */}
                     <div
                       className={cn(
                         "absolute left-3 top-5 -translate-x-1/2 w-2 h-2 rounded-full",
@@ -746,8 +770,19 @@ export function ComDaySchedule({
                       )}
                     />
 
-                    <div className="p-4 rounded-xl border border-border/60 bg-card/40 hover:bg-card/70 hover:border-orange-500/40 transition-all group">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div
+                      className={cn(
+                        "rounded-xl border border-border/60 bg-card/40 transition-all overflow-hidden",
+                        isExpanded
+                          ? "border-orange-500/50 bg-card/80 shadow-md"
+                          : "hover:bg-card/70 hover:border-orange-500/40"
+                      )}
+                    >
+                      {/* Clickable Header Row */}
+                      <div
+                        onClick={() => toggleExpand(session.id)}
+                        className="p-4 cursor-pointer flex flex-col sm:flex-row sm:items-start justify-between gap-3"
+                      >
                         <div className="space-y-1.5 flex-1 min-w-0">
                           {/* Top Meta Line */}
                           <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -780,38 +815,12 @@ export function ComDaySchedule({
                           </div>
 
                           {/* Title */}
-                          <h4
-                            onClick={() => setSelectedSession(session)}
-                            className="text-base font-semibold text-foreground group-hover:text-orange-400 transition-colors cursor-pointer"
-                          >
+                          <h4 className="text-base font-semibold text-foreground group-hover:text-orange-400 transition-colors">
                             {session.title}
                           </h4>
 
-                          {/* Minimalist Abstract Excerpt */}
-                          {session.description && (
-                            <div className="text-xs text-muted-foreground leading-relaxed pt-0.5">
-                              <p className={isExpanded ? "" : "line-clamp-2"}>
-                                {session.description}
-                              </p>
-                              {session.description.length > 140 && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExpandedIds((prev) => ({
-                                      ...prev,
-                                      [session.id]: !isExpanded,
-                                    }))
-                                  }
-                                  className="text-orange-400 hover:text-orange-300 font-medium mt-1 cursor-pointer"
-                                >
-                                  {isExpanded ? "Show less" : "Read more"}
-                                </button>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Speaker Row in Timeline */}
-                          {session.speakers.length > 0 && (
+                          {/* Speaker Line (Collapsed) */}
+                          {!isExpanded && session.speakers.length > 0 && (
                             <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
                               <Avatar className="h-5 w-5 rounded-full border border-orange-500/30">
                                 <AvatarImage src={session.speakers[0].avatar || undefined} />
@@ -832,7 +841,7 @@ export function ComDaySchedule({
                           )}
                         </div>
 
-                        {/* Action buttons on right */}
+                        {/* Right Actions */}
                         <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start">
                           <button
                             type="button"
@@ -853,17 +862,25 @@ export function ComDaySchedule({
                             />
                           </button>
 
-                          <a
-                            href={generateGoogleCalendarUrl(session)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/60 border border-border/40 hover:text-orange-400 hover:bg-muted transition-colors cursor-pointer"
-                            title="Add to Google Calendar"
-                          >
-                            <CalendarPlus className="h-3.5 w-3.5" />
-                          </a>
+                          <div className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors">
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </div>
                         </div>
                       </div>
+
+                      {/* INLINE EXPANDED DETAIL VIEW (No Modal!) */}
+                      {isExpanded && (
+                        <SessionDetailInline
+                          session={session}
+                          isBookmarked={isBookmarked}
+                          onToggleBookmark={(e) => toggleBookmark(session.id, e)}
+                          onCollapse={() => toggleExpand(session.id)}
+                        />
+                      )}
                     </div>
                   </div>
                 );
@@ -872,224 +889,206 @@ export function ComDaySchedule({
           )}
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* RICH SESSION DETAIL MODAL (Opens cleanly on card click) */}
-      <Dialog
-        open={Boolean(selectedSession)}
-        onOpenChange={(open) => !open && setSelectedSession(null)}
-      >
-        {selectedSession && (
-          <DialogContent className="max-w-xl bg-card border-border/80 shadow-xl rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="space-y-2.5 text-left">
-              {/* Badges */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge
-                  className={cn(
-                    "text-[10px] font-semibold border shadow-2xs",
-                    getFormatBadgeClass(selectedSession.sessionType)
-                  )}
-                >
-                  {selectedSession.sessionType ||
-                    (selectedSession.isServiceSession ? "Rundown" : "Technical Session")}
-                </Badge>
+// =========================================================================
+// INLINE DETAIL COMPONENT (Replaces the popup modal with in-place expansion)
+// =========================================================================
+interface SessionDetailInlineProps {
+  session: DisplayScheduleSession;
+  isBookmarked: boolean;
+  onToggleBookmark: (e: React.MouseEvent) => void;
+  onCollapse: () => void;
+}
 
-                {roomLabelOf(selectedSession) && (
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs",
-                      getRoomBadgeClass(roomLabelOf(selectedSession))
-                    )}
-                  >
-                    <MapPin className="h-3 w-3" />
-                    {roomLabelOf(selectedSession)}
-                  </span>
-                )}
+function SessionDetailInline({
+  session,
+  isBookmarked,
+  onToggleBookmark,
+  onCollapse,
+}: SessionDetailInlineProps) {
+  const durationMin = getDurationMinutes(session.startsAt, session.endsAt);
 
-                {getDurationMinutes(selectedSession.startsAt, selectedSession.endsAt) && (
-                  <span className="text-[11px] text-muted-foreground font-medium px-2 py-0.5 rounded-md bg-muted/40">
-                    {formatDuration(
-                      getDurationMinutes(selectedSession.startsAt, selectedSession.endsAt)
-                    )}
-                  </span>
-                )}
+  return (
+    <div className="p-4 pt-2 border-t border-border/50 bg-background/50 space-y-4 text-xs animate-in fade-in-50 duration-200">
+      {/* Date, Time & Venue Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/40 text-[11px]">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-foreground font-medium">
+            <Calendar className="h-3.5 w-3.5 text-orange-400" />
+            <span>{formatDateLabel(session.startsAt)}</span>
+          </div>
 
-                {selectedSession.languages.map((lang) => (
-                  <span
-                    key={lang}
-                    className="text-[10px] px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground border border-border/50 font-medium"
-                  >
-                    {lang}
-                  </span>
-                ))}
+          <div className="flex items-center gap-1.5 text-muted-foreground font-mono">
+            <Clock className="h-3.5 w-3.5 text-orange-400" />
+            <span>{formatTime(session.startsAt, session.endsAt)} (Asia/Jakarta)</span>
+          </div>
 
-                {selectedSession.levels.map((lvl) => (
-                  <span
-                    key={lvl}
-                    className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium"
-                  >
-                    {lvl}
-                  </span>
-                ))}
-              </div>
+          {durationMin && (
+            <span className="text-muted-foreground/70">• {formatDuration(durationMin)}</span>
+          )}
+        </div>
 
-              {/* Title */}
-              <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-snug">
-                {selectedSession.title}
-              </DialogTitle>
-
-              <DialogDescription className="sr-only">
-                Details for {selectedSession.title}
-              </DialogDescription>
-            </DialogHeader>
-
-            {/* Time & Venue Banner */}
-            <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5 text-foreground font-medium">
-                  <Calendar className="h-3.5 w-3.5 text-orange-400" />
-                  <span>{formatDateLabel(selectedSession.startsAt)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5 text-orange-400" />
-                  <span>
-                    {formatTime(selectedSession.startsAt, selectedSession.endsAt)} (Asia/Jakarta)
-                  </span>
-                </div>
-              </div>
-
-              {roomLabelOf(selectedSession) && (
-                <div className="flex items-center gap-1 text-muted-foreground text-xs sm:self-center">
-                  <MapPin className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-                  <span>{roomLabelOf(selectedSession)}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Description */}
-            {selectedSession.description && (
-              <div className="space-y-1.5">
-                <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Overview
-                </h5>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {selectedSession.description}
-                </p>
-              </div>
-            )}
-
-            {/* Speaker Spotlight */}
-            {selectedSession.speakers.length > 0 && (
-              <div className="space-y-2.5 pt-2 border-t border-border/40">
-                <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Speaker{selectedSession.speakers.length > 1 ? "s" : ""}
-                </h5>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {selectedSession.speakers.map((speaker, idx) => (
-                    <div
-                      key={speaker.id || `${selectedSession.id}-modal-spk-${idx}`}
-                      className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center gap-3"
-                    >
-                      <Avatar className="h-10 w-10 rounded-xl border border-orange-500/30 shrink-0">
-                        <AvatarImage src={speaker.avatar || undefined} />
-                        <AvatarFallback className="rounded-xl bg-primary/20 text-primary font-bold text-xs">
-                          {speaker.name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="min-w-0 flex-1">
-                        <h6 className="text-xs font-bold text-foreground truncate">
-                          {speaker.socialUrl ? (
-                            <a
-                              href={speaker.socialUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:text-primary transition-colors inline-flex items-center gap-1"
-                            >
-                              <span>{speaker.name}</span>
-                              <ExternalLink className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                            </a>
-                          ) : (
-                            speaker.name
-                          )}
-                        </h6>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {speaker.role || "Presenter"}
-                        </p>
-                        {speaker.company && (
-                          <p className="text-[10px] text-muted-foreground/75 truncate flex items-center gap-1 mt-0.5">
-                            <Building className="h-2.5 w-2.5 text-orange-400" />
-                            <span>{speaker.company}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons in Modal */}
-            <div className="pt-3 border-t border-border/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-              <Button
-                type="button"
-                variant={savedSessionIds.includes(selectedSession.id) ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleBookmark(selectedSession.id)}
-                className={cn(
-                  "cursor-pointer text-xs font-medium h-8.5",
-                  savedSessionIds.includes(selectedSession.id)
-                    ? "bg-amber-500 hover:bg-amber-600 text-white"
-                    : ""
-                )}
-              >
-                <Star
-                  className={cn(
-                    "h-3.5 w-3.5 mr-1.5",
-                    savedSessionIds.includes(selectedSession.id) ? "fill-white text-white" : ""
-                  )}
-                />
-                {savedSessionIds.includes(selectedSession.id)
-                  ? "Saved in Itinerary"
-                  : "Save to Itinerary"}
-              </Button>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="h-8.5 text-xs font-medium cursor-pointer flex-1 sm:flex-none"
-                >
-                  <a
-                    href={generateGoogleCalendarUrl(selectedSession)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <CalendarPlus className="h-3 w-3 mr-1 text-orange-400" />
-                    Google Calendar
-                  </a>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    downloadIcsFile(
-                      [selectedSession],
-                      `${selectedSession.title.slice(0, 30).replace(/[^a-zA-Z0-9]/g, "-")}.ics`
-                    )
-                  }
-                  className="h-8.5 text-xs font-medium cursor-pointer flex-1 sm:flex-none"
-                >
-                  <Download className="h-3 w-3 mr-1 text-orange-400" />
-                  .ICS
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
+        {roomLabelOf(session) && (
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+            <span>{roomLabelOf(session)}</span>
+          </div>
         )}
-      </Dialog>
+      </div>
+
+      {/* Abstract / Description */}
+      {session.description && (
+        <div className="space-y-1">
+          <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Overview
+          </h5>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+            {session.description}
+          </p>
+        </div>
+      )}
+
+      {/* Metadata Tags (Language, Level, Format) */}
+      <div className="flex items-center gap-2 flex-wrap pt-1">
+        {session.languages.map((lang) => (
+          <span
+            key={lang}
+            className="text-[10px] px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground border border-border/40 font-medium flex items-center gap-1"
+          >
+            <Globe className="h-2.5 w-2.5 text-orange-400" />
+            <span>{lang}</span>
+          </span>
+        ))}
+
+        {session.levels.map((lvl) => (
+          <span
+            key={lvl}
+            className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium flex items-center gap-1"
+          >
+            <Gauge className="h-2.5 w-2.5 text-purple-400" />
+            <span>{lvl}</span>
+          </span>
+        ))}
+      </div>
+
+      {/* Speaker Spotlight Section */}
+      {session.speakers.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-border/40">
+          <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Speaker{session.speakers.length > 1 ? "s" : ""}
+          </h5>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {session.speakers.map((speaker, idx) => (
+              <div
+                key={speaker.id || `${session.id}-spk-${idx}`}
+                className="p-3 rounded-xl bg-card border border-border/50 flex items-center gap-3"
+              >
+                <Avatar className="h-9 w-9 rounded-xl border border-orange-500/30 shrink-0">
+                  <AvatarImage src={speaker.avatar || undefined} />
+                  <AvatarFallback className="rounded-xl bg-primary/20 text-primary font-bold text-xs">
+                    {speaker.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0 flex-1">
+                  <h6 className="text-xs font-bold text-foreground truncate">
+                    {speaker.socialUrl ? (
+                      <a
+                        href={speaker.socialUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-primary transition-colors inline-flex items-center gap-1"
+                      >
+                        <span>{speaker.name}</span>
+                        <ExternalLink className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                      </a>
+                    ) : (
+                      speaker.name
+                    )}
+                  </h6>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {speaker.role || "Presenter"}
+                  </p>
+                  {speaker.company && (
+                    <p className="text-[10px] text-muted-foreground/75 truncate flex items-center gap-1 mt-0.5">
+                      <Building className="h-2.5 w-2.5 text-orange-400" />
+                      <span>{speaker.company}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action Toolbar inside inline detail */}
+      <div className="pt-2.5 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant={isBookmarked ? "default" : "outline"}
+            size="sm"
+            onClick={onToggleBookmark}
+            className={cn(
+              "cursor-pointer text-xs font-medium h-8",
+              isBookmarked ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
+            )}
+          >
+            <Star
+              className={cn(
+                "h-3.5 w-3.5 mr-1.5",
+                isBookmarked ? "fill-white text-white" : ""
+              )}
+            />
+            {isBookmarked ? "Saved in Itinerary" : "Save Talk"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="h-8 text-xs font-medium cursor-pointer"
+          >
+            <a
+              href={generateGoogleCalendarUrl(session)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <CalendarPlus className="h-3 w-3 mr-1 text-orange-400" />
+              Google Calendar
+            </a>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              downloadIcsFile(
+                [session],
+                `${session.title.slice(0, 30).replace(/[^a-zA-Z0-9]/g, "-")}.ics`
+              )
+            }
+            className="h-8 text-xs font-medium cursor-pointer"
+          >
+            <Download className="h-3 w-3 mr-1 text-orange-400" />
+            .ICS
+          </Button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onCollapse}
+          className="text-xs text-muted-foreground hover:text-foreground font-medium flex items-center gap-1 cursor-pointer ml-auto"
+        >
+          <span>Hide details</span>
+          <ChevronUp className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

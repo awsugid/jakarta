@@ -7,15 +7,22 @@ import {
   buildConflictMap,
   isScheduled,
   itemsConflict,
+  nextDisplayOrder,
+  planDirectoryMove,
   wibDay,
   wibMinutes,
   wibTime,
+  type DirectoryEntry,
 } from "./schedule-helpers";
 
 let passed = 0;
 function ok(name: string, cond: boolean): void {
   if (!cond) throw new Error(`FAIL: ${name}`);
   passed++;
+}
+
+function eq(name: string, actual: unknown, expected: unknown): void {
+  ok(name, JSON.stringify(actual) === JSON.stringify(expected));
 }
 
 function item(partial: Partial<EventScheduleItem>): EventScheduleItem {
@@ -115,4 +122,55 @@ await gate.run(async (current) => { if (current()) revision = 5; });
 slow.resolve();
 await stale;
 ok("older request finishing last cannot overwrite", revision === 5);
+
+// Directory displayOrder moves (rooms / talk formats).
+// Regression: migrated seeds share displayOrder 0 and the backend tie-breaks
+// by name; the old move() swapped displayOrder values, so 0 <-> 0 changed nothing.
+function row(id: string, name: string, displayOrder: number, archived = false): DirectoryEntry {
+  return { id, name, displayOrder, archived, revision: 1 };
+}
+
+const tied = [row("a", "Auditorium", 0), row("b", "Ballroom", 0), row("c", "Classroom", 0)];
+eq("tied orders: move down assigns distinct ranks", planDirectoryMove(tied, "a", 1), [
+  { id: "a", revision: 1, displayOrder: 1 },
+  { id: "c", revision: 1, displayOrder: 2 },
+]);
+eq("tied orders: move up assigns distinct ranks", planDirectoryMove(tied, "c", -1), [
+  { id: "c", revision: 1, displayOrder: 1 },
+  { id: "b", revision: 1, displayOrder: 2 },
+]);
+
+// Tie-break must match the backend list query (displayOrder ASC, name ASC).
+const shuffledTies = [row("b", "Ballroom", 0), row("a", "Auditorium", 0)];
+eq("tie-break by name regardless of input order", planDirectoryMove(shuffledTies, "a", 1), [
+  { id: "a", revision: 1, displayOrder: 1 },
+]);
+
+// Archived rows never participate and never receive updates.
+const mixed = [
+  row("a", "Auditorium", 0),
+  row("x", "Old Room", 3, true),
+  row("b", "Ballroom", 1),
+  row("c", "Classroom", 2),
+];
+eq("archived interleaving: active re-ranked 0..n-1, archived untouched", planDirectoryMove(mixed, "b", -1), [
+  { id: "b", revision: 1, displayOrder: 0 },
+  { id: "a", revision: 1, displayOrder: 1 },
+]);
+
+// Already-unique orders: a move updates exactly the two swapped rows.
+const uniq = [row("a", "Auditorium", 0), row("b", "Ballroom", 1), row("c", "Classroom", 2)];
+eq("unique orders: only the two swapped rows update", planDirectoryMove(uniq, "b", 1), [
+  { id: "c", revision: 1, displayOrder: 1 },
+  { id: "b", revision: 1, displayOrder: 2 },
+]);
+
+// Boundary moves are no-ops.
+eq("move up at top is a no-op", planDirectoryMove(uniq, "a", -1), []);
+eq("move down at bottom is a no-op", planDirectoryMove(uniq, "c", 1), []);
+
+// Adding must not collide with existing orders (old code used list.length).
+const withArchived = [row("a", "Auditorium", 0), row("x", "Old Room", 5, true)];
+ok("new entry gets max+1 across active and archived", nextDisplayOrder(withArchived) === 6);
+
 console.log(`schedule-helpers: ${passed} checks passed`);

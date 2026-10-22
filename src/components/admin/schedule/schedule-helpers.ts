@@ -122,6 +122,51 @@ export function minuteLabel(min: number): string {
   return `${p(h)}:${p(m)}`;
 }
 
+/** Shape shared by ScheduleRoom and ScheduleFormat for directory ordering. */
+export interface DirectoryEntry {
+  id: string;
+  name: string;
+  displayOrder: number;
+  archived: boolean;
+  revision: number;
+}
+
+export interface DisplayOrderUpdate {
+  id: string;
+  revision: number;
+  displayOrder: number;
+}
+
+/** Directory ordering matching the backend list query: displayOrder ASC, then name ASC. */
+function directoryOrder(a: DirectoryEntry, b: DirectoryEntry): number {
+  return a.displayOrder - b.displayOrder || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+}
+
+/**
+ * Plan an up/down move as a full re-rank of the active entries. Swapping raw
+ * displayOrder values is a no-op when ties exist (migrated seeds share 0), so
+ * positions are re-indexed 0..n-1 and only rows whose value changes return.
+ */
+export function planDirectoryMove<T extends DirectoryEntry>(
+  entries: T[],
+  id: string,
+  dir: -1 | 1,
+): DisplayOrderUpdate[] {
+  const active = entries.filter((e) => !e.archived).sort(directoryOrder);
+  const from = active.findIndex((e) => e.id === id);
+  const to = from + dir;
+  if (from < 0 || to < 0 || to >= active.length) return [];
+  [active[from], active[to]] = [active[to], active[from]];
+  return active
+    .map((e, order) => (e.displayOrder === order ? null : { id: e.id, revision: e.revision, displayOrder: order }))
+    .filter((u): u is DisplayOrderUpdate => u !== null);
+}
+
+/** Unique displayOrder for a new entry: max+1 across active and archived. */
+export function nextDisplayOrder(entries: DirectoryEntry[]): number {
+  return entries.reduce((max, e) => Math.max(max, e.displayOrder), -1) + 1;
+}
+
 export function activeRooms(rooms: ScheduleRoom[]): ScheduleRoom[] {
   return rooms
     .filter((r) => !r.archived)

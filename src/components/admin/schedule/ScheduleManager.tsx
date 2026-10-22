@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClock,
+  Maximize2,
+  Minimize2,
   Loader2,
   Plus,
   RefreshCw,
@@ -51,6 +53,8 @@ export function ScheduleManager() {
 
 function ScheduleWorkspace({ eventSlug, onEventChange }: { eventSlug: string; onEventChange: (slug: string) => void }) {
   const [view, setView] = useState("agenda");
+  const [expanded, setExpanded] = useState(false);
+  const expandButton = useRef<HTMLButtonElement>(null);
   const [refreshing, setRefreshing] = useState(false);
   const refreshGate = useRef(createRefreshGate());
   const mutationLock = useRef(false);
@@ -81,6 +85,23 @@ function ScheduleWorkspace({ eventSlug, onEventChange }: { eventSlug: string; on
   const [roomsDirty, setRoomsDirty] = useState(false);
   const [formatsDirty, setFormatsDirty] = useState(false);
   const anyDirty = editorDirty || roomsDirty || formatsDirty;
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const exit = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || editorOpen || explorerOpen || reviewOpen) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
+      setExpanded(false);
+      expandButton.current?.focus();
+    };
+    window.addEventListener("keydown", exit);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", exit);
+    };
+  }, [expanded, editorOpen, explorerOpen, reviewOpen]);
 
   useEffect(() => {
     if (!anyDirty) return;
@@ -225,7 +246,7 @@ function ScheduleWorkspace({ eventSlug, onEventChange }: { eventSlug: string; on
     : "Not published yet";
 
   return (
-    <div className="min-w-0 space-y-4">
+    <div data-schedule-workspace data-expanded={expanded} className={`min-w-0 space-y-4 ${expanded ? "fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-background p-4 sm:p-6" : ""}`}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="space-y-1.5 relative z-10">
@@ -238,6 +259,10 @@ function ScheduleWorkspace({ eventSlug, onEventChange }: { eventSlug: string; on
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 relative z-10">
+          <Button ref={expandButton} type="button" variant="outline" size="sm" aria-pressed={expanded} onClick={() => setExpanded((value) => !value)} className="h-10 text-xs">
+            {expanded ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
+            {expanded ? "Exit expanded view" : "Expand workspace"}
+          </Button>
           <Select value={eventSlug} disabled={refreshing || !!busyId || publishing || reviewLoading || editorOpen || explorerOpen} onValueChange={(slug) => {
                       if (anyDirty && !window.confirm("Discard unsaved changes and switch events?")) return;
                       onEventChange(slug);

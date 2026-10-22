@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { createScheduleFormat, updateScheduleFormat } from "@/lib/api";
 import type { ScheduleFormat } from "@/lib/types";
+import { nextDisplayOrder, planDirectoryMove } from "./schedule-helpers";
 
 interface FormatsDirectoryProps {
   eventSlug: string;
@@ -44,7 +45,7 @@ export function FormatsDirectory({ eventSlug, formats, onChanged, onDirtyChange,
     } catch (err: any) {
       setError(err?.message || "Operation failed — the format may have changed. Reload and retry.");
     } finally {
-      // Reorder is two non-atomic PUTs — always resync from the server so
+      // Reorder is several non-atomic PUTs — always resync from the server so
       // stale revisions never linger, even after a failure.
       try {
         await onChanged();
@@ -59,7 +60,7 @@ export function FormatsDirectory({ eventSlug, formats, onChanged, onDirtyChange,
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    void run(() => createScheduleFormat(eventSlug, { name, displayOrder: list.length }), "add", () => setNewName(""));
+    void run(() => createScheduleFormat(eventSlug, { name, displayOrder: nextDisplayOrder(formats) }), "add", () => setNewName(""));
   }
 
   function cancelEdit() {
@@ -77,21 +78,14 @@ export function FormatsDirectory({ eventSlug, formats, onChanged, onDirtyChange,
   }
 
   function move(fmt: ScheduleFormat, dir: -1 | 1) {
-    const active = list.filter((f) => !f.archived);
-    const idx = active.findIndex((f) => f.id === fmt.id);
-    const swapWith = active[idx + dir];
-    if (!swapWith) return;
+    const updates = planDirectoryMove(formats, fmt.id, dir);
+    if (updates.length === 0) return;
     run(() =>
-      Promise.allSettled([
-        updateScheduleFormat(eventSlug, fmt.id, {
-          displayOrder: swapWith.displayOrder,
-          revision: fmt.revision,
-        }),
-        updateScheduleFormat(eventSlug, swapWith.id, {
-          displayOrder: fmt.displayOrder,
-          revision: swapWith.revision,
-        }),
-      ]).then((results) => {
+      Promise.allSettled(
+        updates.map((u) =>
+          updateScheduleFormat(eventSlug, u.id, { displayOrder: u.displayOrder, revision: u.revision }),
+        ),
+      ).then((results) => {
         const failure = results.find((result) => result.status === "rejected");
         if (failure?.status === "rejected") throw failure.reason;
       }), fmt.id,

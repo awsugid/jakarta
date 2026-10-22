@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { createScheduleRoom, updateScheduleRoom } from "@/lib/api";
 import type { ScheduleRoom } from "@/lib/types";
-import { orderedRooms } from "./schedule-helpers";
+import { nextDisplayOrder, orderedRooms, planDirectoryMove } from "./schedule-helpers";
 
 interface RoomsDirectoryProps {
   eventSlug: string;
@@ -43,7 +43,7 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange, ref
     } catch (err: any) {
       setError(err?.message || "Operation failed — the room may have changed. Reload and retry.");
     } finally {
-      // Reorder is two non-atomic PUTs — always resync from the server so
+      // Reorder is several non-atomic PUTs — always resync from the server so
       // stale revisions never linger, even after a failure.
       try {
         await onChanged();
@@ -58,7 +58,7 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange, ref
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    void run(() => createScheduleRoom(eventSlug, { name, displayOrder: list.length }), "add", () => setNewName(""));
+    void run(() => createScheduleRoom(eventSlug, { name, displayOrder: nextDisplayOrder(rooms) }), "add", () => setNewName(""));
   }
 
   function cancelEdit() {
@@ -76,21 +76,14 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange, ref
   }
 
   function move(room: ScheduleRoom, dir: -1 | 1) {
-    const active = list.filter((r) => !r.archived);
-    const idx = active.findIndex((r) => r.id === room.id);
-    const swapWith = active[idx + dir];
-    if (!swapWith) return;
+    const updates = planDirectoryMove(rooms, room.id, dir);
+    if (updates.length === 0) return;
     run(() =>
-      Promise.allSettled([
-        updateScheduleRoom(eventSlug, room.id, {
-          displayOrder: swapWith.displayOrder,
-          revision: room.revision,
-        }),
-        updateScheduleRoom(eventSlug, swapWith.id, {
-          displayOrder: room.displayOrder,
-          revision: swapWith.revision,
-        }),
-      ]).then((results) => {
+      Promise.allSettled(
+        updates.map((u) =>
+          updateScheduleRoom(eventSlug, u.id, { displayOrder: u.displayOrder, revision: u.revision }),
+        ),
+      ).then((results) => {
         const failure = results.find((result) => result.status === "rejected");
         if (failure?.status === "rejected") throw failure.reason;
       }), room.id,

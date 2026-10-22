@@ -74,7 +74,7 @@ export function ScheduleTimeline({ items, rooms, formats, busyId, mutationsBlock
 
   return (
     <MutationsBlocked.Provider value={!!mutationsBlocked}>
-      <div className={`grid min-w-0 gap-4 ${trayOpen ? "xl:grid-cols-[minmax(0,1fr)_280px]" : ""}`}>
+      <div className={`grid min-w-0 gap-4 ${trayOpen ? "xl:grid-cols-[minmax(0,1fr)_340px]" : ""}`}>
       {/* Unscheduled / needs-room tray */}
       <section aria-label="Unscheduled sessions" className={`min-w-0 self-start rounded-xl border border-border bg-card/40 ${trayOpen ? "xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:sticky xl:top-20" : ""}`}>
         <button
@@ -338,7 +338,8 @@ function DayGrid({
   const bandItems = dayItems.filter((it) => it.allRooms);
 
   return (
-    <div className="rounded-2xl border border-border/80 bg-card/40 overflow-hidden">
+    <div className="rounded-2xl border border-border/80 bg-card/40 overflow-x-auto">
+      <div style={{ minWidth: GUTTER_PX + rooms.length * 150 }}>
       {/* Header row */}
       <div className="flex border-b border-border/80 bg-muted/30">
         <div style={{ width: GUTTER_PX }} className="shrink-0" aria-hidden="true" />
@@ -353,8 +354,8 @@ function DayGrid({
       </div>
 
       {/* Body */}
-      <div className="relative overflow-x-auto">
-        <div className="relative flex" style={{ height: range.height, minWidth: "fit-content" }}>
+      <div data-agenda-body className="relative">
+        <div className="relative flex min-h-[max(480px,65vh)]" style={{ height: range.height + 16 }}>
           {/* Time gutter */}
           <div className="relative shrink-0 border-r border-border/60" style={{ width: GUTTER_PX }}>
             {ticks.map((t) => (
@@ -430,6 +431,7 @@ function DayGrid({
             );
           })}
         </div>
+      </div>
       </div>
     </div>
   );
@@ -507,18 +509,18 @@ function TrayRow({
   onToggleInclude: (item: EventScheduleItem) => void;
 }) {
   return (
-    <div className="flex items-center gap-2.5 p-2.5 rounded-xl border border-border/70 bg-card/70">
+    <div className="flex items-start gap-2 p-2.5 rounded-xl border border-border/70 bg-card/70">
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-foreground truncate flex items-center gap-1.5">
-          {item.title}
+        <p className="text-sm font-semibold leading-snug text-foreground line-clamp-3 break-words" title={item.title}>{item.title}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <ConflictMark titles={conflictTitles} />
           {item.sessionId && (
             <Badge variant="outline" className="text-[9px] text-cyan-400 border-cyan-500/20 font-mono shrink-0">
               Sessionize
             </Badge>
           )}
-        </p>
-        <p className="text-[11px] text-muted-foreground truncate">
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
           {roomLabel(item, rooms) || "No room"}
           {speakersLine(item) ? ` · ${speakersLine(item)}` : ""}
           {formatName ? ` · ${formatName}` : ""}
@@ -526,9 +528,8 @@ function TrayRow({
         </p>
       </div>
       <IncludeButton item={item} busy={busy} onToggleInclude={onToggleInclude} />
-      <Button type="button" variant="secondary" size="sm" onClick={() => onEdit(item)} className="h-7 text-[11px] px-2.5 shrink-0">
-        <Pencil className="h-3 w-3 mr-1" aria-hidden="true" />
-        Schedule
+      <Button type="button" variant="secondary" size="sm" onClick={() => onEdit(item)} aria-label={`Schedule ${item.title}`} title={`Schedule ${item.title}`} className="h-8 w-8 p-0 shrink-0">
+        <Pencil className="h-4 w-4" aria-hidden="true" />
       </Button>
     </div>
   );

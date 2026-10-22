@@ -1120,6 +1120,25 @@ export async function updateScheduleRoom(
   );
 }
 
+/**
+ * DELETE /api/admin/events/:eventSlug/rooms/:roomId?revision=N — permanently
+ * deletes a room. Fails with 409 (item titles) while any item still references
+ * it explicitly or via all-rooms. Published snapshots are unaffected.
+ */
+export async function deleteScheduleRoom(
+  eventSlug: string,
+  roomId: string,
+  revision: number,
+): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(
+    `/api/admin/events/${encodeURIComponent(eventSlug)}/rooms/${encodeURIComponent(roomId)}?revision=${revision}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
+}
+
 /** GET /api/admin/events/:eventSlug/formats */
 export async function fetchScheduleFormats(
   eventSlug: string,

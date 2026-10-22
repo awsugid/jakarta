@@ -15,6 +15,8 @@ import { Sparkles } from "lucide-react";
 import { VolunteerCallSection } from "../components/community-day/VolunteerCallSection";
 import PeopleList from "../components/people/PeopleList";
 import { getCollection } from "astro:content";
+import { getBaseUrl } from "@/lib/api";
+import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 import { buildPeopleGroups } from "@/lib/event-people";
 import { comday26Faqs } from "@/data/faqs";
 
@@ -25,9 +27,26 @@ const peopleGroups = comdayEvent
     ? buildPeopleGroups(comdayEvent.data.organizers, comdayEvent.data.volunteers)
     : [];
 const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
+
+// Start the carousel/schedule data fetch during HTML parse instead of waiting
+// for island hydration (~5s on cold loads). crossorigin="anonymous" matches
+// fetch()'s default credentials mode, so the hydrated React fetch reuses this
+// response via the API's max-age=120 browser cache.
+const apiBase = getBaseUrl();
+const speakersApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/speakers`;
+const scheduleApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/schedule`;
 ---
 
 <Layout title="AWS Community Day Jakarta 2026">
+    {apiBase && (
+        <link rel="preload" as="fetch" href={speakersApiUrl} crossorigin="anonymous" />
+    )}
+    {apiBase && (
+        <link rel="preload" as="fetch" href={scheduleApiUrl} crossorigin="anonymous" />
+    )}
+    <link rel="preconnect" href="https://cdn.sessionize.com" crossorigin />
+    <link rel="preconnect" href="https://avatars.awscommunity.id" />
+
     <!-- Hero Section -->
     <ComDayHero client:load kioskUrl={kioskUrl} />
 

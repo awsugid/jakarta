@@ -2,13 +2,22 @@
 //   bun src/components/admin/schedule/schedule-helpers.check.ts
 import type { EventScheduleItem } from "@/lib/types";
 import {
-  createRefreshGate,
+  DEFAULT_ZOOM_ID,
+  TIME_STEP_MIN,
+  ZOOM_LEVELS,
   axisRange,
   buildConflictMap,
+  clampMinute,
+  createRefreshGate,
+  dayLabel,
+  eventHeight,
   isScheduled,
   itemsConflict,
+  minuteToOffset,
   nextDisplayOrder,
+  offsetToMinute,
   planDirectoryMove,
+  snapMinute,
   wibDay,
   wibMinutes,
   wibTime,
@@ -77,6 +86,56 @@ ok("map plenum hits", (cmap.get("c") ?? []).includes("P"));
 const range = axisRange([a]);
 ok("axis floor/ceil", range !== null && range.startMin === 9 * 60 && range.endMin === 10 * 60);
 ok("axis height", range !== null && range.height === 1 * 60 * 1.6);
+ok("axis height follows zoom", axisRange([a], 3.2) !== null && axisRange([a], 3.2)!.height === 1 * 60 * 3.2);
+
+// dayLabel regression: parsing "YYYY-MM-DD" with +07:00 then formatting UTC
+// labeled the previous weekday (31 Oct 2026 showed as "Friday, 30 Oct 2026").
+{
+  // Locale punctuation varies across ICU builds (Node "Saturday, 31…" vs Bun "Saturday 31…"),
+  // so assert the weekday and date parts, and assert the wrong-day output is gone.
+  const got = dayLabel("2026-10-31");
+  ok("dayLabel keeps the WIB calendar day", got.startsWith("Saturday") && got.includes("31 Oct 2026"));
+  ok("dayLabel no off-by-one day", !got.includes("30 Oct") && !got.startsWith("Friday"));
+  const ny = dayLabel("2026-01-01");
+  ok("dayLabel year boundary", ny.startsWith("Thursday") && ny.includes("1 Jan 2026"));
+}
+ok("dayLabel passthrough on junk", dayLabel("not-a-day") === "not-a-day");
+
+// Zoom levels: ids unique, ascending px, default exists.
+ok(
+  "zoom levels sane",
+  ZOOM_LEVELS.length === 3 &&
+    ZOOM_LEVELS.every((z, i) => i === 0 || z.pxPerMin > ZOOM_LEVELS[i - 1].pxPerMin) &&
+    ZOOM_LEVELS.some((z) => z.id === DEFAULT_ZOOM_ID),
+);
+
+// Short events: duration-true height (no 30px floor) so back-to-back entries never overlap.
+ok("5min at Compact is 8px", eventHeight(5, 1.6) === 8);
+ok("5min at Comfortable is 25px", eventHeight(5, 5) === 25);
+ok("5min at Detail is 35px", eventHeight(5, 7) === 35);
+{
+  // Two back-to-back 5-minute sessions at Compact: card n bottom == card n+1 top.
+  const px = 1.6;
+  const t1 = 8 * 60, t2 = 8 * 60 + 5;
+  const top1 = minuteToOffset(t1, { startMin: 8 * 60, endMin: 17 * 60, height: 0 }, px);
+  const top2 = minuteToOffset(t2, { startMin: 8 * 60, endMin: 17 * 60, height: 0 }, px);
+  ok("back-to-back cards do not overlap", top1 + eventHeight(5, px) <= top2);
+}
+
+// Scrubber mapping: minute <-> offset round-trip, clamped at both ends, snapped to step.
+{
+  const r = { startMin: 8 * 60, endMin: 17 * 60, height: 0 } as const;
+  const px = 3.2;
+  ok("minuteToOffset", minuteToOffset(9 * 60 + 30, r, px) === 90 * px);
+  ok("offsetToMinute round-trip", offsetToMinute(minuteToOffset(10 * 60 + 5, r, px), r, px) === 10 * 60 + 5);
+  ok("offset below start clamps", offsetToMinute(-999, r, px) === r.startMin);
+  ok("offset above end clamps", offsetToMinute(999999, r, px) === r.endMin);
+  ok("minute above end clamps", minuteToOffset(24 * 60, r, px) === (r.endMin - r.startMin) * px);
+  ok("snapMinute rounds to 5", snapMinute(602, r) === 600 && snapMinute(603, r) === 605);
+  ok("snapMinute clamps into range", snapMinute(0, r) === r.startMin);
+  ok("step constant", TIME_STEP_MIN === 5);
+  ok("clampMinute bounds", clampMinute(0, r) === r.startMin && clampMinute(1439, r) === r.endMin && clampMinute(600, r) === 600);
+}
 
 function deferred() {
   let resolve!: () => void;

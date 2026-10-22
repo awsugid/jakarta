@@ -4,6 +4,7 @@ import Footer from "../components/Footer.astro";
 import GoogleAnalytics from "../components/GoogleAnalytics.astro";
 import FormbricksSDK from "../components/FormbricksSDK.astro";
 import { navItems } from "../lib/navigation";
+import { getBaseUrl } from "@/lib/api";
 import "../styles/global.css";
 
 interface Props {
@@ -22,9 +23,10 @@ const {
 	showFooter = true,
 } = Astro.props;
 
-const site = Astro.site?.origin ?? "https://jakarta.awscommunity.id";
-const canonicalURL = new URL(Astro.url.pathname, site);
-const imageUrl = new URL(image, site).href;
+	const site = Astro.site?.origin ?? "https://jakarta.awscommunity.id";
+	const canonicalURL = new URL(Astro.url.pathname, site);
+	const imageUrl = new URL(image, site).href;
+	const apiBase = getBaseUrl();
 
 const siteNav = navItems.map((item) => ({
 	"@type": "SiteNavigationElement",
@@ -41,6 +43,7 @@ const siteNav = navItems.map((item) => ({
 		<meta name="robots" content="index, follow" />
 		<meta name="description" content={description} />
 		<link rel="canonical" href={canonicalURL} />
+		{apiBase && <link rel="preconnect" href={apiBase} />}
 
 		{/* OpenGraph / Facebook */}
 		<meta property="og:type" content="website" />

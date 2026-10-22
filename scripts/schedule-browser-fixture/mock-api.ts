@@ -14,6 +14,13 @@ export async function fetchAdminSpeakers() { await wait(); return { speakers }; 
 export async function updateAdminScheduleItem(_slug: string, id: string, patch: any) { await wait(); if (patch.forceFail) throw Error("Mock save failure"); const item = items.find((entry) => entry.id === id); if (!item) throw Error("Missing session"); Object.assign(item, patch); item.revision++; revision++; return item; }
 export async function createAdminScheduleItem(_slug: string, item: any) { await wait(); if (item.title.includes("FAIL")) throw Error("Mock save failure"); const created = { id: "session-new", revision: 1, displayOrder: items.length, createdAt: "", updatedAt: "", ...item }; items = [...items, created]; revision++; return created; }
 export async function createAdminSpeaker(_slug: string, speaker: any) { return { id: "speaker-new", photoUrl: "", ...speaker }; }
+export async function deleteScheduleRoom(_slug: string, id: string) {
+  const index = rooms.findIndex((room) => room.id === id);
+  if (items.some((item) => item.roomIds.includes(id))) throw Error("Room has assigned sessions");
+  if (index >= 0) rooms.splice(index, 1);
+  revision++;
+  return { success: true };
+}
 export async function deleteAdminScheduleItem() { return { success: true }; }
 export async function createScheduleRoom(_slug: string, room: any) { return { id: "room-new", archived: false, revision: 1, ...room }; }
 export async function updateScheduleRoom(_slug: string, id: string, patch: any) { const room = rooms.find((entry) => entry.id === id)!; Object.assign(room, patch); room.revision++; return room; }

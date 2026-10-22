@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, DoorOpen, Loader2, Pencil, Plus, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, Check, DoorOpen, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { createScheduleRoom, updateScheduleRoom } from "@/lib/api";
+import { createScheduleRoom, deleteScheduleRoom, updateScheduleRoom } from "@/lib/api";
 import type { ScheduleRoom } from "@/lib/types";
 import { nextDisplayOrder, orderedRooms, planDirectoryMove } from "./schedule-helpers";
 
@@ -88,6 +88,16 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange, ref
         if (failure?.status === "rejected") throw failure.reason;
       }), room.id,
     );
+  }
+
+  function remove(room: ScheduleRoom) {
+    if (
+      !window.confirm(
+        `Permanently delete the room "${room.name}"? This destroys the room for good and cannot be undone.`,
+      )
+    )
+      return;
+    run(() => deleteScheduleRoom(eventSlug, room.id, room.revision), room.id);
   }
 
   return (
@@ -186,6 +196,9 @@ export function RoomsDirectory({ eventSlug, rooms, onChanged, onDirtyChange, ref
                           <ArchiveRestore className="h-3.5 w-3.5" />
                         </Button>
                       )}
+                      <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label={`Permanently delete ${room.name}`} disabled={busy} onClick={() => remove(room)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
                     </div>
                   </>
                 )}

@@ -25,7 +25,51 @@ export function createRefreshGate() {
   };
 }
 
-export const PX_PER_MIN = 1.6; // 96px per hour
+export const PX_PER_MIN = 1.6; // 96px per hour (Compact)
+
+export interface ZoomLevel {
+  id: string;
+  label: string;
+  pxPerMin: number;
+}
+
+/** Dense → roomy. Comfortable default: a 5-minute entry renders one readable line. */
+export const ZOOM_LEVELS: readonly ZoomLevel[] = [
+  { id: "compact", label: "Compact", pxPerMin: 1.6 },
+  { id: "comfortable", label: "Comfortable", pxPerMin: 5 },
+  { id: "detail", label: "Detail", pxPerMin: 7 },
+] as const;
+
+export const DEFAULT_ZOOM_ID = "comfortable";
+
+/** Scrubber granularity in minutes. */
+export const TIME_STEP_MIN = 5;
+
+/** Card height is duration-true: back-to-back entries never visually overlap. */
+export function eventHeight(durationMin: number, pxPerMin: number): number {
+  return Math.max(0, durationMin) * pxPerMin;
+}
+
+/** Clamp a minute into the axis range (inclusive of both ends). */
+export function clampMinute(minute: number, range: AxisRange): number {
+  return Math.min(Math.max(minute, range.startMin), range.endMin);
+}
+
+/** Round to the scrubber step, then clamp into the range. */
+export function snapMinute(minute: number, range: AxisRange, step = TIME_STEP_MIN): number {
+  return clampMinute(Math.round(minute / step) * step, range);
+}
+
+/** Pixel offset from the grid body top for a minute (unclamped; caller clamps). */
+export function minuteToOffset(minute: number, range: AxisRange, pxPerMin: number): number {
+  return (clampMinute(minute, range) - range.startMin) * pxPerMin;
+}
+
+/** Inverse of minuteToOffset, clamped into the range. */
+export function offsetToMinute(offset: number, range: AxisRange, pxPerMin: number): number {
+  if (pxPerMin <= 0) return range.startMin;
+  return clampMinute(range.startMin + offset / pxPerMin, range);
+}
 
 /** WIB wall-clock "YYYY-MM-DDTHH:MM" for an RFC3339 string, or "". */
 function wibWall(rfc?: string | null): string {
@@ -93,7 +137,7 @@ export interface AxisRange {
   height: number;
 }
 
-export function axisRange(items: EventScheduleItem[]): AxisRange | null {
+export function axisRange(items: EventScheduleItem[], pxPerMin: number = PX_PER_MIN): AxisRange | null {
   let min = Infinity;
   let max = -Infinity;
   for (const it of items) {
@@ -106,12 +150,14 @@ export function axisRange(items: EventScheduleItem[]): AxisRange | null {
   if (min === Infinity) return null;
   const startMin = Math.floor(min / 60) * 60;
   const endMin = Math.ceil(max / 60) * 60;
-  return { startMin, endMin, height: (endMin - startMin) * PX_PER_MIN };
+  return { startMin, endMin, height: (endMin - startMin) * pxPerMin };
 }
 
-export function hourTicks(range: AxisRange): number[] {
+/** Hour ticks; half-hour ticks once the density leaves room for them. */
+export function hourTicks(range: AxisRange, pxPerMin: number = PX_PER_MIN): number[] {
+  const step = pxPerMin >= 4 ? 30 : 60;
   const ticks: number[] = [];
-  for (let m = range.startMin; m <= range.endMin; m += 60) ticks.push(m);
+  for (let m = range.startMin; m <= range.endMin; m += step) ticks.push(m);
   return ticks;
 }
 
@@ -182,9 +228,11 @@ export function orderedRooms(rooms: ScheduleRoom[]): ScheduleRoom[] {
 
 export { isBackToBack };
 
-/** "31 Oct 2026" style label for a WIB day string. */
+/** "Saturday, 31 Oct 2026" style label for a WIB day string.
+ * Parse as UTC midnight: the day string is already a WIB calendar date, so a
+ * +07:00 offset would format as the previous UTC day (off-by-one regression). */
 export function dayLabel(day: string): string {
-  const ms = Date.parse(`${day}T00:00:00+07:00`);
+  const ms = Date.parse(`${day}T00:00:00Z`);
   if (Number.isNaN(ms)) return day;
   return new Date(ms).toLocaleDateString("en-GB", {
     weekday: "long",

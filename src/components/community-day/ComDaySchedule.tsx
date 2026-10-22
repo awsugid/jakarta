@@ -11,7 +11,6 @@ import {
   Star,
   Download,
   ExternalLink,
-  Check,
   LayoutGrid,
   ListFilter,
   ChevronDown,
@@ -21,11 +20,10 @@ import {
   Loader2,
   X,
   Trash2,
-  ArrowRight,
   Globe,
   Gauge,
+  ArrowRight,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,15 +95,13 @@ export function ComDaySchedule({
         }
       }
     } catch {
-      // Ignore localStorage read errors
+      // Ignore
     }
   }, []);
 
   // Toggle bookmark helper
   const toggleBookmark = useCallback((sessionId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
+    if (e) e.stopPropagation();
     setSavedSessionIds((prev) => {
       const exists = prev.includes(sessionId);
       const next = exists ? prev.filter((id) => id !== sessionId) : [...prev, sessionId];
@@ -113,7 +109,7 @@ export function ComDaySchedule({
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         } catch {
-          // Ignore localStorage write errors
+          // Ignore
         }
       }
       return next;
@@ -208,9 +204,7 @@ export function ComDaySchedule({
     return sessions.filter((sess) => {
       // My Schedule view filter
       if (viewMode === "my-schedule") {
-        if (!savedSessionIds.includes(sess.id)) {
-          return false;
-        }
+        if (!savedSessionIds.includes(sess.id)) return false;
       }
 
       // Room filter — all-rooms sessions appear under every stage
@@ -219,19 +213,13 @@ export function ComDaySchedule({
         const inRooms =
           sess.rooms.some((r) => r.toLowerCase() === target) ||
           (!sess.rooms.length && (sess.room || "").toLowerCase() === target);
-        if (!sess.allRooms && !inRooms) {
-          return false;
-        }
+        if (!sess.allRooms && !inRooms) return false;
       }
 
       // Format filter
       if (selectedFormat !== "ALL") {
-        if (selectedFormat === "Service" && !sess.isServiceSession) {
-          return false;
-        }
-        if (selectedFormat !== "Service" && sess.sessionType !== selectedFormat) {
-          return false;
-        }
+        if (selectedFormat === "Service" && !sess.isServiceSession) return false;
+        if (selectedFormat !== "Service" && sess.sessionType !== selectedFormat) return false;
       }
 
       // Search query
@@ -248,9 +236,7 @@ export function ComDaySchedule({
         const inMeta = [...sess.languages, ...sess.levels].some((v) =>
           v.toLowerCase().includes(q)
         );
-        if (!inTitle && !inDesc && !inSpeaker && !inRoom && !inMeta) {
-          return false;
-        }
+        if (!inTitle && !inDesc && !inSpeaker && !inRoom && !inMeta) return false;
       }
 
       return true;
@@ -285,536 +271,390 @@ export function ComDaySchedule({
   }, []);
 
   return (
-    <div className={cn("space-y-8", className)}>
-      {/* Top View Mode & Action Switcher Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-2.5 sm:p-3 rounded-2xl bg-card/75 backdrop-blur-xl border border-border/80 shadow-xl">
-        {/* View Mode Buttons (Segmented Switcher) */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/40 border border-border/60 self-start sm:self-auto overflow-x-auto w-full sm:w-auto scrollbar-none">
+    <div className={cn("space-y-6", className)}>
+      {/* MINIMALIST HEADER & CONTROLS TOOLBAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-2 rounded-2xl bg-card/60 backdrop-blur-md border border-border/60 text-xs">
+        {/* Left: View Mode Toggle */}
+        <div className="flex items-center gap-1 p-0.5 rounded-xl bg-muted/40 border border-border/40 shrink-0">
           <button
             type="button"
             onClick={() => setViewMode("grid")}
             className={cn(
-              "px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+              "px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer",
               viewMode === "grid"
-                ? "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md shadow-orange-500/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
             aria-pressed={viewMode === "grid"}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
-            <span>Calendar Grid</span>
+            <span>Grid</span>
           </button>
 
           <button
             type="button"
             onClick={() => setViewMode("timeline")}
             className={cn(
-              "px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer",
+              "px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer",
               viewMode === "timeline"
-                ? "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md shadow-orange-500/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
             aria-pressed={viewMode === "timeline"}
           >
             <ListFilter className="h-3.5 w-3.5" />
-            <span>Timeline Rail</span>
+            <span>Timeline</span>
           </button>
 
           <button
             type="button"
             onClick={() => setViewMode("my-schedule")}
             className={cn(
-              "px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer relative",
+              "px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer relative",
               viewMode === "my-schedule"
-                ? "bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-md shadow-orange-500/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                ? "bg-background text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
             aria-pressed={viewMode === "my-schedule"}
           >
             <Star
               className={cn(
                 "h-3.5 w-3.5",
-                savedSessionIds.length > 0 && viewMode !== "my-schedule"
-                  ? "text-amber-400 fill-amber-400"
-                  : ""
+                savedSessionIds.length > 0 ? "text-amber-400 fill-amber-400" : ""
               )}
             />
-            <span>My Itinerary</span>
+            <span>Saved</span>
             {savedSessionIds.length > 0 && (
-              <span
-                className={cn(
-                  "px-1.5 py-0.2 rounded-full text-[10px] font-bold",
-                  viewMode === "my-schedule"
-                    ? "bg-white/20 text-white"
-                    : "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                )}
-              >
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
                 {savedSessionIds.length}
               </span>
             )}
           </button>
         </div>
 
-        {/* Global Export & Search Actions */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          {/* Quick Export Button */}
+        {/* Center: Stage Pills (Quick Track Selector) */}
+        {viewMode !== "my-schedule" && availableRooms.length > 0 && (
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setSelectedRoom("ALL")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer",
+                selectedRoom === "ALL"
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+            >
+              All Tracks
+            </button>
+            {availableRooms.map((room) => (
+              <button
+                key={room}
+                type="button"
+                onClick={() => setSelectedRoom(room)}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer",
+                  selectedRoom === room
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    room.toLowerCase().includes("800") ? "bg-purple-400" : "bg-orange-400"
+                  )}
+                />
+                <span>{room}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Right: Search Input & Export Button */}
+        <div className="flex items-center gap-2">
+          <div className="relative w-full md:w-48">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search talks, speakers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-7 pr-6 h-7.5 text-xs bg-background/60 border-border/60 focus:border-orange-500/50"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-2 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
           {viewMode === "my-schedule" && savedSessions.length > 0 ? (
             <Button
               size="sm"
               onClick={() =>
                 downloadIcsFile(savedSessions, "AWS-Community-Day-2026-My-Schedule.ics")
               }
-              className="h-9 px-3.5 text-xs font-semibold bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-md cursor-pointer flex items-center gap-1.5"
+              className="h-7.5 px-2.5 text-xs font-medium bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span>Export My Calendar (.ics)</span>
+              <Download className="h-3 w-3" />
+              <span>Export .ICS</span>
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                downloadIcsFile(sessions, "AWS-Community-Day-2026-Full-Agenda.ics")
-              }
-              className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-foreground border-border/80 bg-background/50 hover:bg-background cursor-pointer flex items-center gap-1.5"
-              title="Download entire confirmed agenda as standard .ics iCalendar file"
+            <button
+              type="button"
+              onClick={() => downloadIcsFile(sessions, "AWS-Community-Day-2026-Agenda.ics")}
+              className="h-7.5 px-2 rounded-lg border border-border/60 bg-background/40 hover:bg-background text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+              title="Download entire agenda (.ics)"
             >
               <CalendarPlus className="h-3.5 w-3.5 text-orange-400" />
-              <span className="hidden sm:inline">Export Full Agenda</span>
-              <span className="sm:hidden">Export .ICS</span>
-            </Button>
+              <span className="hidden sm:inline">Export</span>
+            </button>
           )}
-
-          {/* Search Box */}
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search topic, speaker, room, language..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-8 h-9 text-xs bg-background/80 border-border/80 focus:border-orange-500/50"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Filter Row: Stages & Formats */}
-      {viewMode !== "my-schedule" && (
-        <div className="space-y-3">
-          {/* Stage Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <button
-              type="button"
-              onClick={() => setSelectedRoom("ALL")}
-              className={cn(
-                "px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border",
-                selectedRoom === "ALL"
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-card/50 text-muted-foreground border-border/70 hover:bg-card hover:text-foreground"
-              )}
-            >
-              All Stages & Tracks ({sessions.length})
-            </button>
-
-            {availableRooms.map((room) => {
-              const count = sessions.filter(
-                (s) =>
-                  s.allRooms ||
-                  s.rooms.some((r) => r.toLowerCase() === room.toLowerCase()) ||
-                  (!s.rooms.length && (s.room || "").toLowerCase() === room.toLowerCase())
-              ).length;
-              return (
-                <button
-                  key={room}
-                  type="button"
-                  onClick={() => setSelectedRoom(room)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer border",
-                    selectedRoom === room
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-card/50 text-muted-foreground border-border/70 hover:bg-card hover:text-foreground"
-                  )}
-                >
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  <span>{room}</span>
-                  <span className="opacity-70 text-[10px]">({count})</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Formats Pills & Filter Status */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-muted-foreground text-[11px] font-medium mr-1">Format:</span>
-              <button
-                type="button"
-                onClick={() => setSelectedFormat("ALL")}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer",
-                  selectedFormat === "ALL"
-                    ? "bg-muted text-foreground font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                All
-              </button>
-              {availableFormats.map((fmt) => (
-                <button
-                  key={fmt}
-                  type="button"
-                  onClick={() => setSelectedFormat(fmt)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer",
-                    selectedFormat === fmt
-                      ? "bg-muted text-foreground font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {fmt}
-                </button>
-              ))}
-            </div>
-
-            {/* Filter Count & Reset */}
-            <div className="flex items-center gap-2 text-muted-foreground text-[11px]">
-              <span>
-                Showing <strong className="text-foreground">{filteredSessions.length}</strong> of{" "}
-                {sessions.length} sessions
-              </span>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="text-orange-400 hover:text-orange-300 font-semibold underline underline-offset-2 cursor-pointer ml-1"
-                >
-                  Reset filters
-                </button>
-              )}
-            </div>
-          </div>
+      {/* FILTER ACTIVE SUMMARY (Discreet & Minimalist) */}
+      {hasActiveFilters && viewMode !== "my-schedule" && (
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
+          <span>
+            Filtered: <strong className="text-foreground">{filteredSessions.length}</strong> of{" "}
+            {sessions.length} sessions
+          </span>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="text-orange-400 hover:text-orange-300 font-medium cursor-pointer"
+          >
+            Clear filters
+          </button>
         </div>
       )}
 
-      {/* Main Content Area */}
+      {/* MAIN CONTENT AREA */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-20 space-y-3">
-          <Loader2 className="h-8 w-8 text-orange-400 animate-spin" />
-          <p className="text-sm text-muted-foreground animate-pulse">
-            Loading confirmed event agenda...
-          </p>
+        <div className="flex flex-col items-center justify-center p-16 space-y-2">
+          <Loader2 className="h-6 w-6 text-orange-400 animate-spin" />
+          <p className="text-xs text-muted-foreground animate-pulse">Loading agenda...</p>
         </div>
       ) : error ? (
-        <div className="p-8 rounded-3xl bg-destructive/10 border border-destructive/30 text-destructive text-center space-y-2">
-          <AlertCircle className="h-6 w-6 mx-auto" />
-          <p className="text-sm font-semibold">{error}</p>
+        <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-center space-y-1">
+          <AlertCircle className="h-5 w-5 mx-auto" />
+          <p className="text-xs font-medium">{error}</p>
         </div>
       ) : viewMode === "my-schedule" && savedSessionIds.length === 0 ? (
-        /* Empty State for My Schedule */
-        <Card className="p-12 text-center border-dashed border-2 border-border/80 bg-card/40 rounded-3xl space-y-4">
-          <div className="h-16 w-16 rounded-3xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/20 shadow-inner">
-            <Star className="h-8 w-8" />
+        /* Empty State for Saved Itinerary */
+        <div className="p-12 text-center border border-dashed border-border/60 bg-card/20 rounded-2xl space-y-3">
+          <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
+            <Star className="h-5 w-5" />
           </div>
-          <div className="space-y-1.5 max-w-md mx-auto">
-            <h4 className="text-xl font-extrabold text-foreground">Your Itinerary is Empty</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Build your personalized Community Day plan! Click the ⭐ star icon on any talk or
-              workshop to save it here, then export it directly into your calendar.
+          <div className="space-y-1 max-w-sm mx-auto">
+            <h4 className="text-sm font-semibold text-foreground">No bookmarked sessions</h4>
+            <p className="text-xs text-muted-foreground">
+              Click the star icon on any talk to save it here and build your personal schedule.
             </p>
           </div>
           <Button
+            size="sm"
             onClick={() => setViewMode("grid")}
-            className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white text-xs font-semibold shadow-lg shadow-orange-500/20 cursor-pointer"
+            className="h-8 px-3 text-xs bg-primary text-primary-foreground cursor-pointer"
           >
-            Browse Full Schedule
-            <ArrowRight className="h-3.5 w-3.5 ml-1" />
+            Browse Schedule
           </Button>
-        </Card>
+        </div>
       ) : filteredSessions.length === 0 ? (
-        /* No sessions matched filter */
-        <Card className="p-12 text-center border-dashed border-2 border-border/80 bg-card/40 rounded-3xl space-y-3">
-          <div className="h-12 w-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
-            <Calendar className="h-6 w-6" />
-          </div>
-          <h4 className="text-lg font-bold text-foreground">No Sessions Found</h4>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            {hasActiveFilters
-              ? "No talks matched your current search filters. Try clearing or relaxing your filters."
-              : "The schedule is currently being finalized. Please check back shortly!"}
-          </p>
+        <div className="p-12 text-center border border-dashed border-border/60 bg-card/20 rounded-2xl space-y-2">
+          <Calendar className="h-6 w-6 text-muted-foreground mx-auto" />
+          <h4 className="text-sm font-semibold text-foreground">No talks found</h4>
+          <p className="text-xs text-muted-foreground">Try clearing your search query or filters.</p>
           {hasActiveFilters && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={resetFilters}
-              className="text-xs cursor-pointer"
+              className="text-xs text-orange-400 hover:underline cursor-pointer"
             >
-              Clear All Filters
-            </Button>
+              Reset filters
+            </button>
           )}
-        </Card>
+        </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* Banner for My Schedule View */}
           {viewMode === "my-schedule" && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-orange-500/10 via-purple-500/10 to-transparent border border-orange-500/30">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                  <h3 className="text-base font-extrabold text-foreground">
-                    Your Personalized Itinerary
-                  </h3>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {savedSessions.length} sessions bookmarked
-                  {totalSavedDurationMinutes > 0 &&
-                    ` • ~${formatDuration(totalSavedDurationMinutes)} total`}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    downloadIcsFile(savedSessions, "AWS-Community-Day-2026-My-Schedule.ics")
-                  }
-                  className="flex-1 sm:flex-none h-8 text-xs font-semibold bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-md cursor-pointer"
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Download .ICS
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearAllBookmarks}
-                  className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                  title="Remove all bookmarked sessions"
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Clear All
-                </Button>
-              </div>
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/20 border border-border/60 text-xs">
+              <span className="text-muted-foreground">
+                <strong className="text-foreground">{savedSessions.length}</strong> sessions
+                bookmarked
+                {totalSavedDurationMinutes > 0 &&
+                  ` (~${formatDuration(totalSavedDurationMinutes)})`}
+              </span>
+              <button
+                type="button"
+                onClick={clearAllBookmarks}
+                className="text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Clear All</span>
+              </button>
             </div>
           )}
 
-          {/* VIEW 1: CALENDAR GRID MATRIX */}
+          {/* VIEW 1: MINIMALIST CALENDAR GRID MATRIX */}
           {viewMode === "grid" && (
-            <div className="space-y-6">
+            <div className="space-y-4">
+              {/* Optional Room Track Headers on desktop */}
+              {selectedRoom === "ALL" && availableRooms.length > 1 && (
+                <div className="hidden md:grid grid-cols-2 gap-3 pb-1 border-b border-border/40 text-xs font-semibold text-muted-foreground px-1">
+                  {availableRooms.map((room) => (
+                    <div key={room} className="flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "h-2 w-2 rounded-full",
+                          room.toLowerCase().includes("800") ? "bg-purple-400" : "bg-orange-400"
+                        )}
+                      />
+                      <span className="text-foreground font-medium">{room}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {timeSlots.map((slot) => {
                 const isPlenarySlot = slot.isPlenary;
                 const isSingleSession = slot.sessions.length === 1;
 
                 return (
-                  <div key={slot.slotKey} className="space-y-3">
-                    {/* Time Slot Header Marker */}
-                    <div className="flex items-center gap-3">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-500/10 text-orange-400 border border-orange-500/30 shadow-sm shrink-0">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>{slot.timeLabel}</span>
-                        {slot.durationLabel && (
-                          <span className="text-[10px] opacity-75 font-normal ml-0.5">
-                            ({slot.durationLabel})
-                          </span>
-                        )}
-                      </div>
-                      <div className="h-px flex-1 bg-gradient-to-r from-border/80 via-border/30 to-transparent" />
-                      {isPlenarySlot && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 shrink-0">
-                          Plenary Session
+                  <div key={slot.slotKey} className="space-y-2">
+                    {/* Time Slot Row Header */}
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-mono font-medium text-muted-foreground shrink-0">
+                        {slot.timeLabel}
+                      </span>
+                      {slot.durationLabel && (
+                        <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                          • {slot.durationLabel}
                         </span>
                       )}
+                      <div className="h-px flex-1 bg-border/40" />
                     </div>
 
-                    {/* Cards Grid: Plenary full-width banner vs Breakout multi-track parallel columns */}
+                    {/* Cards: Plenary Banner vs Parallel Breakout Columns */}
                     {isPlenarySlot || isSingleSession ? (
-                      /* Plenary / Hero Banner Card (Spans full width across all tracks) */
-                      <div className="space-y-3">
+                      /* Plenary / Hero Banner Strip (Compact & Minimalist) */
+                      <div className="space-y-2">
                         {slot.sessions.map((session) => {
                           const isBookmarked = savedSessionIds.includes(session.id);
 
                           return (
-                            <Card
+                            <div
                               key={session.id}
                               onClick={() => setSelectedSession(session)}
                               className={cn(
-                                "group border rounded-3xl p-5 sm:p-6 transition-all duration-300 relative overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl",
+                                "group flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all cursor-pointer shadow-2xs",
                                 session.isServiceSession
-                                  ? "bg-card/60 hover:border-emerald-500/40 border-border/80"
-                                  : "bg-gradient-to-br from-card/90 via-card/60 to-orange-500/5 border-orange-500/30 hover:border-orange-500/60"
+                                  ? "bg-card/40 border-border/60 hover:bg-card/70 hover:border-emerald-500/30"
+                                  : "bg-card/50 border-border/60 hover:bg-card/80 hover:border-orange-500/40"
                               )}
                             >
-                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-                                <div className="space-y-2 flex-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <Badge
-                                      className={cn(
-                                        "text-[10px] font-semibold border shadow-sm",
-                                        getFormatBadgeClass(session.sessionType)
-                                      )}
-                                    >
-                                      {session.sessionType ||
-                                        (session.isServiceSession ? "Rundown" : "Keynote")}
-                                    </Badge>
-
-                                    <span
-                                      className={cn(
-                                        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-sm",
-                                        getRoomBadgeClass(roomLabelOf(session))
-                                      )}
-                                    >
-                                      <MapPin className="h-3 w-3" />
-                                      {roomLabelOf(session)}
-                                    </span>
-
-                                    {session.languages.map((lang) => (
-                                      <span
-                                        key={lang}
-                                        className="text-[10px] px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground border border-border/50 font-medium"
-                                      >
-                                        {lang}
-                                      </span>
-                                    ))}
-
-                                    {session.levels.map((lvl) => (
-                                      <span
-                                        key={lvl}
-                                        className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium"
-                                      >
-                                        {lvl}
-                                      </span>
-                                    ))}
-
-                                    {session.track && (
-                                      <span className="text-[11px] text-muted-foreground">
-                                        • {session.track}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <h3 className="text-lg sm:text-xl font-extrabold text-foreground group-hover:text-orange-400 transition-colors leading-snug">
-                                    {session.title}
-                                  </h3>
-
-                                  {session.description && (
-                                    <p className="text-xs text-muted-foreground line-clamp-2 max-w-3xl leading-relaxed">
-                                      {session.description}
-                                    </p>
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span
+                                  className={cn(
+                                    "px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider shrink-0 border",
+                                    session.isServiceSession
+                                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                      : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                                   )}
+                                >
+                                  {session.sessionType ||
+                                    (session.isServiceSession ? "Rundown" : "Keynote")}
+                                </span>
 
-                                  {/* Presenter info in banner */}
-                                  {session.speakers.length > 0 && (
-                                    <div className="flex items-center gap-3 pt-1">
-                                      <div className="flex -space-x-2 overflow-hidden">
-                                        {session.speakers.map((sp) => (
-                                          <Avatar
-                                            key={sp.id || sp.name}
-                                            className="inline-block h-7 w-7 rounded-full ring-2 ring-background border border-orange-500/30"
-                                          >
-                                            <AvatarImage src={sp.avatar || undefined} />
-                                            <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
-                                              {sp.name.slice(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                        ))}
-                                      </div>
-                                      <span className="text-xs font-semibold text-foreground/90 truncate">
-                                        {session.speakers.map((sp) => sp.name).join(", ")}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Right Side Actions: Bookmark Star & View Details */}
-                                <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => toggleBookmark(session.id, e)}
-                                    aria-label={
-                                      isBookmarked ? "Remove from itinerary" : "Save to itinerary"
-                                    }
-                                    className={cn(
-                                      "h-9 w-9 rounded-xl flex items-center justify-center transition-all cursor-pointer border",
-                                      isBookmarked
-                                        ? "bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-sm"
-                                        : "bg-muted/40 text-muted-foreground border-border/70 hover:text-foreground hover:bg-muted"
-                                    )}
-                                  >
-                                    <Star
-                                      className={cn(
-                                        "h-4 w-4 transition-transform group-hover:scale-110",
-                                        isBookmarked ? "fill-amber-400 text-amber-400" : ""
-                                      )}
-                                    />
-                                  </button>
-
-                                  <div className="hidden sm:inline-flex items-center gap-1 text-xs text-orange-400 font-semibold group-hover:translate-x-1 transition-transform">
-                                    <span>Details</span>
-                                    <ArrowRight className="h-3.5 w-3.5" />
-                                  </div>
-                                </div>
+                                <h4 className="text-sm font-semibold text-foreground group-hover:text-orange-400 transition-colors truncate">
+                                  {session.title}
+                                </h4>
                               </div>
-                            </Card>
+
+                              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                                {session.speakers.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-5 w-5 rounded-full border border-orange-500/30">
+                                      <AvatarImage src={session.speakers[0].avatar || undefined} />
+                                      <AvatarFallback className="text-[9px] bg-primary/20 text-primary">
+                                        {session.speakers[0].name.slice(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs text-muted-foreground truncate max-w-[130px]">
+                                      {session.speakers.map((s) => s.name).join(", ")}
+                                    </span>
+                                  </div>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleBookmark(session.id, e)}
+                                  aria-label={
+                                    isBookmarked ? "Remove bookmark" : "Bookmark session"
+                                  }
+                                  className={cn(
+                                    "h-7 w-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer",
+                                    isBookmarked
+                                      ? "text-amber-400 bg-amber-500/10"
+                                      : "text-muted-foreground/50 hover:text-foreground hover:bg-muted"
+                                  )}
+                                >
+                                  <Star
+                                    className={cn(
+                                      "h-3.5 w-3.5",
+                                      isBookmarked ? "fill-amber-400 text-amber-400" : ""
+                                    )}
+                                  />
+                                </button>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
                     ) : (
-                      /* Parallel Breakout Sessions: 2 or more tracks side-by-side */
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      /* Parallel Breakout Tracks (Sleek Compact Cards Side-by-Side) */
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {slot.sessions.map((session) => {
                           const isBookmarked = savedSessionIds.includes(session.id);
                           const durationMin = getDurationMinutes(session.startsAt, session.endsAt);
 
                           return (
-                            <Card
+                            <div
                               key={session.id}
                               onClick={() => setSelectedSession(session)}
-                              className="group border border-border/80 bg-card/75 backdrop-blur-xl rounded-3xl p-5 sm:p-6 transition-all duration-300 relative overflow-hidden cursor-pointer shadow-md hover:shadow-xl hover:border-orange-500/50 flex flex-col justify-between"
+                              className="group flex flex-col justify-between p-3.5 rounded-xl border border-border/60 bg-card/40 hover:bg-card/80 hover:border-orange-500/40 transition-all cursor-pointer shadow-2xs min-h-[105px]"
                             >
-                              <div className="space-y-3">
-                                {/* Top Badges & Bookmark */}
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex flex-wrap items-center gap-1.5">
+                              <div>
+                                {/* Card Top Row: Room & Bookmark */}
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <span
                                       className={cn(
-                                        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-sm",
+                                        "px-2 py-0.5 rounded-md text-[10px] font-semibold border",
                                         getRoomBadgeClass(roomLabelOf(session))
                                       )}
                                     >
-                                      <MapPin className="h-3 w-3" />
                                       {roomLabelOf(session)}
                                     </span>
 
-                                    <Badge
-                                      className={cn(
-                                        "text-[10px] font-semibold border shadow-sm",
-                                        getFormatBadgeClass(session.sessionType)
-                                      )}
-                                    >
-                                      {session.sessionType || "Technical Session"}
-                                    </Badge>
-
-                                    {durationMin && (
-                                      <span className="text-[10px] text-muted-foreground font-medium px-2 py-0.5 rounded-md bg-muted/40">
-                                        {formatDuration(durationMin)}
+                                    {session.sessionType && (
+                                      <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.5 rounded bg-muted/40">
+                                        {session.sessionType}
                                       </span>
                                     )}
 
-                                    {session.languages.map((lang) => (
+                                    {session.languages.map((l) => (
                                       <span
-                                        key={lang}
-                                        className="text-[10px] px-1.5 py-0.2 rounded bg-muted/50 text-muted-foreground border border-border/40 font-medium"
+                                        key={l}
+                                        className="text-[9px] text-muted-foreground/80 px-1 py-0.2 rounded bg-muted/30"
                                       >
-                                        {lang}
+                                        {l}
                                       </span>
                                     ))}
                                   </div>
@@ -823,72 +663,57 @@ export function ComDaySchedule({
                                     type="button"
                                     onClick={(e) => toggleBookmark(session.id, e)}
                                     aria-label={
-                                      isBookmarked ? "Remove from itinerary" : "Save to itinerary"
+                                      isBookmarked ? "Remove bookmark" : "Bookmark session"
                                     }
                                     className={cn(
-                                      "h-8 w-8 rounded-xl flex items-center justify-center transition-all cursor-pointer border shrink-0",
+                                      "h-6 w-6 rounded-md flex items-center justify-center transition-colors cursor-pointer shrink-0",
                                       isBookmarked
-                                        ? "bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-sm"
-                                        : "bg-muted/40 text-muted-foreground border-border/70 hover:text-foreground hover:bg-muted"
+                                        ? "text-amber-400 bg-amber-500/10"
+                                        : "text-muted-foreground/50 hover:text-foreground hover:bg-muted"
                                     )}
                                   >
                                     <Star
                                       className={cn(
-                                        "h-3.5 w-3.5 transition-transform group-hover:scale-110",
+                                        "h-3.5 w-3.5",
                                         isBookmarked ? "fill-amber-400 text-amber-400" : ""
                                       )}
                                     />
                                   </button>
                                 </div>
 
-                                {/* Talk Title */}
-                                <h3 className="text-base sm:text-lg font-extrabold text-foreground group-hover:text-orange-400 transition-colors leading-snug line-clamp-2">
+                                {/* Title */}
+                                <h4 className="text-sm font-semibold text-foreground group-hover:text-orange-400 transition-colors leading-snug line-clamp-2">
                                   {session.title}
-                                </h3>
-
-                                {/* Abstract Snippet */}
-                                {session.description && (
-                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                                    {session.description}
-                                  </p>
-                                )}
+                                </h4>
                               </div>
 
-                              {/* Presenter Spotlight at bottom of card */}
-                              <div className="pt-4 mt-4 border-t border-border/50 flex items-center justify-between gap-3">
+                              {/* Card Bottom Row: Speaker & Duration */}
+                              <div className="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-border/40 text-xs">
                                 {session.speakers.length > 0 ? (
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <Avatar className="h-8 w-8 rounded-full border border-orange-500/30 shrink-0">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <Avatar className="h-5 w-5 rounded-full border border-orange-500/30 shrink-0">
                                       <AvatarImage src={session.speakers[0].avatar || undefined} />
-                                      <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-bold">
+                                      <AvatarFallback className="text-[8px] bg-primary/20 text-primary font-bold">
                                         {session.speakers[0].name.slice(0, 2).toUpperCase()}
                                       </AvatarFallback>
                                     </Avatar>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-bold text-foreground truncate">
-                                        {session.speakers[0].name}
-                                      </p>
-                                      {session.speakers[0].company && (
-                                        <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                                          <Building className="h-2.5 w-2.5 text-orange-400" />
-                                          <span className="truncate">
-                                            {session.speakers[0].company}
-                                          </span>
-                                        </p>
-                                      )}
-                                    </div>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {session.speakers[0].name}
+                                    </span>
                                   </div>
                                 ) : (
-                                  <span className="text-[11px] text-muted-foreground">
-                                    AWS Community Day
+                                  <span className="text-[11px] text-muted-foreground/60">
+                                    Community Day
                                   </span>
                                 )}
 
-                                <span className="text-[11px] text-orange-400 font-semibold group-hover:translate-x-1 transition-transform flex items-center gap-0.5 shrink-0">
-                                  Details <ArrowRight className="h-3 w-3" />
-                                </span>
+                                {durationMin && (
+                                  <span className="text-[11px] text-muted-foreground/70 shrink-0">
+                                    {formatDuration(durationMin)}
+                                  </span>
+                                )}
                               </div>
-                            </Card>
+                            </div>
                           );
                         })}
                       </div>
@@ -899,137 +724,76 @@ export function ComDaySchedule({
             </div>
           )}
 
-          {/* VIEW 2: DETAILED TIMELINE LIST RAIL (Also used for My Schedule) */}
+          {/* VIEW 2: MINIMALIST TIMELINE LIST (Also used for My Schedule) */}
           {(viewMode === "timeline" || viewMode === "my-schedule") && (
-            <div className="space-y-4 relative before:absolute before:inset-0 before:left-3 sm:before:left-4 before:w-0.5 before:bg-gradient-to-b before:from-orange-500 before:via-purple-500/30 before:to-transparent">
+            <div className="space-y-3 relative before:absolute before:inset-0 before:left-3 before:w-px before:bg-border/60">
               {filteredSessions.map((session) => {
                 const isExpanded = expandedIds[session.id] || false;
                 const isBookmarked = savedSessionIds.includes(session.id);
                 const durationMin = getDurationMinutes(session.startsAt, session.endsAt);
 
                 return (
-                  <div key={session.id} className="relative pl-7 sm:pl-10">
-                    {/* Timeline Rail Dot */}
+                  <div key={session.id} className="relative pl-7">
+                    {/* Minimalist Timeline Dot */}
                     <div
                       className={cn(
-                        "absolute left-1.5 sm:left-2.5 top-8 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 border-background shadow-md transition-all",
+                        "absolute left-3 top-5 -translate-x-1/2 w-2 h-2 rounded-full",
                         session.isServiceSession
                           ? "bg-emerald-400"
                           : session.allRooms
-                          ? "bg-amber-400 ring-4 ring-amber-400/20"
-                          : "bg-orange-500 ring-4 ring-orange-500/20"
+                          ? "bg-amber-400"
+                          : "bg-orange-500"
                       )}
                     />
 
-                    <Card className="border-border/80 bg-card/75 backdrop-blur-xl rounded-3xl p-5 sm:p-7 shadow-xl hover:border-orange-500/40 transition-all duration-300 relative overflow-hidden group">
-                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 relative z-10">
-                        {/* Left Column: Time & Room Details */}
-                        <div className="lg:w-48 shrink-0 space-y-2.5">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-500/10 text-orange-400 border border-orange-500/30 shadow-sm">
-                            <Clock className="h-3.5 w-3.5" />
-                            {formatTime(session.startsAt, session.endsAt)}
-                          </div>
+                    <div className="p-4 rounded-xl border border-border/60 bg-card/40 hover:bg-card/70 hover:border-orange-500/40 transition-all group">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          {/* Top Meta Line */}
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <span className="font-mono text-muted-foreground font-medium">
+                              {formatTime(session.startsAt, session.endsAt)}
+                            </span>
 
-                          {(roomLabelOf(session) || "") && (
-                            <div>
+                            {roomLabelOf(session) && (
                               <span
                                 className={cn(
-                                  "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-sm",
+                                  "px-2 py-0.2 rounded-md text-[10px] font-semibold border",
                                   getRoomBadgeClass(roomLabelOf(session))
                                 )}
                               >
-                                <MapPin className="h-3 w-3" />
                                 {roomLabelOf(session)}
                               </span>
-                            </div>
-                          )}
+                            )}
 
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge
-                              className={cn(
-                                "text-[10px] font-semibold shadow-sm border",
-                                getFormatBadgeClass(session.sessionType)
-                              )}
-                            >
-                              {session.sessionType || "Technical Session"}
-                            </Badge>
+                            {session.sessionType && (
+                              <span className="text-[10px] text-muted-foreground font-medium px-1.5 py-0.2 rounded bg-muted/40">
+                                {session.sessionType}
+                              </span>
+                            )}
 
                             {durationMin && (
-                              <span className="text-[10px] text-muted-foreground font-medium px-2 py-0.5 rounded-md bg-muted/40">
-                                {formatDuration(durationMin)}
+                              <span className="text-[10px] text-muted-foreground/60">
+                                • {formatDuration(durationMin)}
                               </span>
                             )}
                           </div>
 
-                          {/* Language & Level Details */}
-                          {(!session.isServiceSession ||
-                            session.languages.length > 0 ||
-                            session.levels.length > 0) && (
-                            <div className="space-y-1 text-xs pt-1 border-t border-border/40">
-                              {session.languages.length > 0 && (
-                                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                                  <Globe className="h-3 w-3 text-orange-400" />
-                                  <span>{session.languages.join(", ")}</span>
-                                </div>
-                              )}
-                              {session.levels.length > 0 && (
-                                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                                  <Gauge className="h-3 w-3 text-purple-400" />
-                                  <span>{session.levels.join(", ")}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Quick Calendar Export Links */}
-                          <div className="pt-2 flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={(e) => toggleBookmark(session.id, e)}
-                              className={cn(
-                                "inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
-                                isBookmarked
-                                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                                  : "bg-muted/40 text-muted-foreground border-border/70 hover:text-foreground"
-                              )}
-                            >
-                              <Star
-                                className={cn(
-                                  "h-3 w-3",
-                                  isBookmarked ? "fill-amber-400 text-amber-400" : ""
-                                )}
-                              />
-                              <span>{isBookmarked ? "Saved" : "Save"}</span>
-                            </button>
-
-                            <a
-                              href={generateGoogleCalendarUrl(session)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-orange-400 transition-colors p-1"
-                              title="Add to Google Calendar"
-                            >
-                              <CalendarPlus className="h-3.5 w-3.5" />
-                              <span className="sr-only">Add to Google Calendar</span>
-                            </a>
-                          </div>
-                        </div>
-
-                        {/* Center Column: Session Title, Abstract & Details */}
-                        <div className="flex-1 space-y-3 min-w-0">
-                          <h3
+                          {/* Title */}
+                          <h4
                             onClick={() => setSelectedSession(session)}
-                            className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground leading-snug group-hover:text-orange-400 transition-colors cursor-pointer"
+                            className="text-base font-semibold text-foreground group-hover:text-orange-400 transition-colors cursor-pointer"
                           >
                             {session.title}
-                          </h3>
+                          </h4>
 
+                          {/* Minimalist Abstract Excerpt */}
                           {session.description && (
-                            <div className="text-sm text-muted-foreground leading-relaxed">
-                              <p className={isExpanded ? "" : "line-clamp-3"}>
+                            <div className="text-xs text-muted-foreground leading-relaxed pt-0.5">
+                              <p className={isExpanded ? "" : "line-clamp-2"}>
                                 {session.description}
                               </p>
-                              {session.description.length > 180 && (
+                              {session.description.length > 140 && (
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -1038,81 +802,69 @@ export function ComDaySchedule({
                                       [session.id]: !isExpanded,
                                     }))
                                   }
-                                  className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 font-semibold mt-1.5 cursor-pointer transition-colors"
+                                  className="text-orange-400 hover:text-orange-300 font-medium mt-1 cursor-pointer"
                                 >
-                                  {isExpanded ? (
-                                    <>
-                                      Show less <ChevronUp className="h-3.5 w-3.5" />
-                                    </>
-                                  ) : (
-                                    <>
-                                      Read full abstract <ChevronDown className="h-3.5 w-3.5" />
-                                    </>
-                                  )}
+                                  {isExpanded ? "Show less" : "Read more"}
                                 </button>
                               )}
                             </div>
                           )}
+
+                          {/* Speaker Row in Timeline */}
+                          {session.speakers.length > 0 && (
+                            <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                              <Avatar className="h-5 w-5 rounded-full border border-orange-500/30">
+                                <AvatarImage src={session.speakers[0].avatar || undefined} />
+                                <AvatarFallback className="text-[9px] bg-primary/20 text-primary">
+                                  {session.speakers[0].name.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>
+                                {session.speakers.map((s) => s.name).join(", ")}
+                                {session.speakers[0]?.company && (
+                                  <span className="text-muted-foreground/60">
+                                    {" "}
+                                    ({session.speakers[0].company})
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Right Column: Presenter Spotlight */}
-                        {session.speakers.length > 0 && (
-                          <div className="lg:w-64 shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-border/60">
-                            <div className="space-y-2.5">
-                              {session.speakers.map((speaker, spkIdx) => (
-                                <div
-                                  key={speaker.id || `${session.id}-spk-${spkIdx}`}
-                                  className="p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-2.5"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <Avatar className="h-11 w-11 rounded-2xl border-2 border-orange-500/30 shadow-md shrink-0">
-                                      <AvatarImage src={speaker.avatar || undefined} />
-                                      <AvatarFallback className="rounded-2xl bg-primary/20 text-primary font-bold text-sm">
-                                        {speaker.name.slice(0, 2).toUpperCase()}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div className="min-w-0">
-                                      <h4 className="text-sm font-bold text-foreground truncate">
-                                        {speaker.socialUrl ? (
-                                          <a
-                                            href={speaker.socialUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="hover:text-primary transition-colors inline-flex items-center gap-1"
-                                          >
-                                            <span>{speaker.name}</span>
-                                            <ExternalLink
-                                              className="h-3 w-3 shrink-0"
-                                              aria-hidden="true"
-                                            />
-                                            <span className="sr-only">
-                                              {" "}
-                                              — {speaker.name}'s profile
-                                            </span>
-                                          </a>
-                                        ) : (
-                                          speaker.name
-                                        )}
-                                      </h4>
-                                      <p className="text-xs text-muted-foreground truncate">
-                                        {speaker.role || "Presenter"}
-                                      </p>
-                                    </div>
-                                  </div>
+                        {/* Action buttons on right */}
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start">
+                          <button
+                            type="button"
+                            onClick={(e) => toggleBookmark(session.id, e)}
+                            className={cn(
+                              "h-7 w-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer border",
+                              isBookmarked
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                : "text-muted-foreground/60 border-border/40 hover:text-foreground hover:bg-muted"
+                            )}
+                            title={isBookmarked ? "Remove bookmark" : "Bookmark"}
+                          >
+                            <Star
+                              className={cn(
+                                "h-3.5 w-3.5",
+                                isBookmarked ? "fill-amber-400 text-amber-400" : ""
+                              )}
+                            />
+                          </button>
 
-                                  {speaker.company && (
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground/90 truncate">
-                                      <Building className="h-3 w-3 shrink-0 text-orange-400" />
-                                      <span className="truncate">{speaker.company}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                          <a
+                            href={generateGoogleCalendarUrl(session)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground/60 border border-border/40 hover:text-orange-400 hover:bg-muted transition-colors cursor-pointer"
+                            title="Add to Google Calendar"
+                          >
+                            <CalendarPlus className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
                       </div>
-                    </Card>
+                    </div>
                   </div>
                 );
               })}
@@ -1121,19 +873,19 @@ export function ComDaySchedule({
         </div>
       )}
 
-      {/* INTERACTIVE SESSION DETAIL MODAL DIALOG */}
+      {/* RICH SESSION DETAIL MODAL (Opens cleanly on card click) */}
       <Dialog
         open={Boolean(selectedSession)}
         onOpenChange={(open) => !open && setSelectedSession(null)}
       >
         {selectedSession && (
-          <DialogContent className="max-w-2xl bg-card border-border/80 shadow-2xl rounded-3xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="space-y-3 text-left">
-              {/* Badges Row */}
-              <div className="flex flex-wrap items-center gap-2">
+          <DialogContent className="max-w-xl bg-card border-border/80 shadow-xl rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="space-y-2.5 text-left">
+              {/* Badges */}
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Badge
                   className={cn(
-                    "text-[10px] font-semibold border shadow-sm",
+                    "text-[10px] font-semibold border shadow-2xs",
                     getFormatBadgeClass(selectedSession.sessionType)
                   )}
                 >
@@ -1141,10 +893,10 @@ export function ComDaySchedule({
                     (selectedSession.isServiceSession ? "Rundown" : "Technical Session")}
                 </Badge>
 
-                {(roomLabelOf(selectedSession) || "") && (
+                {roomLabelOf(selectedSession) && (
                   <span
                     className={cn(
-                      "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-sm",
+                      "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shadow-2xs",
                       getRoomBadgeClass(roomLabelOf(selectedSession))
                     )}
                   >
@@ -1181,24 +933,24 @@ export function ComDaySchedule({
               </div>
 
               {/* Title */}
-              <DialogTitle className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground leading-snug">
+              <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-snug">
                 {selectedSession.title}
               </DialogTitle>
 
               <DialogDescription className="sr-only">
-                Detailed view of {selectedSession.title}
+                Details for {selectedSession.title}
               </DialogDescription>
             </DialogHeader>
 
             {/* Time & Venue Banner */}
-            <div className="p-4 rounded-2xl bg-muted/30 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-foreground font-semibold">
-                  <Calendar className="h-4 w-4 text-orange-400" />
+            <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-foreground font-medium">
+                  <Calendar className="h-3.5 w-3.5 text-orange-400" />
                   <span>{formatDateLabel(selectedSession.startsAt)}</span>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="h-4 w-4 text-orange-400" />
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 text-orange-400" />
                   <span>
                     {formatTime(selectedSession.startsAt, selectedSession.endsAt)} (Asia/Jakarta)
                   </span>
@@ -1206,47 +958,47 @@ export function ComDaySchedule({
               </div>
 
               {roomLabelOf(selectedSession) && (
-                <div className="flex items-center gap-1.5 text-muted-foreground sm:self-center">
-                  <MapPin className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span className="font-medium">{roomLabelOf(selectedSession)}</span>
+                <div className="flex items-center gap-1 text-muted-foreground text-xs sm:self-center">
+                  <MapPin className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                  <span>{roomLabelOf(selectedSession)}</span>
                 </div>
               )}
             </div>
 
-            {/* Session Description / Abstract */}
+            {/* Description */}
             {selectedSession.description && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Session Overview
-                </h4>
-                <p className="text-sm text-muted-foreground/95 leading-relaxed whitespace-pre-line">
+              <div className="space-y-1.5">
+                <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Overview
+                </h5>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                   {selectedSession.description}
                 </p>
               </div>
             )}
 
-            {/* Speaker Spotlight Section */}
+            {/* Speaker Spotlight */}
             {selectedSession.speakers.length > 0 && (
-              <div className="space-y-3 pt-2 border-t border-border/60">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Featured Speaker{selectedSession.speakers.length > 1 ? "s" : ""}
-                </h4>
+              <div className="space-y-2.5 pt-2 border-t border-border/40">
+                <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Speaker{selectedSession.speakers.length > 1 ? "s" : ""}
+                </h5>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {selectedSession.speakers.map((speaker, idx) => (
                     <div
                       key={speaker.id || `${selectedSession.id}-modal-spk-${idx}`}
-                      className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 flex items-center gap-3.5"
+                      className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center gap-3"
                     >
-                      <Avatar className="h-12 w-12 rounded-2xl border-2 border-orange-500/30 shadow-md shrink-0">
+                      <Avatar className="h-10 w-10 rounded-xl border border-orange-500/30 shrink-0">
                         <AvatarImage src={speaker.avatar || undefined} />
-                        <AvatarFallback className="rounded-2xl bg-primary/20 text-primary font-bold text-sm">
+                        <AvatarFallback className="rounded-xl bg-primary/20 text-primary font-bold text-xs">
                           {speaker.name.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
 
                       <div className="min-w-0 flex-1">
-                        <h5 className="text-sm font-bold text-foreground truncate">
+                        <h6 className="text-xs font-bold text-foreground truncate">
                           {speaker.socialUrl ? (
                             <a
                               href={speaker.socialUrl}
@@ -1255,17 +1007,17 @@ export function ComDaySchedule({
                               className="hover:text-primary transition-colors inline-flex items-center gap-1"
                             >
                               <span>{speaker.name}</span>
-                              <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
                             </a>
                           ) : (
                             speaker.name
                           )}
-                        </h5>
-                        <p className="text-xs text-muted-foreground truncate">
+                        </h6>
+                        <p className="text-[11px] text-muted-foreground truncate">
                           {speaker.role || "Presenter"}
                         </p>
                         {speaker.company && (
-                          <p className="text-[11px] text-muted-foreground/80 truncate flex items-center gap-1 mt-0.5">
+                          <p className="text-[10px] text-muted-foreground/75 truncate flex items-center gap-1 mt-0.5">
                             <Building className="h-2.5 w-2.5 text-orange-400" />
                             <span>{speaker.company}</span>
                           </p>
@@ -1278,13 +1030,14 @@ export function ComDaySchedule({
             )}
 
             {/* Action Buttons in Modal */}
-            <div className="pt-4 border-t border-border/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="pt-3 border-t border-border/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
               <Button
                 type="button"
                 variant={savedSessionIds.includes(selectedSession.id) ? "default" : "outline"}
+                size="sm"
                 onClick={() => toggleBookmark(selectedSession.id)}
                 className={cn(
-                  "cursor-pointer text-xs font-semibold h-10",
+                  "cursor-pointer text-xs font-medium h-8.5",
                   savedSessionIds.includes(selectedSession.id)
                     ? "bg-amber-500 hover:bg-amber-600 text-white"
                     : ""
@@ -1292,13 +1045,13 @@ export function ComDaySchedule({
               >
                 <Star
                   className={cn(
-                    "h-4 w-4 mr-1.5",
+                    "h-3.5 w-3.5 mr-1.5",
                     savedSessionIds.includes(selectedSession.id) ? "fill-white text-white" : ""
                   )}
                 />
                 {savedSessionIds.includes(selectedSession.id)
                   ? "Saved in Itinerary"
-                  : "Add to My Itinerary"}
+                  : "Save to Itinerary"}
               </Button>
 
               <div className="flex items-center gap-2">
@@ -1306,14 +1059,14 @@ export function ComDaySchedule({
                   variant="outline"
                   size="sm"
                   asChild
-                  className="h-10 text-xs font-medium cursor-pointer flex-1 sm:flex-none"
+                  className="h-8.5 text-xs font-medium cursor-pointer flex-1 sm:flex-none"
                 >
                   <a
                     href={generateGoogleCalendarUrl(selectedSession)}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <CalendarPlus className="h-3.5 w-3.5 mr-1.5 text-orange-400" />
+                    <CalendarPlus className="h-3 w-3 mr-1 text-orange-400" />
                     Google Calendar
                   </a>
                 </Button>
@@ -1327,10 +1080,10 @@ export function ComDaySchedule({
                       `${selectedSession.title.slice(0, 30).replace(/[^a-zA-Z0-9]/g, "-")}.ics`
                     )
                   }
-                  className="h-10 text-xs font-medium cursor-pointer flex-1 sm:flex-none"
+                  className="h-8.5 text-xs font-medium cursor-pointer flex-1 sm:flex-none"
                 >
-                  <Download className="h-3.5 w-3.5 mr-1.5 text-orange-400" />
-                  Download .ICS
+                  <Download className="h-3 w-3 mr-1 text-orange-400" />
+                  .ICS
                 </Button>
               </div>
             </div>

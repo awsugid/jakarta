@@ -3,6 +3,30 @@
 export const METADATA_MAX_VALUES = 20;
 export const METADATA_MAX_LENGTH = 100;
 
+// Suggestions only — never preselected or applied as defaults.
+export const LANGUAGE_SUGGESTIONS = ["English", "Bahasa Indonesia"];
+export const LEVEL_SUGGESTIONS = ["Beginner", "Intermediate", "Advanced"];
+
+const sameValue = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+export function hasMetadataValue(values: string[], value: string): boolean {
+  return values.some((v) => sameValue(v, value));
+}
+
+/**
+ * Append comma-separated custom input verbatim (trimmed), skipping case-insensitive
+ * duplicates. Existing values are kept as-is (a synced value may contain a comma).
+ */
+export function addMetadataValues(values: string[], input: string): string[] {
+  const added = parseMetadataList(input).filter((v) => !hasMetadataValue(values, v));
+  return [...values, ...added];
+}
+
+/** Suggestion chip: remove when present (any casing), else append. */
+export function toggleMetadataValue(values: string[], value: string): string[] {
+  return hasMetadataValue(values, value) ? values.filter((v) => !sameValue(v, value)) : [...values, value];
+}
+
 /**
  * Comma-separated editor input -> clean list: trims, drops empties, dedupes
  * case-insensitively (first spelling wins). " English , bahasa ,, " -> ["English", "bahasa"].

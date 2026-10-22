@@ -29,9 +29,9 @@ interface SectionItem {
 
 const SECTION_ITEMS: SectionItem[] = [
   { id: "overview", label: "Overview", icon: Compass },
-  { id: "tickets", label: "Get Tickets", icon: Ticket, badge: "Registration" },
   { id: "agenda", label: "Schedule", icon: Calendar },
   { id: "speakers", label: "Speakers", icon: Mic },
+  { id: "tickets", label: "Get Tickets", icon: Ticket, badge: "Registration" },
   { id: "sponsors", label: "Sponsors", icon: Handshake },
   { id: "volunteers", label: "Volunteers", icon: Heart },
   { id: "team", label: "Team & Organizers", icon: Users },

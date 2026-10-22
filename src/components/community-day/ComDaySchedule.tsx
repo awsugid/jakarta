@@ -362,22 +362,27 @@ export function ComDaySchedule({
                       </Badge>
                     </div>
 
-                    {/* Languages & levels — quiet pills, only when set */}
-                    {(session.languages.length > 0 || session.levels.length > 0) && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {session.languages.map((lang) => (
-                          <Badge key={`lang-${lang}`} variant="secondary" className="text-[10px] bg-secondary/80">
-                            <span className="sr-only">Language: </span>
-                            {lang}
-                          </Badge>
-                        ))}
-                        {session.levels.map((level) => (
-                          <Badge key={`level-${level}`} variant="secondary" className="text-[10px] bg-secondary/80">
-                            <span className="sr-only">Level: </span>
-                            {level}
-                          </Badge>
-                        ))}
-                      </div>
+                    {/* Language & level — labeled; talks show "not specified" rather than guessing */}
+                    {(!session.isServiceSession || session.languages.length > 0 || session.levels.length > 0) && (
+                      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 gap-y-1 text-xs">
+                        {([
+                          ["Language", session.languages],
+                          ["Level", session.levels],
+                        ] as const).map(([label, values]) =>
+                          values.length === 0 && session.isServiceSession ? null : (
+                            <div key={label} className="contents">
+                              <dt className="text-muted-foreground">{label}</dt>
+                              <dd className="min-w-0 break-words">
+                                {values.length > 0 ? (
+                                  <span className="font-medium text-foreground">{values.join(", ")}</span>
+                                ) : (
+                                  <span className="italic text-muted-foreground/80">Not specified</span>
+                                )}
+                              </dd>
+                            </div>
+                          ),
+                        )}
+                      </dl>
                     )}
                   </div>
 

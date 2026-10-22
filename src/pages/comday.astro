@@ -54,6 +54,31 @@ const scheduleApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/schedu
 
     <MetricsBar client:visible />
 
+    <!-- Agenda / Schedule Section -->
+    <section id="agenda" class="py-20 px-4 bg-background border-b border-border relative overflow-hidden">
+        <div class="absolute left-1/2 -top-40 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-b from-orange-500/10 to-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
+        <div class="container max-w-5xl mx-auto space-y-12 relative z-10">
+            <div class="text-center space-y-4">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Full Conference Agenda
+                </div>
+                <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">
+                    Event Schedule
+                </h2>
+                <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
+                <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
+                    Explore keynote sessions, database architecture workshops, security deep dives, and cloud networking tracks across all stages.
+                </p>
+            </div>
+
+            <ComDaySchedule client:visible />
+        </div>
+    </section>
+
+    <!-- Featured Speakers Carousel Section -->
+    <SpeakerCarousel client:load />
+
     <!-- Ticket Sales Section (MAIN SECTION) -->
     <section id="tickets" class="py-20 sm:py-24 px-4 bg-background border-b border-border relative overflow-hidden">
         <div class="absolute right-0 top-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-[120px] pointer-events-none" />
@@ -90,31 +115,6 @@ const scheduleApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/schedu
             </div>
         </div>
     </section>
-
-    <!-- Agenda / Schedule Section -->
-    <section id="agenda" class="py-20 px-4 bg-background border-b border-border relative overflow-hidden">
-        <div class="absolute left-1/2 -top-40 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-b from-orange-500/10 to-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
-        <div class="container max-w-5xl mx-auto space-y-12 relative z-10">
-            <div class="text-center space-y-4">
-                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Full Conference Agenda
-                </div>
-                <h2 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">
-                    Event Schedule
-                </h2>
-                <div class="w-20 h-1 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
-                <p class="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
-                    Explore keynote sessions, database architecture workshops, security deep dives, and cloud networking tracks across all stages.
-                </p>
-            </div>
-
-            <ComDaySchedule client:visible />
-        </div>
-    </section>
-
-    <!-- Featured Speakers Carousel Section -->
-    <SpeakerCarousel client:load />
 
     <!-- Sponsor CTA Section -->
     <SponsorSection client:visible />

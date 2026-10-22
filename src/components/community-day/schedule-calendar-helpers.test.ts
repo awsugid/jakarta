@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   formatTime,
+  formatTimeShort,
+  parseMinutesOfDay,
+  formatHourMin,
   formatDateLabel,
   getDurationMinutes,
   formatDuration,
@@ -42,6 +45,15 @@ describe("schedule-calendar-helpers", () => {
   test("formatTime formats in WIB (24h)", () => {
     const formatted = formatTime(dummySession.startsAt, dummySession.endsAt);
     expect(formatted).toBe("09:00 – 09:45 WIB");
+  });
+
+  test("formatTimeShort, parseMinutesOfDay, and formatHourMin", () => {
+    expect(formatTimeShort(dummySession.startsAt)).toBe("09:00");
+    expect(formatTimeShort(dummySession.endsAt)).toBe("09:45");
+    expect(parseMinutesOfDay(dummySession.startsAt)).toBe(540);
+    expect(parseMinutesOfDay(dummySession.endsAt)).toBe(585);
+    expect(formatHourMin(540)).toBe("09:00");
+    expect(formatHourMin(825)).toBe("13:45");
   });
 
   test("getDurationMinutes and formatDuration", () => {

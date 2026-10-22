@@ -54,6 +54,47 @@ export function formatTime(
   }
 }
 
+/** Formats ISO timestamp to short HH:MM in Asia/Jakarta (WIB), e.g. "09:00" */
+export function formatTimeShort(startsAt?: string | null): string {
+  if (!startsAt) return "--:--";
+  try {
+    const s = new Date(startsAt);
+    return s.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Jakarta",
+    });
+  } catch {
+    return "";
+  }
+}
+
+/** Parses ISO timestamp into minutes from midnight in Asia/Jakarta (WIB) */
+export function parseMinutesOfDay(isoStr?: string | null): number | null {
+  if (!isoStr) return null;
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return null;
+    const parts = d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Jakarta",
+    }).split(":");
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  } catch {
+    return null;
+  }
+}
+
+/** Formats minutes of day into HH:MM string, e.g. 540 -> "09:00" */
+export function formatHourMin(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
 /** Formats date in Asia/Jakarta, e.g. "Saturday, 31 January 2026" */
 export function formatDateLabel(startsAt?: string | null): string {
   if (!startsAt) return "Date TBA";

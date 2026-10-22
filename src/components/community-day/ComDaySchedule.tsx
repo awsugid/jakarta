@@ -19,7 +19,10 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Check,
+  ChevronDown,
+  LayoutGrid,
+  ListFilter,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,13 +61,14 @@ interface ActiveTipState {
   left: number;
   top?: number;
   bottom?: number;
+  isPinned: boolean;
 }
 
 const STORAGE_KEY = "comday26_saved_sessions";
-const RH = 40; // Ruler height (px)
-const LH = 96; // Lane height (px)
-const LW_DESKTOP = 112; // Lane label width desktop (px)
-const LW_MOBILE = 84; // Lane label width mobile (px)
+const RULER_HEIGHT = 44; // Ruler height (px)
+const LANE_HEIGHT = 100; // Lane row height (px)
+const LABEL_WIDTH_DESKTOP = 140; // Sticky label column width desktop (px)
+const LABEL_WIDTH_MOBILE = 96; // Sticky label column width mobile (px)
 
 export function ComDaySchedule({
   eventSlug = COMMUNITY_DAY_EVENT_SLUG,
@@ -74,7 +78,7 @@ export function ComDaySchedule({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Exactly 2 Modes: 'board' vs 'list' (defaults by screen width, respects user selection)
+  // Exactly 2 Modes: 'board' vs 'list'
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
   const [userPickedView, setUserPickedView] = useState(false);
 
@@ -83,7 +87,7 @@ export function ComDaySchedule({
   const [searchQuery, setSearchQuery] = useState("");
   const [onlySaved, setOnlySaved] = useState(false);
 
-  // Inline Accordion (List mode) — map of sessionId -> boolean (No modal dialog!)
+  // List View Accordion Expansion State (sessionId -> boolean)
   const [expandedSessionIds, setExpandedSessionIds] = useState<Record<string, boolean>>({});
 
   // Bookmarks / Saved sessions
@@ -91,34 +95,47 @@ export function ComDaySchedule({
 
   // Board Canvas Viewport refs & state
   const stageRef = useRef<HTMLDivElement>(null);
-  const vpRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(2.8);
-  const [tx, setTx] = useState(LW_DESKTOP);
-  const [isDragging, setIsDragging] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(2.8); // Pixels per minute
   const [activeTip, setActiveTip] = useState<ActiveTipState | null>(null);
-
-  // Pointer tracking refs for drag-to-pan & pinch-to-zoom
-  const pointersRef = useRef<Map<number, { clientX: number; clientY: number }>>(new Map());
-  const startXRef = useRef(0);
-  const startTxRef = useRef(0);
-  const movedRef = useRef(false);
-  const pinchDistRef = useRef(0);
   const hideTipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Responsive mode selection on mount & resize
+  // Drag-to-pan refs
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+  const hasMovedRef = useRef(false);
+
+  // Automatically switch to list mode on mobile view (< 768px), matching reference:
+  // "Use the board on a big screen and the list on your phone."
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const updateDefaultView = () => {
-      if (!userPickedView) {
-        setViewMode(window.innerWidth < 768 ? "list" : "board");
+    let wasMobile = window.innerWidth < 768;
+
+    // Immediately enforce list mode on initial mount if on mobile device
+    if (wasMobile) {
+      setViewMode("list");
+    }
+
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile !== wasMobile) {
+        wasMobile = isMobile;
+        if (isMobile) {
+          // Whenever viewport enters mobile width: automatically switch to list mode!
+          setViewMode("list");
+          setUserPickedView(false);
+        } else {
+          // Returning to desktop width: switch back to board mode!
+          setViewMode("board");
+        }
       }
     };
 
-    updateDefaultView();
-    window.addEventListener("resize", updateDefaultView);
-    return () => window.removeEventListener("resize", updateDefaultView);
-  }, [userPickedView]);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Load bookmarks safely from localStorage on client mount
   useEffect(() => {
@@ -136,7 +153,7 @@ export function ComDaySchedule({
     }
   }, []);
 
-  // Fetch confirmed public schedule
+  // Fetch confirmed public schedule from backend
   useEffect(() => {
     let cancelled = false;
 
@@ -158,7 +175,7 @@ export function ComDaySchedule({
             allRooms: Boolean(item.allRooms),
             track: item.track,
             sessionType: item.sessionType,
-            isServiceSession: item.isServiceSession,
+            isServiceSession: Boolean(item.isServiceSession),
             speakers: normalizeScheduleSpeakers(item),
             languages: item.languages ?? [],
             levels: item.levels ?? [],
@@ -207,17 +224,25 @@ export function ComDaySchedule({
     }));
   }, []);
 
-  // Extract distinct stages/rooms for filtering
-  const availableRooms = useMemo(() => {
-    const s = new Set<string>();
-    sessions.forEach((item) => {
-      if (item.rooms.length > 0) {
-        item.rooms.forEach((r) => r.trim() && s.add(r.trim()));
-      } else if (item.room && item.room.trim()) {
-        s.add(item.room.trim());
+  // Extract distinct tracks/rooms dynamically with subtitle
+  const distinctRoomOptions = useMemo(() => {
+    const map = new Map<string, { name: string; track: string; count: number }>();
+    sessions.forEach((s) => {
+      const roomName = (s.rooms?.[0] || s.room || "").trim();
+      if (!roomName) return;
+      const key = roomName.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, {
+          name: roomName,
+          track: s.track || (roomName.toLowerCase().includes("atrium") ? "Main Stage" : "Classroom 1"),
+          count: 1,
+        });
+      } else {
+        const existing = map.get(key)!;
+        existing.count += 1;
       }
     });
-    return Array.from(s).sort();
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [sessions]);
 
   // Filtered Sessions according to active track, search query, and saved toggle
@@ -245,10 +270,13 @@ export function ComDaySchedule({
             (sp.company || "").toLowerCase().includes(q)
         );
         const inRoom = (roomLabelOf(sess) || "").toLowerCase().includes(q);
+        const inTrack = (sess.track || "").toLowerCase().includes(q);
         const inMeta = [...sess.languages, ...sess.levels].some((v) =>
           v.toLowerCase().includes(q)
         );
-        if (!inTitle && !inDesc && !inSpeaker && !inRoom && !inMeta) return false;
+        if (!inTitle && !inDesc && !inSpeaker && !inRoom && !inTrack && !inMeta) {
+          return false;
+        }
       }
 
       return true;
@@ -270,11 +298,11 @@ export function ComDaySchedule({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Canvas Board Calculations (Lanes, Time Boundaries, Positioning)
+  // Canvas Board Calculations (Lanes, Time Boundaries, Visible Grid)
   // ---------------------------------------------------------------------------
-  const { T0, T1, lanes, sessionLaneMap, ticks } = useMemo(() => {
-    let minM = 540; // Default: 09:00
-    let maxM = 1050; // Default: 17:30
+  const { T0, T1, allLanes, ticks } = useMemo(() => {
+    let minM = 480; // 08:00 default
+    let maxM = 1020; // 17:00 default
 
     const startTimes = sessions
       .map((s) => parseMinutesOfDay(s.startsAt))
@@ -293,50 +321,36 @@ export function ComDaySchedule({
       maxM = minM + 180;
     }
 
-    // Build tracks / lanes
-    const laneList: LaneDefinition[] = [];
-    const hasPlenary = sessions.some(
-      (s) => s.allRooms || s.isServiceSession || (!s.rooms.length && !s.room)
-    );
-
-    if (hasPlenary) {
-      laneList.push({
-        id: "main-stage",
-        name: "Main Stage",
-        subtitle: "Keynotes & Plenary",
-      });
-    }
-
-    availableRooms.forEach((room) => {
-      if (room.toLowerCase() !== "all rooms") {
-        laneList.push({
-          id: room,
-          name: room,
-          subtitle: room.toLowerCase().includes("800")
-            ? "Cloud & Architecture"
-            : "DevOps & AI",
+    // Build all unique lanes from sessions
+    const laneMap = new Map<string, LaneDefinition>();
+    sessions.forEach((s) => {
+      const roomName = (s.rooms?.[0] || s.room || "").trim();
+      if (!roomName) return;
+      const key = roomName.toLowerCase();
+      if (!laneMap.has(key)) {
+        laneMap.set(key, {
+          id: key,
+          name: roomName,
+          subtitle: s.track || (roomName.toLowerCase().includes("atrium") ? "Main Stage" : "Classroom 1"),
         });
       }
     });
 
-    if (laneList.length === 0) {
-      laneList.push({
-        id: "main-hall",
-        name: "Conference Stage",
-        subtitle: "Keynotes and sessions",
+    // If no distinct rooms found, provide sensible fallback
+    const builtLanes = Array.from(laneMap.values());
+    if (builtLanes.length === 0) {
+      builtLanes.push({
+        id: "main-stage",
+        name: "Main Stage",
+        subtitle: "Keynotes & Sessions",
       });
     }
 
-    // Map each session to a lane index
-    const sLaneMap = new Map<string, number>();
-    sessions.forEach((s) => {
-      if (s.allRooms || s.isServiceSession || (!s.rooms.length && !s.room)) {
-        sLaneMap.set(s.id, 0);
-      } else {
-        const roomName = s.rooms[0] || s.room || "";
-        const idx = laneList.findIndex((l) => l.name.toLowerCase() === roomName.toLowerCase());
-        sLaneMap.set(s.id, idx >= 0 ? idx : 0);
-      }
+    // Sort lanes (Atrium / Main Stage first, then Aula / Classroom 1, etc.)
+    builtLanes.sort((a, b) => {
+      if (a.name.toLowerCase().includes("atrium") || a.name.toLowerCase().includes("main")) return -1;
+      if (b.name.toLowerCase().includes("atrium") || b.name.toLowerCase().includes("main")) return 1;
+      return a.name.localeCompare(b.name);
     });
 
     // 30-min time ticks for ruler
@@ -352,180 +366,142 @@ export function ComDaySchedule({
     return {
       T0: minM,
       T1: maxM,
-      lanes: laneList,
-      sessionLaneMap: sLaneMap,
+      allLanes: builtLanes,
       ticks: tickList,
     };
-  }, [sessions, availableRooms]);
+  }, [sessions]);
 
-  // Label width depending on viewport width
-  const labelWidth = typeof window !== "undefined" && window.innerWidth < 640 ? LW_MOBILE : LW_DESKTOP;
+  // Visible lanes on the board respecting active room filter
+  const visibleLanes = useMemo(() => {
+    if (selectedRoom === "ALL") return allLanes;
+    return allLanes.filter((l) => l.name.toLowerCase() === selectedRoom.toLowerCase());
+  }, [allLanes, selectedRoom]);
 
-  // Convert minute of day to horizontal pixel offset on board
-  const px = useCallback(
-    (t: number, customTx = tx, customScale = scale) => {
-      return customTx + (t - T0) * customScale;
-    },
-    [tx, scale, T0]
-  );
+  // Label column width (desktop vs mobile)
+  const [labelWidth, setLabelWidth] = useState(LABEL_WIDTH_DESKTOP);
+  useEffect(() => {
+    const handleResize = () => {
+      setLabelWidth(window.innerWidth < 640 ? LABEL_WIDTH_MOBILE : LABEL_WIDTH_DESKTOP);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-  // Clamp horizontal offset tx within canvas bounds
-  const clampTx = useCallback(
-    (targetTx: number, currentScale = scale) => {
-      if (!vpRef.current) return targetTx;
-      const w = vpRef.current.clientWidth;
-      const span = (T1 - T0) * currentScale;
-      if (span + labelWidth + 16 <= w) return labelWidth;
-      return Math.max(w - span - 24, Math.min(labelWidth, targetTx));
-    },
-    [scale, T0, T1, labelWidth]
-  );
+  // Timeline canvas pixel width (time span * scale)
+  const timelineSpan = T1 - T0;
+  const timelineWidth = timelineSpan * scale;
+  const totalCanvasWidth = labelWidth + timelineWidth;
 
-  // Fit schedule day neatly within viewport
+  // Zoom controls
+  const zoomIn = () => {
+    setScale((s) => Math.min(6.5, s * 1.3));
+  };
+
+  const zoomOut = () => {
+    setScale((s) => Math.max(1.6, s / 1.3));
+  };
+
   const fitDay = useCallback(() => {
-    if (!vpRef.current) return;
-    const w = vpRef.current.clientWidth;
-    const nextScale = Math.max(1.3, (w - labelWidth - 24) / (T1 - T0));
-    setScale(nextScale);
-    setTx(labelWidth);
-    setActiveTip(null);
-  }, [labelWidth, T0, T1]);
+    if (!scrollContainerRef.current) return;
+    const containerWidth = scrollContainerRef.current.clientWidth;
+    const availableWidth = containerWidth - labelWidth - 36;
+    if (availableWidth > 0 && timelineSpan > 0) {
+      const fitScale = Math.max(1.8, availableWidth / timelineSpan);
+      setScale(fitScale);
+      scrollContainerRef.current.scrollLeft = 0;
+      setActiveTip(null);
+    }
+  }, [labelWidth, timelineSpan]);
 
-  // Zoom canvas with anchor focal point
-  const zoom = useCallback(
-    (factor: number, focalX?: number) => {
-      setScale((prevScale) => {
-        const nextScale = Math.max(1.2, Math.min(6.5, prevScale * factor));
-        setTx((prevTx) => {
-          const cx = focalX ?? (vpRef.current ? vpRef.current.clientWidth / 2 : 300);
-          const t = (cx - prevTx) / prevScale;
-          const newTx = cx - t * nextScale;
-          return clampTx(newTx, nextScale);
-        });
-        return nextScale;
-      });
-    },
-    [clampTx]
-  );
-
-  // Fit day upon initial load of board mode
+  // Auto-fit on initial load of board mode
   useEffect(() => {
     if (viewMode === "board" && !loading && sessions.length > 0) {
       fitDay();
     }
   }, [viewMode, loading, sessions.length, fitDay]);
 
-  // Wheel zoom / pan handling
-  useEffect(() => {
-    const vp = vpRef.current;
-    if (!vp) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const rect = vp.getBoundingClientRect();
-        const cx = e.clientX - rect.left;
-        zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, cx);
-      } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        e.preventDefault();
-        setTx((prev) => clampTx(prev - e.deltaX, scale));
-      }
-    };
-
-    vp.addEventListener("wheel", handleWheel, { passive: false });
-    return () => vp.removeEventListener("wheel", handleWheel);
-  }, [zoom, clampTx, scale]);
-
-  // Pointer drag to pan & pinch to zoom
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest(".btn-tip-action")) return;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // Ignore
+  // Horizontal wheel handler (maps normal mouse wheel to horizontal scrolling)
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) zoomIn();
+      else zoomOut();
+    } else if (e.deltaY !== 0 && e.deltaX === 0 && scrollContainerRef.current) {
+      // Natural horizontal scrolling with standard mouse wheel
+      scrollContainerRef.current.scrollLeft += e.deltaY;
     }
-    pointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+  };
+
+  // Mouse Drag-To-Pan handlers
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest(".schedule-blk, .btn-tip-action, button, a")) return;
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
     startXRef.current = e.clientX;
-    startTxRef.current = tx;
-    movedRef.current = false;
-
-    if (pointersRef.current.size === 2) {
-      const pts = Array.from(pointersRef.current.values());
-      pinchDistRef.current = Math.abs(pts[0].clientX - pts[1].clientX);
-    }
-    setIsDragging(true);
+    scrollLeftRef.current = scrollContainerRef.current?.scrollLeft || 0;
+    scrollContainerRef.current?.classList.add("is-dragging");
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!pointersRef.current.has(e.pointerId)) return;
-    pointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
-
-    // Handle 2-finger pinch
-    if (pointersRef.current.size === 2) {
-      const pts = Array.from(pointersRef.current.values());
-      const d = Math.abs(pts[0].clientX - pts[1].clientX);
-      if (pinchDistRef.current > 0 && vpRef.current) {
-        const ratio = d / pinchDistRef.current;
-        const midX =
-          (pts[0].clientX + pts[1].clientX) / 2 - vpRef.current.getBoundingClientRect().left;
-        zoom(ratio, midX);
-      }
-      pinchDistRef.current = d;
-      movedRef.current = true;
-      return;
-    }
-
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || !scrollContainerRef.current) return;
     const dx = e.clientX - startXRef.current;
-    if (Math.abs(dx) > 4) {
-      movedRef.current = true;
+    if (Math.abs(dx) > 3) {
+      hasMovedRef.current = true;
       setActiveTip(null);
-      setTx(clampTx(startTxRef.current + dx, scale));
+      scrollContainerRef.current.scrollLeft = scrollLeftRef.current - dx;
     }
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    pointersRef.current.delete(e.pointerId);
-    if (pointersRef.current.size === 0) {
-      setIsDragging(false);
-    }
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+    scrollContainerRef.current?.classList.remove("is-dragging");
   };
 
   // Anchored popover tooltip helper for session blocks (No blocking modal dialog!)
   const showBlockTip = (
     session: DisplayScheduleSession,
     blockEl: HTMLElement,
-    laneIdx: number
+    laneIdx: number,
+    pin = false
   ) => {
-    if (movedRef.current) return;
+    if (hasMovedRef.current) return;
     if (hideTipTimeoutRef.current) clearTimeout(hideTipTimeoutRef.current);
     if (!stageRef.current) return;
 
     const stageRect = stageRef.current.getBoundingClientRect();
     const blockRect = blockEl.getBoundingClientRect();
-    const left = Math.max(8, Math.min(blockRect.left - stageRect.left, stageRect.width - 290));
 
-    // Place tip below block on top lanes, or above block on bottom lanes
-    const isTopHalf = laneIdx < lanes.length / 2;
+    // Position tip horizontally centered on block, clamped within visible stage bounds
+    const tipWidth = 320;
+    const blockCenterX = blockRect.left - stageRect.left + blockRect.width / 2;
+    let tipLeft = blockCenterX - tipWidth / 2;
+    tipLeft = Math.max(12, Math.min(tipLeft, stageRect.width - tipWidth - 12));
+
+    // Place tip below block on lane 0, or above block on lower lanes
+    const isTopHalf = laneIdx === 0;
     setActiveTip({
       session,
-      left,
-      top: isTopHalf ? blockRect.bottom - stageRect.top + 6 : undefined,
-      bottom: !isTopHalf ? stageRect.bottom - blockRect.top + 6 : undefined,
+      left: tipLeft,
+      top: isTopHalf ? blockRect.bottom - stageRect.top + 8 : undefined,
+      bottom: !isTopHalf ? stageRect.bottom - blockRect.top + 8 : undefined,
+      isPinned: pin,
     });
   };
 
   const hideBlockTip = (immediate = false) => {
+    if (activeTip?.isPinned && !immediate) return;
     if (hideTipTimeoutRef.current) clearTimeout(hideTipTimeoutRef.current);
     if (immediate) {
       setActiveTip(null);
     } else {
       hideTipTimeoutRef.current = setTimeout(() => {
-        setActiveTip(null);
-      }, 200);
+        setActiveTip((prev) => (prev?.isPinned ? prev : null));
+      }, 250);
     }
   };
 
-  // Close tip on Escape or outside click
+  // Close tip on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -536,343 +512,103 @@ export function ComDaySchedule({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Total calculated height of the interactive canvas viewport
-  const viewportHeight = Math.max(340, RH + lanes.length * LH);
+  const viewportHeight = RULER_HEIGHT + visibleLanes.length * LANE_HEIGHT;
 
   return (
-    <div className={cn("schedule-container space-y-4", className)}>
-      {/* SCOPED COMPONENT STYLES (Matching the Meridian Canvas Schedule Reference) */}
+    <div className={cn("space-y-5", className)}>
+      {/* SCOPED COMPONENT STYLES */}
       <style>{`
-        .schedule-seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: hsl(var(--muted)/0.35); border: 1px solid hsl(var(--border)/0.5); }
-        .schedule-seg .btn-seg { font: inherit; font-size: 0.82rem; font-weight: 600; padding: 6px 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; transition: all 0.15s ease; }
-        .schedule-seg .btn-seg:hover { color: hsl(var(--foreground)); }
-        .schedule-seg .btn-seg[aria-pressed="true"] { background: hsl(var(--card)); color: hsl(var(--foreground)); border-color: hsl(var(--border)); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        
-        /* Board Mode Canvas */
-        .schedule-stage { position: relative; }
-        .schedule-vp {
-          position: relative;
-          border: 1px solid hsl(var(--border)/0.8);
-          border-radius: 16px;
-          background-color: hsl(var(--card)/0.4);
-          overflow: hidden;
-          cursor: grab;
-          touch-action: pan-y;
-          user-select: none;
-          -webkit-user-select: none;
-          background-image: radial-gradient(circle, hsl(var(--muted-foreground)/0.25) 1px, transparent 1.2px);
-          background-size: 24px 24px;
+        /* Smooth Custom Horizontal Scrollbar */
+        .schedule-scroll-area::-webkit-scrollbar {
+          height: 10px;
         }
-        .schedule-vp.is-dragging { cursor: grabbing; }
-        
-        .schedule-ruler {
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
-          height: 40px;
-          border-bottom: 1px solid hsl(var(--border)/0.8);
-          background: hsl(var(--card)/0.95);
-          backdrop-filter: blur(8px);
-          z-index: 10;
-        }
-        .schedule-tick {
-          position: absolute;
-          top: 0;
-          height: 40px;
-          padding: 10px 0 0 8px;
-          border-left: 1px solid hsl(var(--border)/0.7);
-          font-size: 0.76rem;
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-          color: hsl(var(--foreground));
-        }
-        .schedule-tick.half {
-          border-left-style: dashed;
-          color: hsl(var(--muted-foreground));
-          font-weight: 500;
-        }
-        .schedule-grid {
-          position: absolute;
-          top: 40px;
-          bottom: 0;
-          border-left: 1px solid hsl(var(--border)/0.4);
-          pointer-events: none;
-        }
-        .schedule-lane {
-          position: absolute;
-          left: 0;
-          right: 0;
-          height: 96px;
-          border-bottom: 1px solid hsl(var(--border)/0.5);
-        }
-        .schedule-lane:last-child { border-bottom: 0; }
-        .schedule-lbl {
-          position: absolute;
-          left: 0;
-          z-index: 12;
-          width: 112px;
-          height: 96px;
-          padding: 14px 10px;
-          background: linear-gradient(90deg, hsl(var(--card)) 75%, transparent);
-          font-size: 0.8rem;
-          font-weight: 700;
-          pointer-events: none;
-          color: hsl(var(--foreground));
-        }
-        @media (max-width: 640px) {
-          .schedule-lbl { width: 84px; font-size: 0.74rem; }
-        }
-        .schedule-lbl span {
-          display: block;
-          color: hsl(var(--muted-foreground));
-          font-weight: 500;
-          font-size: 0.72rem;
-          margin-top: 2px;
-        }
-        
-        /* Canvas Session Blocks */
-        .schedule-blk {
-          position: absolute;
-          height: 72px;
-          margin-top: 12px;
-          padding: 10px 12px;
-          border-radius: 12px;
-          border: 1px solid hsl(var(--border));
-          background: hsl(var(--card)/0.85);
-          backdrop-filter: blur(4px);
-          text-align: left;
-          color: hsl(var(--foreground));
-          cursor: pointer;
-          overflow: hidden;
-          z-index: 5;
-          transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-        }
-        .schedule-blk b {
-          display: block;
-          font-size: 0.82rem;
-          line-height: 1.25;
-          letter-spacing: -0.01em;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .schedule-blk i {
-          display: block;
-          font-style: normal;
-          font-size: 0.72rem;
-          color: hsl(var(--muted-foreground));
-          font-variant-numeric: tabular-nums;
-          margin-top: 3px;
-          white-space: nowrap;
-          overflow: hidden;
-        }
-        .schedule-blk.Talk { background: hsl(var(--card)/0.9); border-color: hsl(var(--border)/0.9); }
-        .schedule-blk.Keynote, .schedule-blk.Plenary { background: rgba(255,153,0,0.12); border-color: rgba(255,153,0,0.35); }
-        .schedule-blk.Workshop { border-color: rgba(255,153,0,0.6); background: hsl(var(--card)); }
-        .schedule-blk.Service, .schedule-blk.Break, .schedule-blk.Networking { border-style: dashed; background: hsl(var(--muted)/0.2); }
-        .schedule-blk:hover, .schedule-blk.is-active {
-          transform: translateY(-2px);
-          border-color: #FF9900;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-          z-index: 15;
-        }
-        .schedule-blk.is-saved::after {
-          content: "";
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #FF9900;
-          box-shadow: 0 0 6px rgba(255,153,0,0.7);
-        }
-        
-        /* Anchored Popover Tip (No Blocking Modal!) */
-        .schedule-tip {
-          position: absolute;
-          z-index: 30;
-          width: 290px;
-          padding: 16px;
-          border-radius: 14px;
-          background: hsl(var(--card));
-          border: 1px solid hsl(var(--border));
-          box-shadow: 0 16px 36px rgba(0,0,0,0.45);
-          font-size: 0.84rem;
-        }
-        .schedule-tip h3 {
-          margin: 0 0 4px;
-          font-size: 0.95rem;
-          font-weight: 700;
-          line-height: 1.3;
-          color: hsl(var(--foreground));
-        }
-        .schedule-tip .when {
-          color: #FF9900;
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-          font-size: 0.8rem;
-          margin-bottom: 8px;
-        }
-        .schedule-tip p {
-          margin: 0 0 8px;
-          color: hsl(var(--muted-foreground));
-          line-height: 1.4;
-          font-size: 0.8rem;
-        }
-        .schedule-tip .who {
-          font-weight: 600;
-          color: hsl(var(--foreground));
-          margin-bottom: 8px;
-        }
-        .schedule-tip .loc {
-          font-size: 0.78rem;
-          color: hsl(var(--muted-foreground));
-          margin-bottom: 12px;
-        }
-        
-        /* List Mode (Clean Minimalist Accordion) */
-        .schedule-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-        }
-        .schedule-li {
-          border-bottom: 1px solid hsl(var(--border)/0.6);
-          transition: background-color 0.2s ease, border-radius 0.2s ease;
-        }
-        .schedule-hd {
-          all: unset;
-          box-sizing: border-box;
-          display: grid;
-          grid-template-columns: 62px 1fr 20px;
-          gap: 12px;
-          width: 100%;
-          min-height: 64px;
-          padding: 14px 4px;
-          cursor: pointer;
-          align-items: start;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .schedule-hd:focus-visible {
-          outline: 2px solid #FF9900;
-          outline-offset: 2px;
+        .schedule-scroll-area::-webkit-scrollbar-track {
+          background: #10121A;
           border-radius: 8px;
         }
-        .schedule-li .tm {
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-          font-size: 0.95rem;
-          letter-spacing: -0.01em;
-          color: hsl(var(--foreground));
+        .schedule-scroll-area::-webkit-scrollbar-thumb {
+          background: #2D3346;
+          border-radius: 8px;
+          border: 2px solid #10121A;
         }
-        .schedule-li .tm small {
-          display: block;
-          color: hsl(var(--muted-foreground));
-          font-weight: 500;
-          font-size: 0.72rem;
-          margin-top: 2px;
-        }
-        .schedule-li .tt {
-          font-weight: 700;
-          font-size: 0.96rem;
-          line-height: 1.35;
-          letter-spacing: -0.01em;
-          color: hsl(var(--foreground));
-        }
-        .schedule-li .sv-dot {
-          display: none;
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
+        .schedule-scroll-area::-webkit-scrollbar-thumb:hover {
           background: #FF9900;
-          margin-left: 8px;
-          vertical-align: middle;
         }
-        .schedule-li.is-saved .sv-dot { display: inline-block; }
-        .schedule-li .rm {
-          color: hsl(var(--muted-foreground));
-          font-size: 0.8rem;
-          margin-top: 3px;
-        }
-        .schedule-li .rm b {
-          font-weight: 600;
-          color: #FF9900;
-        }
-        .schedule-li .chev {
-          width: 9px;
-          height: 9px;
-          margin-top: 8px;
-          border-right: 2px solid hsl(var(--muted-foreground));
-          border-bottom: 2px solid hsl(var(--muted-foreground));
-          transform: rotate(45deg);
-          transition: transform 0.22s ease, margin-top 0.22s ease;
-        }
-        .schedule-li.is-open .chev {
-          transform: rotate(-135deg);
-          margin-top: 12px;
-          border-color: #FF9900;
-        }
-        .schedule-li.is-open {
-          background: linear-gradient(90deg, rgba(255,153,0,0.08), transparent 65%);
-          border-radius: 12px;
+        .schedule-scroll-area.is-dragging {
+          cursor: grabbing !important;
+          user-select: none;
         }
         
-        /* Smooth CSS Grid Accordion Transition */
-        .schedule-dt {
+        /* 100% Solid Opaque Popover Card */
+        .schedule-popover-card {
+          background-color: #161922 !important;
+          border: 1px solid rgba(255, 153, 0, 0.4) !important;
+          box-shadow: 0 24px 50px -10px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+          opacity: 1 !important;
+        }
+
+        /* List View Smooth In-Place Height Transition */
+        .schedule-list-detail {
           display: grid;
           grid-template-rows: 0fr;
-          transition: grid-template-rows 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .schedule-li.is-open .schedule-dt {
+        .schedule-list-item.is-expanded .schedule-list-detail {
           grid-template-rows: 1fr;
         }
-        .schedule-dt > div {
+        .schedule-list-detail > div {
           overflow: hidden;
-        }
-        .schedule-in {
-          padding: 0 4px 18px 74px;
-          font-size: 0.88rem;
-        }
-        @media (max-width: 600px) {
-          .schedule-in { padding-left: 4px; }
         }
       `}</style>
 
       {/* TOP CONTROLS & UNIFIED TOOLBAR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-2.5 rounded-2xl bg-card/60 backdrop-blur-md border border-border/60">
-        {/* Left: Exactly 2 View Modes (Board vs List) */}
-        <div className="flex items-center gap-2">
-          <div className="schedule-seg" role="group" aria-label="Choose schedule view">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 rounded-2xl bg-card/70 backdrop-blur-md border border-border/70 shadow-sm">
+        {/* Left: View Mode Toggle & Track Filter Pills */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Segmented Mode Switcher (Full-width on mobile like reference .seg { display: flex; } .seg .btn { flex: 1; }) */}
+          <div className="schedule-seg-wrapper w-full sm:w-auto inline-flex items-center p-1 rounded-xl bg-muted/40 border border-border/50 shrink-0">
             <button
               type="button"
-              className="btn-seg"
+              className={cn(
+                "flex-1 sm:flex-initial px-4 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                viewMode === "board"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
               aria-pressed={viewMode === "board"}
               onClick={() => {
                 setUserPickedView(true);
                 setViewMode("board");
-                hideBlockTip(true);
+                setActiveTip(null);
               }}
             >
-              Board
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Board</span>
             </button>
             <button
               type="button"
-              className="btn-seg"
+              className={cn(
+                "flex-1 sm:flex-initial px-4 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                viewMode === "list"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
               aria-pressed={viewMode === "list"}
               onClick={() => {
                 setUserPickedView(true);
                 setViewMode("list");
-                hideBlockTip(true);
+                setActiveTip(null);
               }}
             >
-              List
+              <ListFilter className="h-3.5 w-3.5" />
+              <span>List</span>
             </button>
           </div>
 
-          {/* Quick Track Filter Pills */}
-          <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto scrollbar-none pl-1">
+          <div className="h-6 w-px bg-border/60 hidden sm:block" />
+
+          {/* Track Filter Pills (Always Accessible) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
             <button
               type="button"
               onClick={() => {
@@ -880,75 +616,83 @@ export function ComDaySchedule({
                 setOnlySaved(false);
               }}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer",
+                "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border",
                 selectedRoom === "ALL" && !onlySaved
-                  ? "bg-primary text-primary-foreground font-semibold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-foreground text-background border-foreground font-bold shadow-xs"
+                  : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
               )}
             >
               All Tracks
             </button>
 
-            {availableRooms.map((room) => (
+            {distinctRoomOptions.map((opt) => (
               <button
-                key={room}
+                key={opt.name}
                 type="button"
                 onClick={() => {
-                  setSelectedRoom(room);
+                  setSelectedRoom(opt.name);
                   setOnlySaved(false);
                 }}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer",
-                  selectedRoom === room && !onlySaved
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border flex items-center gap-1.5",
+                  selectedRoom.toLowerCase() === opt.name.toLowerCase() && !onlySaved
+                    ? "bg-foreground text-background border-foreground font-bold shadow-xs"
+                    : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
                 )}
               >
-                {room}
+                <span
+                  className={cn(
+                    "w-2 h-2 rounded-full shrink-0",
+                    opt.name.toLowerCase().includes("atrium") ? "bg-orange-500" : "bg-purple-400"
+                  )}
+                />
+                <span>
+                  {opt.name} <span className="opacity-75">({opt.track})</span>
+                </span>
               </button>
             ))}
 
-            {/* Bookmarked / Saved Shortcut Pill */}
+            {/* Saved talks shortcut */}
             <button
               type="button"
               onClick={() => setOnlySaved((prev) => !prev)}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer border",
+                "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer border",
                 onlySaved
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold"
-                  : "text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/50"
+                  ? "bg-amber-500 text-white border-amber-500 font-bold shadow-xs"
+                  : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
               )}
-              title="Show bookmarked talks"
+              title="Show only bookmarked talks"
             >
               <Star
                 className={cn(
                   "h-3 w-3",
-                  savedSessionIds.length > 0 || onlySaved ? "fill-amber-400 text-amber-400" : ""
+                  savedSessionIds.length > 0 || onlySaved ? "fill-current text-current" : ""
                 )}
               />
               <span>Saved</span>
               {savedSessionIds.length > 0 && (
-                <span className="text-[10px] font-bold opacity-80">({savedSessionIds.length})</span>
+                <span className="text-[10px] font-bold opacity-90">({savedSessionIds.length})</span>
               )}
             </button>
           </div>
         </div>
 
-        {/* Right: Search & Bulk Export */}
-        <div className="flex items-center gap-2">
-          <div className="relative w-full md:w-48">
+        {/* Right: Search & Bulk .ICS Export */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="relative w-full sm:w-52">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search talks..."
+              placeholder="Search talks, speakers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-7 h-8 text-xs bg-background/60 border-border/60 focus:border-orange-500/50"
+              className="pl-8 pr-7 h-8.5 text-xs bg-background/60 border-border/60 focus:border-orange-500/50"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -967,8 +711,8 @@ export function ComDaySchedule({
                   : "AWS-Community-Day-2026-Agenda.ics"
               )
             }
-            className="h-8 text-xs font-medium cursor-pointer shrink-0"
-            title="Download iCalendar file (.ics)"
+            className="h-8.5 text-xs font-medium cursor-pointer shrink-0"
+            title="Download full conference calendar (.ics)"
           >
             <Download className="h-3.5 w-3.5 mr-1 text-orange-400" />
             <span>.ICS</span>
@@ -976,206 +720,307 @@ export function ComDaySchedule({
         </div>
       </div>
 
-      {/* FILTER ACTIVE STATUS BAR */}
+      {/* FILTER ACTIVE STATUS FEEDBACK */}
       {hasActiveFilters && (
         <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
           <span>
             Showing <strong className="text-foreground">{filteredSessions.length}</strong> of{" "}
-            {sessions.length} talks {onlySaved && "• Filtered by saved"}
+            {sessions.length} sessions
+            {selectedRoom !== "ALL" && ` in ${selectedRoom}`}
+            {onlySaved && " • Saved only"}
           </span>
           <button
             type="button"
             onClick={resetFilters}
-            className="text-orange-400 hover:text-orange-300 font-medium cursor-pointer"
+            className="text-orange-400 hover:text-orange-300 font-semibold cursor-pointer underline"
           >
-            Clear filters
+            Reset all filters
           </button>
         </div>
       )}
 
       {/* MAIN CONTENT AREA */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 space-y-2">
-          <Loader2 className="h-6 w-6 text-orange-400 animate-spin" />
-          <p className="text-xs text-muted-foreground animate-pulse">Loading event schedule...</p>
+        <div className="flex flex-col items-center justify-center p-20 space-y-3">
+          <Loader2 className="h-8 w-8 text-orange-400 animate-spin" />
+          <p className="text-sm text-muted-foreground font-medium animate-pulse">
+            Loading confirmed agenda...
+          </p>
         </div>
       ) : error ? (
-        <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-center space-y-1">
-          <AlertCircle className="h-5 w-5 mx-auto" />
-          <p className="text-xs font-medium">{error}</p>
+        <div className="p-8 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-center space-y-2">
+          <AlertCircle className="h-6 w-6 mx-auto" />
+          <p className="text-sm font-semibold">{error}</p>
         </div>
       ) : filteredSessions.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-border/60 bg-card/20 rounded-2xl space-y-2">
-          <Calendar className="h-6 w-6 text-muted-foreground mx-auto" />
-          <h4 className="text-sm font-semibold text-foreground">No sessions found</h4>
-          <p className="text-xs text-muted-foreground">
+        <div className="p-16 text-center border border-dashed border-border/80 bg-card/20 rounded-2xl space-y-3">
+          <Calendar className="h-8 w-8 text-muted-foreground mx-auto" />
+          <h4 className="text-base font-bold text-foreground">No sessions match your filter</h4>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
             {onlySaved
               ? "You haven't bookmarked any sessions yet. Click the star icon on any talk to save it."
-              : "Try adjusting your search query or track filter."}
+              : "Try choosing another track pill or clearing your search keywords."}
           </p>
           {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="text-xs text-orange-400 hover:underline cursor-pointer"
-            >
-              Reset all filters
-            </button>
+            <Button type="button" variant="outline" size="sm" onClick={resetFilters} className="mt-2">
+              Reset filters
+            </Button>
           )}
         </div>
       ) : (
         <div className="space-y-4">
           {/* ============================================================ */}
-          {/* MODE 1: BOARD VIEW (Horizontal Canvas Schedule Board)       */}
+          {/* MODE 1: BOARD VIEW (Horizontal Canvas Schedule Board)        */}
           {/* ============================================================ */}
           {viewMode === "board" && (
             <div className="space-y-3">
-              {/* Board Controls Toolbar */}
-              <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => zoom(1 / 1.35)}
-                  className="h-8 text-xs cursor-pointer"
-                  aria-label="Zoom out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5 mr-1" />
-                  Zoom out
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => zoom(1.35)}
-                  className="h-8 text-xs cursor-pointer"
-                  aria-label="Zoom in"
-                >
-                  <ZoomIn className="h-3.5 w-3.5 mr-1" />
-                  Zoom in
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={fitDay}
-                  className="h-8 text-xs cursor-pointer"
-                >
-                  <Maximize2 className="h-3 w-3 mr-1" />
-                  Fit day
-                </Button>
-                <span className="text-[11px] text-muted-foreground/80 sm:ml-auto">
-                  Drag to pan. Hold Ctrl/Cmd and scroll to zoom. Times in WIB.
-                </span>
-              </div>
-
-              {/* Board Interactive Stage */}
-              <div className="schedule-stage" ref={stageRef}>
-                <div
-                  ref={vpRef}
-                  className={cn("schedule-vp", isDragging && "is-dragging")}
-                  style={{
-                    height: `${viewportHeight}px`,
-                    backgroundPosition: `${tx % 24}px 0, ${tx % 24}px 0`,
-                  }}
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
-                  onPointerCancel={handlePointerUp}
-                  role="region"
-                  aria-label="Interactive event schedule board"
-                >
-                  {/* Top Time Ruler */}
-                  <div className="schedule-ruler">
-                    {ticks.map((t) => (
-                      <div
-                        key={t.min}
-                        className={cn("schedule-tick", t.isHalf && "half")}
-                        style={{ left: `${px(t.min)}px` }}
-                      >
-                        {t.label}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Vertical Time Grid Lines */}
-                  {ticks.map((t) => (
-                    <div
-                      key={`grid-${t.min}`}
-                      className="schedule-grid"
-                      style={{ left: `${px(t.min)}px` }}
-                    />
-                  ))}
-
-                  {/* Room Track Lanes & Left Labels */}
-                  {lanes.map((lane, i) => (
-                    <React.Fragment key={lane.id}>
-                      <div
-                        className="schedule-lane"
-                        style={{ top: `${RH + i * LH}px` }}
-                      />
-                      <div
-                        className="schedule-lbl"
-                        style={{ top: `${RH + i * LH}px` }}
-                      >
-                        {lane.name}
-                        <span>{lane.subtitle}</span>
-                      </div>
-                    </React.Fragment>
-                  ))}
-
-                  {/* Positioned Session Blocks */}
-                  {filteredSessions.map((session) => {
-                    const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
-                    const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 45;
-                    const duration = Math.max(15, endMin - startMin);
-                    const laneIdx = sessionLaneMap.get(session.id) ?? 0;
-                    const isSaved = savedSessionIds.includes(session.id);
-                    const isActive = activeTip?.session.id === session.id;
-
-                    const blockLeft = px(startMin) + 2;
-                    const blockWidth = Math.max(60, duration * scale - 4);
-                    const blockTop = RH + laneIdx * LH;
-
-                    const formatClass = session.sessionType || (session.isServiceSession ? "Service" : "Talk");
-
-                    return (
-                      <button
-                        key={session.id}
-                        type="button"
-                        className={cn(
-                          "schedule-blk",
-                          formatClass,
-                          isSaved && "is-saved",
-                          isActive && "is-active"
-                        )}
-                        style={{
-                          top: `${blockTop}px`,
-                          left: `${blockLeft}px`,
-                          width: `${blockWidth}px`,
-                        }}
-                        onMouseEnter={(e) => showBlockTip(session, e.currentTarget, laneIdx)}
-                        onMouseLeave={() => hideBlockTip(false)}
-                        onFocus={(e) => showBlockTip(session, e.currentTarget, laneIdx)}
-                        onClick={(e) => {
-                          if (movedRef.current) return;
-                          showBlockTip(session, e.currentTarget, laneIdx);
-                        }}
-                        aria-label={`${session.title}, ${formatTimeShort(session.startsAt)} to ${formatTimeShort(session.endsAt)}`}
-                      >
-                        <b>{session.title}</b>
-                        <i>
-                          {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)} WIB
-                        </i>
-                      </button>
-                    );
-                  })}
+              {/* Board Zoom & Navigation Controls */}
+              <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-muted-foreground px-1">
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={zoomOut}
+                    className="h-8 px-2.5 text-xs cursor-pointer"
+                    title="Zoom out timeline"
+                  >
+                    <ZoomOut className="h-3.5 w-3.5 mr-1" />
+                    Zoom out
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={zoomIn}
+                    className="h-8 px-2.5 text-xs cursor-pointer"
+                    title="Zoom in timeline"
+                  >
+                    <ZoomIn className="h-3.5 w-3.5 mr-1" />
+                    Zoom in
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={fitDay}
+                    className="h-8 px-2.5 text-xs cursor-pointer font-medium"
+                    title="Fit entire conference day on screen"
+                  >
+                    <Maximize2 className="h-3 w-3 mr-1" />
+                    Fit day
+                  </Button>
                 </div>
 
-                {/* Floating Anchored Popover Tip (No Blocking Modal!) */}
+                <div className="text-[11px] text-muted-foreground/80 flex items-center gap-2">
+                  <span>💡 Drag canvas or scroll horizontally to pan. All times are WIB.</span>
+                </div>
+              </div>
+
+              {/* Board Stage Container */}
+              <div className="relative" ref={stageRef}>
+                <div
+                  ref={scrollContainerRef}
+                  className="schedule-scroll-area relative rounded-2xl border border-border/80 bg-[#12141C] overflow-x-auto overflow-y-hidden cursor-grab shadow-inner"
+                  style={{ height: `${viewportHeight}px` }}
+                  onWheel={handleWheel}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  role="region"
+                  aria-label="Event schedule timeline board"
+                >
+                  {/* Canvas Inner Space */}
+                  <div
+                    className="relative select-none"
+                    style={{
+                      width: `${totalCanvasWidth}px`,
+                      height: `${viewportHeight}px`,
+                      backgroundImage:
+                        "radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1.2px)",
+                      backgroundSize: "24px 24px",
+                    }}
+                  >
+                    {/* Top-Left Pinned Header Cell */}
+                    <div
+                      className="sticky top-0 left-0 z-40 bg-[#151822] border-r border-b border-border/80 flex items-center px-3.5 text-xs font-bold text-muted-foreground uppercase tracking-wider shadow-sm"
+                      style={{ width: `${labelWidth}px`, height: `${RULER_HEIGHT}px` }}
+                    >
+                      <Layers className="h-3.5 w-3.5 mr-1.5 text-orange-400" />
+                      <span>Tracks</span>
+                    </div>
+
+                    {/* Continuous Sticky Time Ruler */}
+                    <div
+                      className="sticky top-0 z-30 bg-[#171A24]/95 backdrop-blur-md border-b border-border/80 flex items-center"
+                      style={{
+                        marginLeft: `${labelWidth}px`,
+                        width: `${timelineWidth}px`,
+                        height: `${RULER_HEIGHT}px`,
+                        marginTop: `-${RULER_HEIGHT}px`,
+                      }}
+                    >
+                      {ticks.map((t) => {
+                        const tickX = (t.min - T0) * scale;
+                        return (
+                          <div
+                            key={t.min}
+                            className={cn(
+                              "absolute top-0 h-full flex items-center pl-2 border-l font-mono text-xs select-none",
+                              t.isHalf
+                                ? "border-dashed border-border/50 text-muted-foreground/75 font-normal text-[11px]"
+                                : "border-solid border-border/90 text-foreground font-bold"
+                            )}
+                            style={{ left: `${tickX}px` }}
+                          >
+                            {t.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Vertical Background Time Grid Lines */}
+                    {ticks.map((t) => {
+                      const gridX = labelWidth + (t.min - T0) * scale;
+                      return (
+                        <div
+                          key={`grid-${t.min}`}
+                          className={cn(
+                            "absolute top-[44px] bottom-0 pointer-events-none border-l",
+                            t.isHalf ? "border-dashed border-border/20" : "border-solid border-border/35"
+                          )}
+                          style={{ left: `${gridX}px` }}
+                        />
+                      );
+                    })}
+
+                    {/* Horizontal Room Track Lanes */}
+                    {visibleLanes.map((lane, laneIdx) => {
+                      const laneTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT;
+
+                      return (
+                        <React.Fragment key={lane.id}>
+                          {/* Lane Background Row & Divider */}
+                          <div
+                            className="absolute left-0 right-0 border-b border-border/50 pointer-events-none"
+                            style={{ top: `${laneTop}px`, height: `${LANE_HEIGHT}px` }}
+                          />
+
+                          {/* Pinned Sticky Lane Label on the Left */}
+                          <div
+                            className="sticky left-0 z-20 bg-[#151822] border-r border-border/80 px-3.5 flex flex-col justify-center shadow-[4px_0_16px_rgba(0,0,0,0.5)]"
+                            style={{
+                              top: `${laneTop}px`,
+                              width: `${labelWidth}px`,
+                              height: `${LANE_HEIGHT}px`,
+                              marginTop: laneIdx === 0 ? "0px" : undefined,
+                            }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  "w-2 h-2 rounded-full shrink-0",
+                                  lane.name.toLowerCase().includes("atrium")
+                                    ? "bg-orange-500 shadow-[0_0_6px_rgba(255,153,0,0.6)]"
+                                    : "bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]"
+                                )}
+                              />
+                              <h5 className="font-bold text-xs md:text-sm text-foreground truncate">
+                                {lane.name}
+                              </h5>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground font-medium truncate block mt-0.5">
+                              {lane.subtitle}
+                            </span>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+
+                    {/* Session Blocks Positioned on the Board */}
+                    {filteredSessions.map((session) => {
+                      const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
+                      const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 45;
+                      const durationMin = Math.max(20, endMin - startMin);
+
+                      // Determine which visible lane this session belongs to
+                      const roomName = (session.rooms?.[0] || session.room || "").toLowerCase();
+                      let laneIdx = visibleLanes.findIndex(
+                        (l) => l.name.toLowerCase() === roomName
+                      );
+                      if (laneIdx < 0) {
+                        // If session is all-rooms or plenary, default to lane 0
+                        laneIdx = 0;
+                      }
+
+                      const blockLeft = labelWidth + (startMin - T0) * scale + 2;
+                      const blockWidth = Math.max(76, durationMin * scale - 4);
+                      const blockTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT + 12;
+
+                      const isSaved = savedSessionIds.includes(session.id);
+                      const isActive = activeTip?.session.id === session.id;
+
+                      const formatLower = (session.sessionType || "").toLowerCase();
+                      const isWorkshop = formatLower.includes("workshop");
+                      const isKeynote =
+                        formatLower.includes("keynote") || formatLower.includes("fireside");
+                      const isService = session.isServiceSession;
+
+                      return (
+                        <button
+                          key={session.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            showBlockTip(session, e.currentTarget, laneIdx, true);
+                          }}
+                          onMouseEnter={(e) => showBlockTip(session, e.currentTarget, laneIdx, false)}
+                          onMouseLeave={() => hideBlockTip(false)}
+                          className={cn(
+                            "schedule-blk absolute h-[76px] rounded-xl p-2.5 text-left cursor-pointer transition-all duration-150 overflow-hidden z-10 flex flex-col justify-between border",
+                            isWorkshop
+                              ? "bg-purple-950/40 hover:bg-purple-950/65 border-purple-500/50 text-foreground"
+                              : isKeynote
+                              ? "bg-orange-950/45 hover:bg-orange-950/70 border-orange-500/50 text-foreground"
+                              : isService
+                              ? "bg-[#181A22] hover:bg-[#20232E] border-dashed border-border/70 text-muted-foreground"
+                              : "bg-[#1D212E] hover:bg-[#262C3D] border-border/90 text-foreground",
+                            isActive && "ring-2 ring-orange-500 shadow-xl z-20 -translate-y-0.5",
+                            isSaved &&
+                              "after:content-[''] after:absolute after:top-2 after:right-2 after:w-2 after:h-2 after:rounded-full after:bg-amber-400 after:shadow-[0_0_8px_rgba(251,191,36,0.9)]"
+                          )}
+                          style={{
+                            top: `${blockTop}px`,
+                            left: `${blockLeft}px`,
+                            width: `${blockWidth}px`,
+                          }}
+                          aria-label={`${session.title}, ${formatTimeShort(session.startsAt)} to ${formatTimeShort(session.endsAt)}`}
+                        >
+                          <div>
+                            <b className="block text-xs font-bold leading-tight truncate text-foreground">
+                              {session.title}
+                            </b>
+                            <i className="block not-italic text-[11px] font-mono text-muted-foreground truncate mt-0.5">
+                              {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)} WIB
+                            </i>
+                          </div>
+
+                          {session.speakers.length > 0 && durationMin >= 35 && (
+                            <div className="text-[10px] text-muted-foreground/90 font-medium truncate">
+                              {session.speakers.map((s) => s.name).join(", ")}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 100% Solid Opaque Anchored Popover Card (No Modal Dialog!) */}
                 {activeTip && (
                   <div
-                    className="schedule-tip"
+                    className="schedule-popover-card absolute z-50 w-[320px] sm:w-[340px] p-4.5 rounded-2xl"
                     style={{
                       left: `${activeTip.left}px`,
                       top: activeTip.top !== undefined ? `${activeTip.top}px` : undefined,
@@ -1186,54 +1031,86 @@ export function ComDaySchedule({
                     }}
                     onMouseLeave={() => hideBlockTip(false)}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <h3>{activeTip.session.title}</h3>
+                    {/* Header: Title + Close Button */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h4 className="text-sm sm:text-base font-bold text-white leading-snug">
+                        {activeTip.session.title}
+                      </h4>
                       <button
                         type="button"
                         onClick={() => setActiveTip(null)}
-                        className="text-muted-foreground hover:text-foreground cursor-pointer -mt-0.5 -mr-1 p-1"
-                        aria-label="Close details"
+                        className="text-muted-foreground hover:text-white cursor-pointer -mt-1 -mr-1 p-1 rounded-md hover:bg-white/10"
+                        aria-label="Close session popup"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
 
-                    <div className="when">
-                      {formatTime(activeTip.session.startsAt, activeTip.session.endsAt)}
+                    {/* Time Badge & Room */}
+                    <div className="flex items-center gap-2 flex-wrap mb-2.5">
+                      <span className="font-mono text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                        {formatTime(activeTip.session.startsAt, activeTip.session.endsAt)}
+                      </span>
+                      <span className="text-xs text-slate-300 font-medium flex items-center gap-1">
+                        <MapPin className="h-3 w-3 text-orange-400 shrink-0" />
+                        <span>
+                          {roomLabelOf(activeTip.session) || "Main Stage"}
+                          {activeTip.session.track ? ` • ${activeTip.session.track}` : ""}
+                        </span>
+                      </span>
                     </div>
 
+                    {/* Session Description */}
                     {activeTip.session.description && (
-                      <p className="line-clamp-3">{activeTip.session.description}</p>
+                      <p className="text-xs text-slate-300 line-clamp-3 leading-relaxed mb-3">
+                        {activeTip.session.description}
+                      </p>
                     )}
 
+                    {/* Speakers Spotlight */}
                     {activeTip.session.speakers.length > 0 && (
-                      <p className="who">
-                        {activeTip.session.speakers.map((s) => s.name).join(", ")}
+                      <div className="text-xs text-slate-200 mb-3 pt-2 border-t border-slate-700/60">
+                        <span className="font-semibold text-white">
+                          {activeTip.session.speakers.map((s) => s.name).join(", ")}
+                        </span>
                         {activeTip.session.speakers[0]?.company && (
-                          <span className="font-normal text-muted-foreground">
+                          <span className="text-slate-400">
                             {" "}
                             ({activeTip.session.speakers[0].company})
                           </span>
                         )}
-                      </p>
+                      </div>
                     )}
 
-                    <div className="loc">
-                      Where: <strong>{roomLabelOf(activeTip.session) || "Main Hall"}</strong>
+                    {/* Metadata tags */}
+                    <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                      {activeTip.session.sessionType && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                          {activeTip.session.sessionType}
+                        </span>
+                      )}
+                      {activeTip.session.languages.map((l) => (
+                        <span
+                          key={l}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400"
+                        >
+                          {l}
+                        </span>
+                      ))}
                     </div>
 
-                    {/* Action buttons inside floating tip */}
-                    <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border/50">
+                    {/* Instant Action Toolbar */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-2.5 border-t border-slate-700/70">
                       <Button
                         type="button"
                         variant={savedSessionIds.includes(activeTip.session.id) ? "default" : "outline"}
                         size="sm"
                         onClick={() => toggleBookmark(activeTip.session.id)}
                         className={cn(
-                          "btn-tip-action h-7 px-2.5 text-xs font-semibold cursor-pointer",
+                          "btn-tip-action h-7.5 px-3 text-xs font-semibold cursor-pointer",
                           savedSessionIds.includes(activeTip.session.id)
-                            ? "bg-amber-500 hover:bg-amber-600 text-white"
-                            : ""
+                            ? "bg-amber-500 hover:bg-amber-600 text-white border-transparent"
+                            : "border-slate-600 text-slate-200 hover:bg-slate-800"
                         )}
                       >
                         <Star
@@ -1242,14 +1119,14 @@ export function ComDaySchedule({
                             savedSessionIds.includes(activeTip.session.id) ? "fill-white" : ""
                           )}
                         />
-                        {savedSessionIds.includes(activeTip.session.id) ? "Saved" : "Save"}
+                        {savedSessionIds.includes(activeTip.session.id) ? "Saved" : "Save Talk"}
                       </Button>
 
                       <Button
                         variant="outline"
                         size="sm"
                         asChild
-                        className="btn-tip-action h-7 px-2.5 text-xs font-medium cursor-pointer"
+                        className="btn-tip-action h-7.5 px-3 text-xs font-medium cursor-pointer border-slate-600 text-slate-200 hover:bg-slate-800"
                       >
                         <a
                           href={generateGoogleCalendarUrl(activeTip.session)}
@@ -1270,7 +1147,7 @@ export function ComDaySchedule({
                             `${activeTip.session.title.slice(0, 25).replace(/[^a-zA-Z0-9]/g, "-")}.ics`
                           )
                         }
-                        className="btn-tip-action h-7 px-2.5 text-xs font-medium cursor-pointer"
+                        className="btn-tip-action h-7.5 px-3 text-xs font-medium cursor-pointer border-slate-600 text-slate-200 hover:bg-slate-800"
                       >
                         <Download className="h-3 w-3 mr-1 text-orange-400" />
                         .ICS
@@ -1281,113 +1158,205 @@ export function ComDaySchedule({
               </div>
 
               {/* Legend matching reference HTML */}
-              <div className="flex items-center gap-4.5 flex-wrap text-xs text-muted-foreground pt-1 px-1">
+              <div className="flex items-center gap-4.5 flex-wrap text-xs text-muted-foreground pt-1.5 px-1">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 rounded bg-orange-500/20 border border-orange-500/40"></span>
+                  <span className="w-3.5 h-3.5 rounded bg-orange-950/60 border border-orange-500/50"></span>
                   Keynote & Plenary
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 rounded bg-card border border-border"></span>
-                  Breakout Session
+                  <span className="w-3.5 h-3.5 rounded bg-[#1D212E] border border-border"></span>
+                  Tech Talk
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 rounded border border-orange-500/60 bg-card"></span>
-                  Workshop
+                  <span className="w-3.5 h-3.5 rounded bg-purple-950/60 border border-purple-500/50"></span>
+                  Workshop (Hands-on)
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="w-3.5 h-3.5 rounded border border-dashed border-border/80 bg-muted/20"></span>
-                  Rundown & Breaks
+                  <span className="w-3.5 h-3.5 rounded border border-dashed border-border/80 bg-[#181A22]"></span>
+                  Rundown & Networking
                 </span>
               </div>
             </div>
           )}
 
           {/* ============================================================ */}
-          {/* MODE 2: LIST VIEW (Mobile-Friendly Minimal Accordion)         */}
+          {/* MODE 2: LIST VIEW (Desktop-Sized Clean Accordion List)       */}
           {/* ============================================================ */}
           {viewMode === "list" && (
-            <ol className="schedule-list">
+            <div className="space-y-3.5">
               {filteredSessions.map((session) => {
                 const isSaved = savedSessionIds.includes(session.id);
-                const isOpen = expandedSessionIds[session.id] || false;
+                const isExpanded = expandedSessionIds[session.id] || false;
                 const durationMin = getDurationMinutes(session.startsAt, session.endsAt);
                 const startTimeStr = formatTimeShort(session.startsAt);
                 const durationOrEnd = durationMin
                   ? formatDuration(durationMin)
                   : formatTimeShort(session.endsAt);
 
+                const roomName = (session.rooms?.[0] || session.room || "").toLowerCase();
+                const isAtrium = roomName.includes("atrium");
+
                 return (
-                  <li
+                  <div
                     key={session.id}
                     className={cn(
-                      "schedule-li",
-                      isOpen && "is-open",
-                      isSaved && "is-saved"
+                      "schedule-list-item rounded-2xl border transition-all duration-200 overflow-hidden",
+                      isExpanded
+                        ? "border-orange-500/50 bg-card/90 shadow-lg ring-1 ring-orange-500/20"
+                        : "border-border/70 bg-card/40 hover:bg-card/75 hover:border-border"
                     )}
                   >
-                    {/* Minimalist 3-Column Header (62px Time | Title + Room | Chevron) */}
-                    <button
-                      type="button"
-                      className="schedule-hd"
-                      aria-expanded={isOpen}
-                      aria-controls={`dt-${session.id}`}
+                    {/* Spacious Desktop-Sized Header Row */}
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => toggleExpand(session.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleExpand(session.id);
+                        }
+                      }}
+                      className="p-4 sm:p-5 md:p-6 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      aria-expanded={isExpanded}
+                      aria-controls={`detail-${session.id}`}
                     >
-                      {/* Col 1: Time */}
-                      <div className="tm">
-                        {startTimeStr}
-                        <small>{durationOrEnd}</small>
-                      </div>
-
-                      {/* Col 2: Title, Room, Category */}
-                      <div>
-                        <div className="tt">
-                          {session.title}
-                          <span className="sv-dot" />
+                      {/* Left Block: Time Column + Info Column */}
+                      <div className="flex items-start gap-4 md:gap-6 min-w-0 flex-1">
+                        {/* Time Box (Prominent & Clean) */}
+                        <div className="shrink-0 w-20 md:w-28 space-y-0.5">
+                          <span className="font-mono text-xl sm:text-2xl font-extrabold text-foreground tracking-tight block">
+                            {startTimeStr}
+                          </span>
+                          <span className="text-xs sm:text-sm text-muted-foreground font-medium block">
+                            {durationOrEnd}
+                          </span>
                         </div>
-                        <div className="rm">
-                          {roomLabelOf(session) || "Main Stage"},{" "}
-                          <b>
-                            {session.sessionType ||
-                              (session.isServiceSession ? "Rundown" : "Talk")}
-                          </b>
-                          {session.speakers.length > 0 && (
-                            <span className="text-muted-foreground/80">
-                              {" "}
-                              • {session.speakers.map((s) => s.name).join(", ")}
+
+                        {/* Title, Track & Speakers */}
+                        <div className="min-w-0 flex-1 space-y-2">
+                          {/* Badges line */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={cn(
+                                "px-2.5 py-0.5 rounded-full text-xs font-semibold border",
+                                isAtrium
+                                  ? "bg-orange-500/15 text-orange-400 border-orange-500/30"
+                                  : "bg-purple-500/15 text-purple-400 border-purple-500/30"
+                              )}
+                            >
+                              {roomLabelOf(session) || "Main Stage"}
+                              {session.track ? ` • ${session.track}` : ""}
                             </span>
+
+                            {session.sessionType && (
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40">
+                                {session.sessionType}
+                              </span>
+                            )}
+
+                            {session.languages.map((l) => (
+                              <span
+                                key={l}
+                                className="text-[10px] text-muted-foreground px-2 py-0.5 rounded bg-muted/40 font-medium"
+                              >
+                                {l}
+                              </span>
+                            ))}
+
+                            {session.levels.map((lvl) => (
+                              <span
+                                key={lvl}
+                                className="text-[10px] text-purple-400 px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 font-medium"
+                              >
+                                {lvl}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Session Title */}
+                          <h4 className="text-base sm:text-lg md:text-xl font-bold text-foreground hover:text-orange-400 transition-colors leading-snug">
+                            {session.title}
+                          </h4>
+
+                          {/* Speaker Line (Collapsed preview) */}
+                          {!isExpanded && session.speakers.length > 0 && (
+                            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                              <span className="font-semibold text-foreground">
+                                {session.speakers.map((s) => s.name).join(", ")}
+                              </span>
+                              {session.speakers[0]?.company && (
+                                <span className="text-muted-foreground/80">
+                                  ({session.speakers[0].company})
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Col 3: Chevron */}
-                      <span className="chev" aria-hidden="true" />
-                    </button>
+                      {/* Right Block: Bookmark Button & Animated Chevron */}
+                      <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => toggleBookmark(session.id, e)}
+                          className={cn(
+                            "h-9 w-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer border",
+                            isSaved
+                              ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                              : "text-muted-foreground/60 border-border/40 hover:text-foreground hover:bg-muted"
+                          )}
+                          title={isSaved ? "Remove from my itinerary" : "Save session"}
+                          aria-label={isSaved ? "Remove bookmark" : "Bookmark session"}
+                        >
+                          <Star
+                            className={cn(
+                              "h-4 w-4",
+                              isSaved ? "fill-amber-400 text-amber-400" : ""
+                            )}
+                          />
+                        </button>
+
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center text-muted-foreground transition-transform duration-200">
+                          <ChevronDown
+                            className={cn(
+                              "h-5 w-5 transition-transform duration-200",
+                              isExpanded && "rotate-180 text-orange-400"
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Smooth In-Place Detail Expansion (No Modal Dialog!) */}
-                    <div className="schedule-dt" id={`dt-${session.id}`}>
+                    <div className="schedule-list-detail" id={`detail-${session.id}`}>
                       <div>
-                        <div className="schedule-in space-y-3.5">
-                          {/* Overview / Description */}
+                        <div className="p-4 sm:p-5 md:p-6 pt-2 border-t border-border/50 bg-background/40 space-y-4">
+                          {/* Overview / Abstract */}
                           {session.description && (
-                            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                              {session.description}
-                            </p>
+                            <div className="space-y-1.5">
+                              <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                Session Overview
+                              </h5>
+                              <p className="text-sm md:text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+                                {session.description}
+                              </p>
+                            </div>
                           )}
 
-                          {/* Speaker Spotlight */}
+                          {/* Speaker Spotlight Cards */}
                           {session.speakers.length > 0 && (
-                            <div className="space-y-2 pt-1 border-t border-border/40">
-                              <h5 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            <div className="space-y-2.5 pt-2 border-t border-border/40">
+                              <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                 Speaker{session.speakers.length > 1 ? "s" : ""}
                               </h5>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {session.speakers.map((speaker, idx) => (
                                   <div
                                     key={speaker.id || `${session.id}-spk-${idx}`}
-                                    className="p-3 rounded-xl bg-card border border-border/50 flex items-center gap-3"
+                                    className="p-3.5 rounded-xl bg-card border border-border/60 flex items-center gap-3.5 shadow-2xs"
                                   >
-                                    <Avatar className="h-9 w-9 rounded-xl border border-orange-500/30 shrink-0">
+                                    <Avatar className="h-11 w-11 rounded-xl border border-orange-500/30 shrink-0">
                                       <AvatarImage src={speaker.avatar || undefined} />
                                       <AvatarFallback className="rounded-xl bg-primary/20 text-primary font-bold text-xs">
                                         {speaker.name.slice(0, 2).toUpperCase()}
@@ -1395,7 +1364,7 @@ export function ComDaySchedule({
                                     </Avatar>
 
                                     <div className="min-w-0 flex-1">
-                                      <h6 className="text-xs font-bold text-foreground truncate">
+                                      <h6 className="text-sm font-bold text-foreground truncate">
                                         {speaker.socialUrl ? (
                                           <a
                                             href={speaker.socialUrl}
@@ -1404,18 +1373,18 @@ export function ComDaySchedule({
                                             className="hover:text-primary transition-colors inline-flex items-center gap-1"
                                           >
                                             <span>{speaker.name}</span>
-                                            <ExternalLink className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                                            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
                                           </a>
                                         ) : (
                                           speaker.name
                                         )}
                                       </h6>
-                                      <p className="text-[11px] text-muted-foreground truncate">
-                                        {speaker.role || "Presenter"}
+                                      <p className="text-xs text-muted-foreground truncate">
+                                        {speaker.role || "Speaker"}
                                       </p>
                                       {speaker.company && (
-                                        <p className="text-[10px] text-muted-foreground/75 truncate flex items-center gap-1 mt-0.5">
-                                          <Building className="h-2.5 w-2.5 text-orange-400" />
+                                        <p className="text-xs text-muted-foreground/75 truncate flex items-center gap-1 mt-0.5">
+                                          <Building className="h-3 w-3 text-orange-400" />
                                           <span>{speaker.company}</span>
                                         </p>
                                       )}
@@ -1426,45 +1395,29 @@ export function ComDaySchedule({
                             </div>
                           )}
 
-                          {/* Time, Venue & Badges */}
-                          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                            <span className="font-mono text-muted-foreground">
-                              {formatTime(session.startsAt, session.endsAt)}
+                          {/* Time & Venue Details */}
+                          <div className="flex flex-wrap items-center gap-3 pt-2 text-xs md:text-sm text-muted-foreground">
+                            <span className="font-mono text-foreground font-semibold flex items-center gap-1.5">
+                              <Clock className="h-4 w-4 text-orange-400" />
+                              {formatTime(session.startsAt, session.endsAt)} (Asia/Jakarta)
                             </span>
-                            {roomLabelOf(session) && (
-                              <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/60 text-foreground border border-border/40">
-                                {roomLabelOf(session)}
-                              </span>
-                            )}
-                            {session.languages.map((l) => (
-                              <span
-                                key={l}
-                                className="px-2 py-0.5 rounded-md text-[10px] bg-muted/40 text-muted-foreground border border-border/30 flex items-center gap-1"
-                              >
-                                <Globe className="h-2.5 w-2.5 text-orange-400" />
-                                <span>{l}</span>
-                              </span>
-                            ))}
-                            {session.levels.map((lvl) => (
-                              <span
-                                key={lvl}
-                                className="px-2 py-0.5 rounded-md text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1"
-                              >
-                                <Gauge className="h-2.5 w-2.5 text-purple-400" />
-                                <span>{lvl}</span>
-                              </span>
-                            ))}
+                            <span>•</span>
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="h-4 w-4 text-orange-400" />
+                              {roomLabelOf(session) || "Main Stage"}
+                              {session.track ? ` (${session.track})` : ""}
+                            </span>
                           </div>
 
                           {/* Action Toolbar */}
-                          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border/40">
+                          <div className="flex items-center gap-2.5 flex-wrap pt-3 border-t border-border/40">
                             <Button
                               type="button"
                               variant={isSaved ? "default" : "outline"}
                               size="sm"
                               onClick={(e) => toggleBookmark(session.id, e)}
                               className={cn(
-                                "h-8 text-xs font-semibold cursor-pointer",
+                                "h-9 px-4 text-xs font-semibold cursor-pointer",
                                 isSaved ? "bg-amber-500 hover:bg-amber-600 text-white" : ""
                               )}
                             >
@@ -1474,21 +1427,21 @@ export function ComDaySchedule({
                                   isSaved ? "fill-white text-white" : ""
                                 )}
                               />
-                              {isSaved ? "Saved" : "Save session"}
+                              {isSaved ? "Saved in Itinerary" : "Save Talk"}
                             </Button>
 
                             <Button
                               variant="outline"
                               size="sm"
                               asChild
-                              className="h-8 text-xs font-medium cursor-pointer"
+                              className="h-9 px-4 text-xs font-medium cursor-pointer"
                             >
                               <a
                                 href={generateGoogleCalendarUrl(session)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
-                                <CalendarPlus className="h-3 w-3 mr-1 text-orange-400" />
+                                <CalendarPlus className="h-3.5 w-3.5 mr-1.5 text-orange-400" />
                                 Add to Google Calendar
                               </a>
                             </Button>
@@ -1502,19 +1455,19 @@ export function ComDaySchedule({
                                   `${session.title.slice(0, 25).replace(/[^a-zA-Z0-9]/g, "-")}.ics`
                                 )
                               }
-                              className="h-8 text-xs font-medium cursor-pointer"
+                              className="h-9 px-4 text-xs font-medium cursor-pointer"
                             >
-                              <Download className="h-3 w-3 mr-1 text-orange-400" />
+                              <Download className="h-3.5 w-3.5 mr-1.5 text-orange-400" />
                               Download .ICS
                             </Button>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ol>
+            </div>
           )}
         </div>
       )}

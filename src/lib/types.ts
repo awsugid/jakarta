@@ -546,7 +546,8 @@ export interface EventSpeakerCreate {
   role: string;
   company?: string | null;
   photoUrl: string;
-  talkTitle: string;
+  /** @deprecated Talk metadata is owned by sessions/schedules; optional legacy-client compat. */
+  talkTitle?: string | null;
   talkFormat?: string | null;
   topicImageUrl?: string | null;
   bio?: string | null;

@@ -19,13 +19,10 @@ import {
   Layers,
   Tag,
   Upload,
-  Image as ImageIcon,
   UserCheck,
   AlertCircle,
   X,
   DownloadCloud,
-  Clock,
-  MapPin,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,31 +72,6 @@ import type {
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 
 export type EventCategoryType = "Conference" | "Monthly Meetup" | "Workshop" | "Other";
-
-export const TALK_FORMAT_PRESETS = [
-  "Keynote",
-  "Technical Session",
-  "Technical Track",
-  "Standard Talk",
-  "Deep Dive",
-  "Lightning Talk",
-  "Workshop / Hands-on",
-  "Panel Discussion",
-  "Fireside Chat",
-] as const;
-
-export function getDefaultTalkFormat(category: EventCategoryType | "ALL"): string {
-  switch (category) {
-    case "Conference":
-      return "Keynote";
-    case "Monthly Meetup":
-      return "Technical Session";
-    case "Workshop":
-      return "Workshop / Hands-on";
-    default:
-      return "Technical Session";
-  }
-}
 
 export interface EventOption {
   slug: string;
@@ -219,9 +191,6 @@ interface SpeakerFormData {
   role: string;
   company: string;
   photoUrl: string;
-  topicImageUrl: string;
-  talkTitle: string;
-  talkFormat: string;
   bio: string;
   socialUrl: string;
   isActive: boolean;
@@ -233,13 +202,15 @@ const INITIAL_FORM: SpeakerFormData = {
   role: "",
   company: "",
   photoUrl: "",
-  topicImageUrl: "",
-  talkTitle: "",
-  talkFormat: "Keynote",
   bio: "",
   socialUrl: "",
   isActive: true,
 };
+
+// ponytail: talkTitle/talkFormat/topicImageUrl stay on EventSpeaker* types (lib, legacy compat) but the
+// directory is profile-only — payloads omit them; backend treats them as optional/ignored. Drop the
+// casts when lib makes them optional.
+type SpeakerProfilePayload<T> = Omit<T, "talkTitle" | "talkFormat" | "topicImageUrl">;
 
 export function SpeakerDirectoryManager() {
   // Category & Event Filter
@@ -262,7 +233,6 @@ export function SpeakerDirectoryManager() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formCustomSlug, setFormCustomSlug] = useState(false);
-  const [formCustomFormat, setFormCustomFormat] = useState(false);
 
   // User Autofill Search state
   const [searchUserQuery, setSearchUserQuery] = useState("");
@@ -282,11 +252,6 @@ export function SpeakerDirectoryManager() {
   const [sessionizeCompanyFilter, setSessionizeCompanyFilter] = useState("ALL");
   const [syncingAllSpeakers, setSyncingAllSpeakers] = useState(false);
   const [importingSpeakerId, setImportingSpeakerId] = useState<string | null>(null);
-
-  // Autofill inside Add Speaker Dialog
-  const [autofillTab, setAutofillTab] = useState<"sessionize" | "cfp">("sessionize");
-  const [sessionizeAutofillSearch, setSessionizeAutofillSearch] = useState("");
-  const [selectedSessionizeSpeaker, setSelectedSessionizeSpeaker] = useState<EnrichedSpeaker | null>(null);
 
   // Load Sessionize Speakers (edge-cached)
   const loadSessionizeSpeakers = useCallback(async (fresh = false) => {
@@ -314,11 +279,8 @@ export function SpeakerDirectoryManager() {
 
   // Asset Upload states & refs
   const photoInputRef = React.useRef<HTMLInputElement>(null);
-  const topicInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoUploadError, setPhotoUploadError] = useState<string | null>(null);
-  const [uploadingTopic, setUploadingTopic] = useState(false);
-  const [topicUploadError, setTopicUploadError] = useState<string | null>(null);
 
   // Delete Dialog state
   const [deleteTarget, setDeleteTarget] = useState<EventSpeaker | null>(null);
@@ -364,11 +326,10 @@ export function SpeakerDirectoryManager() {
       const matchSearch =
         !q ||
         s.name.toLowerCase().includes(q) ||
-        s.talkTitle.toLowerCase().includes(q) ||
         s.role.toLowerCase().includes(q) ||
         s.eventSlug.toLowerCase().includes(q) ||
         (s.company && s.company.toLowerCase().includes(q)) ||
-        (s.talkFormat && s.talkFormat.toLowerCase().includes(q));
+        (s.bio && s.bio.toLowerCase().includes(q));
 
       const matchStatus =
         statusFilter === "ALL" ||
@@ -427,29 +388,11 @@ export function SpeakerDirectoryManager() {
         const inRole = (spk.jobTitle || spk.tagLine || "").toLowerCase().includes(q);
         const inComp = (spk.company || "").toLowerCase().includes(q);
         const inBio = (spk.bio || "").toLowerCase().includes(q);
-        const inTalk = (spk.sessions || []).some(
-          (s) =>
-            (s.title || "").toLowerCase().includes(q) ||
-            (s.description || "").toLowerCase().includes(q)
-        );
-        if (!inName && !inRole && !inComp && !inBio && !inTalk) return false;
+        if (!inName && !inRole && !inComp && !inBio) return false;
       }
       return true;
     });
   }, [sessionizeSpeakers, sessionizeRoleFilter, sessionizeCompanyFilter, sessionizeSearch]);
-
-  // Filtered Sessionize speakers for Autofill dropdown in Add Modal
-  const filteredAutofillSessionizeSpeakers = useMemo(() => {
-    if (!sessionizeAutofillSearch.trim()) return sessionizeSpeakers.slice(0, 10);
-    const q = sessionizeAutofillSearch.toLowerCase().trim();
-    return sessionizeSpeakers.filter((spk) => {
-      const inName = spk.fullName.toLowerCase().includes(q);
-      const inRole = (spk.jobTitle || spk.tagLine || "").toLowerCase().includes(q);
-      const inComp = (spk.company || "").toLowerCase().includes(q);
-      const inTalk = (spk.sessions || []).some((s) => (s.title || "").toLowerCase().includes(q));
-      return inName || inRole || inComp || inTalk;
-    });
-  }, [sessionizeSpeakers, sessionizeAutofillSearch]);
 
   // Handle single speaker direct import from Explorer
   const handleImportSingleSpeaker = async (spk: EnrichedSpeaker) => {
@@ -503,32 +446,6 @@ export function SpeakerDirectoryManager() {
     }
   };
 
-  // Handle autofilling speaker form from selected Sessionize speaker
-  const handleSelectSessionizeSpeaker = (spk: EnrichedSpeaker) => {
-    const firstSession = spk.sessions && spk.sessions[0];
-    const role = spk.jobTitle || spk.tagLine || "Speaker";
-    const photo = spk.profilePicture || "";
-    const talkTitle = firstSession?.title || "Technical Session";
-    const talkFormat = spk.isTopSpeaker ? "Keynote" : "Technical Session";
-    const socialUrl = spk.linkedinUrl || (spk.links && spk.links[0]?.url) || "";
-
-    setFormData((prev) => ({
-      ...prev,
-      name: spk.fullName,
-      role,
-      company: spk.company || "",
-      bio: spk.bio || "",
-      photoUrl: photo,
-      topicImageUrl: prev.topicImageUrl || photo, // use profile picture as fallback if topic banner is empty
-      talkTitle,
-      talkFormat,
-      socialUrl,
-    }));
-    setSelectedSessionizeSpeaker(spk);
-    setSelectedUser(null);
-    setSessionizeAutofillSearch("");
-  };
-
   // Search Registered Users
   const handleSearchUsers = async (queryText?: string) => {
     const q = queryText !== undefined ? queryText : searchUserQuery;
@@ -566,7 +483,6 @@ export function SpeakerDirectoryManager() {
       company: parsedCompany || prev.company,
       photoUrl: user.picture || prev.photoUrl,
       socialUrl: user.socialUrl || prev.socialUrl,
-      // Note: Topic Banner and Talk Title are preserved for manual event input!
     }));
     setSelectedUser(user);
     setShowUserDropdown(false);
@@ -589,23 +505,6 @@ export function SpeakerDirectoryManager() {
     }
   };
 
-  // Handle Topic Banner File Upload
-  const handleTopicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setTopicUploadError(null);
-    setUploadingTopic(true);
-    try {
-      const res = await uploadSpeakerAsset(formData.eventSlug || COMMUNITY_DAY_EVENT_SLUG, file, "topic");
-      setFormData((prev) => ({ ...prev, topicImageUrl: res.url }));
-    } catch (err: any) {
-      setTopicUploadError(err?.message || "Failed to upload banner");
-    } finally {
-      setUploadingTopic(false);
-      if (e.target) e.target.value = "";
-    }
-  };
-
   // Open Add Dialog
   const handleOpenAdd = () => {
     setEditingSpeaker(null);
@@ -617,23 +516,17 @@ export function SpeakerDirectoryManager() {
     } else if (selectedCategory === "Workshop") {
       defaultSlug = "voice-ai-agents-workshop-may-2026";
     }
-    const defaultFormat = getDefaultTalkFormat(getEventCategoryMeta(defaultSlug).category);
     setFormData({
       ...INITIAL_FORM,
       eventSlug: defaultSlug,
-      talkFormat: defaultFormat,
     });
     setFormCustomSlug(false);
-    setFormCustomFormat(false);
     setFormError(null);
     setSelectedUser(null);
-    setSelectedSessionizeSpeaker(null);
     setSearchUserQuery("");
     setUserSearchResults([]);
     setShowUserDropdown(false);
-    setSessionizeAutofillSearch("");
     setPhotoUploadError(null);
-    setTopicUploadError(null);
     setDialogOpen(true);
 
     if (sessionizeSpeakers.length === 0) {
@@ -645,32 +538,24 @@ export function SpeakerDirectoryManager() {
   // Open Edit Dialog
   const handleOpenEdit = (speaker: EventSpeaker) => {
     setEditingSpeaker(speaker);
-    setSelectedSessionizeSpeaker(null);
     setSelectedUser(null);
     const isKnown = KNOWN_EVENTS.some((e) => e.slug === speaker.eventSlug);
     setFormCustomSlug(!isKnown);
-    const isStandardFormat = TALK_FORMAT_PRESETS.includes(speaker.talkFormat as any);
-    setFormCustomFormat(!isStandardFormat && Boolean(speaker.talkFormat));
     setFormData({
       eventSlug: speaker.eventSlug,
       name: speaker.name,
       role: speaker.role,
       company: speaker.company || "",
       photoUrl: speaker.photoUrl,
-      topicImageUrl: speaker.topicImageUrl || "",
-      talkTitle: speaker.talkTitle,
-      talkFormat: speaker.talkFormat || "Technical Session",
       bio: speaker.bio || "",
       socialUrl: speaker.socialUrl || "",
       isActive: speaker.isActive,
     });
     setFormError(null);
-    setSelectedUser(null);
     setSearchUserQuery("");
     setUserSearchResults([]);
     setShowUserDropdown(false);
     setPhotoUploadError(null);
-    setTopicUploadError(null);
     setDialogOpen(true);
   };
 
@@ -682,8 +567,8 @@ export function SpeakerDirectoryManager() {
       setFormError("Please select or enter an Event Slug.");
       return;
     }
-    if (!formData.name.trim() || !formData.role.trim() || !formData.talkTitle.trim() || !formData.photoUrl.trim()) {
-      setFormError("Please fill out Speaker Name, Role, Photo URL, and Talk Title.");
+    if (!formData.name.trim() || !formData.role.trim() || !formData.photoUrl.trim()) {
+      setFormError("Please fill out Speaker Name, Role, and Photo URL.");
       return;
     }
 
@@ -691,36 +576,34 @@ export function SpeakerDirectoryManager() {
     setFormError(null);
     try {
       if (editingSpeaker) {
-        const payload: EventSpeakerUpdate = {
+        const payload: SpeakerProfilePayload<EventSpeakerUpdate> = {
           name: formData.name.trim(),
           role: formData.role.trim(),
           company: formData.company.trim() || null,
           photoUrl: formData.photoUrl.trim(),
-          topicImageUrl: formData.topicImageUrl.trim() || null,
-          talkTitle: formData.talkTitle.trim(),
-          talkFormat: formData.talkFormat.trim() || null,
           bio: formData.bio.trim() || null,
           socialUrl: formData.socialUrl.trim() || null,
           isActive: formData.isActive,
         };
-        const updated = await updateAdminSpeaker(editingSpeaker.eventSlug, editingSpeaker.id, payload);
+        const updated = await updateAdminSpeaker(
+          editingSpeaker.eventSlug,
+          editingSpeaker.id,
+          payload as EventSpeakerUpdate
+        );
         setSpeakers((prev) =>
           prev.map((s) => (s.id === editingSpeaker.id && s.eventSlug === editingSpeaker.eventSlug ? updated : s))
         );
       } else {
-        const payload: EventSpeakerCreate = {
+        const payload: SpeakerProfilePayload<EventSpeakerCreate> = {
           name: formData.name.trim(),
           role: formData.role.trim(),
           company: formData.company.trim() || null,
           photoUrl: formData.photoUrl.trim(),
-          topicImageUrl: formData.topicImageUrl.trim() || null,
-          talkTitle: formData.talkTitle.trim(),
-          talkFormat: formData.talkFormat.trim() || null,
           bio: formData.bio.trim() || null,
           socialUrl: formData.socialUrl.trim() || null,
           isActive: formData.isActive,
         };
-        const created = await createAdminSpeaker(targetSlug, payload);
+        const created = await createAdminSpeaker(targetSlug, payload as EventSpeakerCreate);
         setSpeakers((prev) => [
           created,
           ...prev.filter((s) => !(s.id === created.id && s.eventSlug === created.eventSlug)),
@@ -754,13 +637,10 @@ export function SpeakerDirectoryManager() {
         role: speaker.role,
         company: speaker.company,
         photoUrl: speaker.photoUrl,
-        topicImageUrl: speaker.topicImageUrl,
-        talkTitle: speaker.talkTitle,
-        talkFormat: speaker.talkFormat,
         bio: speaker.bio,
         socialUrl: speaker.socialUrl,
         isActive: nextState,
-      });
+      } as EventSpeakerUpdate);
     } catch (err: any) {
       // Revert on error
       setSpeakers((prev) =>
@@ -982,7 +862,7 @@ export function SpeakerDirectoryManager() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search speaker, talk title, role, event slug..."
+              placeholder="Search speaker name, role, company, event slug..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-background"
@@ -1094,25 +974,14 @@ export function SpeakerDirectoryManager() {
                 key={`${speaker.eventSlug}-${speaker.id}`}
                 className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-muted/20 transition-colors"
               >
-                {/* Speaker Info, Topic Banner & Avatar */}
+                {/* Speaker Info & Avatar */}
                 <div className="flex items-start gap-4 min-w-0">
-                  <div className="flex items-center gap-2 shrink-0">
-                    {speaker.topicImageUrl && (
-                      <div className="hidden sm:block w-20 aspect-[16/9] rounded-xl overflow-hidden border border-border bg-muted shrink-0">
-                        <img
-                          src={speaker.topicImageUrl}
-                          alt={speaker.talkTitle}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    )}
-                    <Avatar className="h-12 w-12 rounded-xl border border-border shrink-0 shadow-sm">
-                      <AvatarImage src={speaker.photoUrl} alt={speaker.name} className="object-cover" />
-                      <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-bold">
-                        {speaker.name.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
+                  <Avatar className="h-12 w-12 rounded-xl border border-border shrink-0 shadow-sm">
+                    <AvatarImage src={speaker.photoUrl} alt={speaker.name} className="object-cover" />
+                    <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-bold">
+                      {speaker.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
 
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -1129,14 +998,6 @@ export function SpeakerDirectoryManager() {
                         {meta.category}: {speaker.eventSlug}
                       </Badge>
 
-                      {speaker.talkFormat && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[11px] px-2 py-0 bg-orange-500/10 text-orange-400 border border-orange-500/20"
-                        >
-                          {speaker.talkFormat}
-                        </Badge>
-                      )}
                       {speaker.isActive ? (
                         <Badge className="text-[11px] px-2 py-0 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                           Active
@@ -1152,9 +1013,11 @@ export function SpeakerDirectoryManager() {
                       {speaker.role} {speaker.company ? `• ${speaker.company}` : ""}
                     </p>
 
-                    <p className="text-sm font-medium text-foreground line-clamp-1">
-                      "{speaker.talkTitle}"
-                    </p>
+                    {speaker.bio && (
+                      <p className="text-sm text-muted-foreground/90 line-clamp-1">
+                        {speaker.bio}
+                      </p>
+                    )}
 
                     {speaker.socialUrl && (
                       <a
@@ -1260,7 +1123,7 @@ export function SpeakerDirectoryManager() {
               {editingSpeaker ? "Edit Speaker" : "Add New Speaker"}
             </DialogTitle>
             <DialogDescription>
-              Configure speaker credentials, talk format, event category, and public visibility.
+              Configure the speaker profile, event assignment, and public visibility.
             </DialogDescription>
           </DialogHeader>
 
@@ -1591,142 +1454,6 @@ export function SpeakerDirectoryManager() {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="sp-topic-img">Topic / Session Cover Banner (Optional)</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => topicInputRef.current?.click()}
-                  disabled={uploadingTopic}
-                  className="h-6 text-xs shrink-0 cursor-pointer"
-                >
-                  {uploadingTopic ? (
-                    <>
-                      <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-3 w-3 mr-1 text-primary" />
-                      Upload Banner
-                    </>
-                  )}
-                </Button>
-                <input
-                  ref={topicInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleTopicUpload}
-                  className="hidden"
-                />
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                {formData.topicImageUrl ? (
-                  <div className="w-14 h-9 rounded border border-border overflow-hidden bg-muted shrink-0">
-                    <img
-                      src={formData.topicImageUrl}
-                      alt="Topic Banner"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-14 h-9 rounded border border-dashed border-border flex items-center justify-center bg-muted/30 text-muted-foreground shrink-0">
-                    <ImageIcon className="h-3.5 w-3.5" />
-                  </div>
-                )}
-                <Input
-                  id="sp-topic-img"
-                  placeholder="https://... (16:9 topic banner) or upload banner"
-                  value={formData.topicImageUrl}
-                  onChange={(e) => setFormData({ ...formData, topicImageUrl: e.target.value })}
-                  className="bg-background"
-                />
-              </div>
-              {topicUploadError && (
-                <p className="text-[11px] text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {topicUploadError}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
-                <Label htmlFor="sp-talk">Talk / Session Title *</Label>
-                <Input
-                  id="sp-talk"
-                  placeholder="e.g. Architecting Scalable Serverless Applications"
-                  value={formData.talkTitle}
-                  onChange={(e) => setFormData({ ...formData, talkTitle: e.target.value })}
-                  required
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Event-specific topic / talk title (manually input for this event purpose).
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="sp-format">Talk Format *</Label>
-                  {formCustomFormat ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setFormCustomFormat(false);
-                        setFormData({
-                          ...formData,
-                          talkFormat: getDefaultTalkFormat(getEventCategoryMeta(formData.eventSlug).category),
-                        });
-                      }}
-                      className="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      Use Presets
-                    </Button>
-                  ) : null}
-                </div>
-
-                {!formCustomFormat ? (
-                  <Select
-                    value={formData.talkFormat}
-                    onValueChange={(val) => {
-                      if (val === "CUSTOM") {
-                        setFormCustomFormat(true);
-                        setFormData({ ...formData, talkFormat: "" });
-                      } else {
-                        setFormData({ ...formData, talkFormat: val });
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="sp-format" className="bg-background">
-                      <SelectValue placeholder="Select format..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[280px]">
-                      {TALK_FORMAT_PRESETS.map((fmt) => (
-                        <SelectItem key={fmt} value={fmt}>
-                          {fmt}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="CUSTOM">✏️ Custom Format...</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    id="sp-format"
-                    placeholder="e.g. Community Showcase, Demo Lab..."
-                    value={formData.talkFormat}
-                    onChange={(e) => setFormData({ ...formData, talkFormat: e.target.value })}
-                    required
-                    className="bg-background"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
               <Label htmlFor="sp-bio">Short Bio</Label>
               <Textarea
                 id="sp-bio"
@@ -1788,6 +1515,149 @@ export function SpeakerDirectoryManager() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sessionize Import Explorer — person profiles only (sessions belong to the schedule editor) */}
+      <Dialog open={sessionizeModalOpen} onOpenChange={setSessionizeModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-orange-400" aria-hidden="true" />
+              Import Speaker Profiles from Sessionize
+            </DialogTitle>
+            <DialogDescription>
+              Import confirmed speaker profiles (name, role, company, bio, photo, social link) into{" "}
+              {getEventCategoryMeta(
+                selectedEventSlug !== "ALL" && selectedEventSlug !== "CUSTOM" ? selectedEventSlug : COMMUNITY_DAY_EVENT_SLUG
+              ).label}
+              . Sessions and talk details are managed in the schedule editor.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search name, role, company, bio..."
+                value={sessionizeSearch}
+                onChange={(e) => setSessionizeSearch(e.target.value)}
+                className="pl-8 h-8 text-xs bg-background"
+                aria-label="Search Sessionize speakers"
+              />
+            </div>
+            <Select value={sessionizeRoleFilter} onValueChange={setSessionizeRoleFilter}>
+              <SelectTrigger className="h-8 text-xs bg-background w-full sm:w-[160px]">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[240px]">
+                <SelectItem value="ALL">All Roles</SelectItem>
+                {distinctSessionizeRoles.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sessionizeCompanyFilter} onValueChange={setSessionizeCompanyFilter}>
+              <SelectTrigger className="h-8 text-xs bg-background w-full sm:w-[160px]">
+                <SelectValue placeholder="Company" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[240px]">
+                <SelectItem value="ALL">All Companies</SelectItem>
+                {distinctSessionizeCompanies.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="max-h-[46vh] overflow-y-auto rounded-xl border border-border divide-y divide-border/60">
+            {sessionizeLoading ? (
+              <div role="status" aria-live="polite" className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 className="h-7 w-7 text-primary animate-spin" />
+                <p className="text-xs text-muted-foreground">Fetching Sessionize speaker profiles…</p>
+              </div>
+            ) : filteredSessionizeSpeakers.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-12">
+                No Sessionize speaker profile matches the current filters.
+              </p>
+            ) : (
+              filteredSessionizeSpeakers.map((spk) => {
+                const alreadyImported = existingSpeakerNames.has(spk.fullName.trim().toLowerCase());
+                return (
+                  <div key={spk.id} className="flex items-start gap-3 p-3 hover:bg-muted/20 transition-colors">
+                    <Avatar className="h-10 w-10 rounded-xl border border-border shrink-0">
+                      <AvatarImage src={spk.profilePicture || undefined} alt={spk.fullName} className="object-cover" />
+                      <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-bold text-xs">
+                        {spk.fullName.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate">{spk.fullName}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {[spk.jobTitle || spk.tagLine, spk.company].filter(Boolean).join(" • ") || "Community Speaker"}
+                      </p>
+                      {spk.bio && <p className="text-xs text-muted-foreground/90 line-clamp-2 mt-1">{spk.bio}</p>}
+                      {(spk.linkedinUrl || (spk.links && spk.links[0]?.url)) && (
+                        <a
+                          href={spk.linkedinUrl || spk.links[0]?.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline pt-1"
+                        >
+                          <span>Profile Link</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      {alreadyImported ? (
+                        <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/20">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Imported
+                        </Badge>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={importingSpeakerId === spk.id || syncingAllSpeakers}
+                          onClick={() => handleImportSingleSpeaker(spk)}
+                          className="h-7 text-[11px] cursor-pointer"
+                        >
+                          {importingSpeakerId === spk.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <DownloadCloud className="h-3 w-3 mr-1 text-primary" />
+                          )}
+                          Import
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <p className="text-[11px] text-muted-foreground">
+              {filteredSessionizeSpeakers.length} profile(s) · already-imported speakers are skipped
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSyncAllSessionizeSpeakers}
+              disabled={syncingAllSpeakers || sessionizeLoading}
+              className="gap-1.5 cursor-pointer"
+            >
+              {syncingAllSpeakers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
+              Import All New
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -288,7 +288,6 @@ export function SessionEditorDialog({
   const [spkName, setSpkName] = useState("");
   const [spkRole, setSpkRole] = useState("Speaker");
   const [spkCompany, setSpkCompany] = useState("");
-  const [spkTalkTitle, setSpkTalkTitle] = useState("");
   const [spkPhotoUrl, setSpkPhotoUrl] = useState("");
   const [spkSaving, setSpkSaving] = useState(false);
   const [spkError, setSpkError] = useState<string | null>(null);
@@ -316,7 +315,6 @@ export function SessionEditorDialog({
       setQuery("");
       setShowAddSpeaker(false);
       setSpkError(null);
-      setSpkTalkTitle(item?.title || "");
       setShowNewFormat(false);
       setNewFormatName("");
       setFormatError(null);
@@ -324,7 +322,7 @@ export function SessionEditorDialog({
     }
   }, [open, item]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const speakerDraft = { name: spkName, role: spkRole, company: spkCompany, talkTitle: spkTalkTitle, photoUrl: spkPhotoUrl };
+  const speakerDraft = { name: spkName, role: spkRole, company: spkCompany, photoUrl: spkPhotoUrl };
   const subformDirty =
     hasPendingSubform(showAddSpeaker, speakerDraft, speakerAtOpen.current) ||
     hasPendingSubform(showNewFormat, { name: newFormatName });
@@ -403,7 +401,7 @@ export function SessionEditorDialog({
     return speakers.filter(
       (s) =>
         !form.speakerIds.includes(s.id) &&
-        (!q || [s.name, s.role, s.company, s.talkTitle].some((v) => v?.toLowerCase().includes(q))),
+        (!q || [s.name, s.role, s.company].some((v) => v?.toLowerCase().includes(q))),
     );
   }, [speakers, form.speakerIds, query]);
   const shown = matches.slice(0, RESULT_LIMIT);
@@ -433,9 +431,8 @@ export function SessionEditorDialog({
   }
 
   async function handleAddSpeaker() {
-    const talkTitle = spkTalkTitle.trim() || form.title.trim();
-    if (!spkName.trim() || !spkRole.trim() || !talkTitle || !spkPhotoUrl.trim()) {
-      setSpkError("Name, role, talk title, and photo URL are required by the speaker directory.");
+    if (!spkName.trim() || !spkRole.trim() || !spkPhotoUrl.trim()) {
+      setSpkError("Name, role, and photo URL are required by the speaker directory.");
       return;
     }
     setSpkSaving(true);
@@ -446,7 +443,6 @@ export function SessionEditorDialog({
         role: spkRole.trim(),
         company: spkCompany.trim() || null,
         photoUrl: spkPhotoUrl.trim(),
-        talkTitle,
       });
       onSpeakerCreated(created);
       addSpeaker(created.id);
@@ -936,7 +932,7 @@ export function SessionEditorDialog({
                               <span className="block truncate text-sm font-medium text-foreground">{spk.name}</span>
                               <span className="block truncate text-xs text-muted-foreground">
                                 {[spk.role, spk.company].filter(Boolean).join(" · ")}
-                                {spk.talkTitle ? ` — ${spk.talkTitle}` : ""}
+
                               </span>
                             </span>
                             <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary opacity-70 group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -991,10 +987,6 @@ export function SessionEditorDialog({
                       <div className="space-y-1">
                         <Label htmlFor="spk-company" className="text-xs">Company</Label>
                         <Input id="spk-company" value={spkCompany} onChange={(e) => setSpkCompany(e.target.value)} placeholder="e.g. AWS" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="spk-talk" className="text-xs">Talk title *</Label>
-                        <Input id="spk-talk" value={spkTalkTitle} onChange={(e) => setSpkTalkTitle(e.target.value)} placeholder="Defaults to session title" />
                       </div>
                       <div className="space-y-1 sm:col-span-2">
                         <Label htmlFor="spk-photo" className="text-xs">Photo URL *</Label>

@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Mic, ChevronLeft, ChevronRight, ExternalLink, Sparkles, BookOpen } from "lucide-react";
+import { Mic, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { fetchPublicSpeakers } from "@/lib/api";
@@ -20,29 +19,11 @@ interface SpeakerCarouselProps {
   containerClassName?: string;
 }
 
-function getTalkFormatBadgeClass(format?: string | null) {
-  if (!format) return "bg-primary/10 text-primary border-primary/30";
-  const lower = format.toLowerCase();
-  if (lower.includes("keynote")) {
-    return "bg-amber-500/15 text-amber-400 border-amber-500/40";
-  }
-  if (lower.includes("workshop") || lower.includes("hands-on")) {
-    return "bg-purple-500/15 text-purple-400 border-purple-500/40";
-  }
-  if (lower.includes("lightning")) {
-    return "bg-emerald-500/15 text-emerald-400 border-emerald-500/40";
-  }
-  if (lower.includes("panel")) {
-    return "bg-pink-500/15 text-pink-400 border-pink-500/40";
-  }
-  return "bg-sky-500/15 text-sky-400 border-sky-500/40";
-}
-
 export function SpeakerCarousel({
   eventSlug = COMMUNITY_DAY_EVENT_SLUG,
   badge,
-  title = "Featured Speakers & Topics",
-  subtitle = "Discover the confirmed keynotes, technical deep dives, and hands-on sessions at AWS Community Day Jakarta 2026.",
+  title = "Featured Speakers",
+  subtitle = "Meet the practitioners, builders, and advocates sharing their experience at AWS Community Day Jakarta 2026.",
   className,
   containerClassName,
 }: SpeakerCarouselProps) {
@@ -196,10 +177,8 @@ export function SpeakerCarousel({
               }}
             >
               {speakers.map((speaker) => {
-                const rawTopicImage = speaker.topicImageUrl?.trim();
                 const rawPhoto = speaker.photoUrl?.trim();
-                const displayImage =
-                  rawTopicImage && rawTopicImage.length > 0 ? rawTopicImage : rawPhoto;
+                const displayImage = rawPhoto && rawPhoto.length > 0 ? rawPhoto : null;
 
                 return (
                   <div
@@ -211,44 +190,34 @@ export function SpeakerCarousel({
                         {/* Media Column (Strictly constrained container with absolute inset-0 auto-crop for both portrait & landscape) */}
                         <div className="lg:col-span-5 xl:col-span-5 relative w-full h-64 sm:h-72 lg:h-full min-h-[260px] sm:min-h-[300px] lg:min-h-0 overflow-hidden bg-muted group min-w-0 min-h-0">
                           {/* Ambient blurred backdrop for rich atmospheric glow */}
-                          <img
-                            src={displayImage}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
-                            aria-hidden="true"
-                          />
+                          {displayImage && (
+                            <img
+                              src={displayImage}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
+                              aria-hidden="true"
+                            />
+                          )}
 
                           {/* Main Full-Bleed Presenter Photo with absolute inset-0 (Zero layout influence, auto-cropped) */}
-                          <img
-                            src={displayImage}
-                            alt={speaker.name}
-                            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 pointer-events-none select-none"
-                            loading="lazy"
-                            decoding="async"
-                          />
+                          {displayImage ? (
+                            <img
+                              src={displayImage}
+                              alt={speaker.name}
+                              className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105 pointer-events-none select-none"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 via-card to-background" aria-hidden="true">
+                              <span className="text-5xl font-extrabold text-primary/40 select-none">
+                                {speaker.name.slice(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
 
                           {/* Gradient scrim for readable badges & sleek transition */}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none z-1" />
-
-                          {/* Format Badge Overlay (Top Left) */}
-                          <div className="absolute top-3.5 left-3.5 z-10">
-                            <Badge
-                              className={cn(
-                                "font-semibold text-xs shadow-md backdrop-blur-md border",
-                                getTalkFormatBadgeClass(speaker.talkFormat)
-                              )}
-                            >
-                              {speaker.talkFormat || "Technical Session"}
-                            </Badge>
-                          </div>
-
-                          {/* Stage Session Indicator (Top Right) */}
-                          <div className="absolute top-3.5 right-3.5 z-10">
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-[11px] font-medium text-white/90 border border-white/10 shadow-md">
-                              <BookOpen className="h-3 w-3 text-orange-400" />
-                              Stage Session
-                            </span>
-                          </div>
 
                           {/* Bottom Overlay Snippet with Presenter Name */}
                           <div className="absolute bottom-3.5 left-3.5 right-3.5 z-10 flex items-center justify-between">
@@ -265,20 +234,13 @@ export function SpeakerCarousel({
                         {/* Narrative & Details Column (Normalized heights prevent section jumping on slide changes) */}
                         <div className="lg:col-span-7 xl:col-span-7 p-5 sm:p-7 lg:p-8 flex flex-col justify-between space-y-4 sm:space-y-6 min-w-0">
                           <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                                <Mic className="h-3.5 w-3.5" />
-                                {speaker.talkFormat || "Technical Session"}
-                              </span>
-                            </div>
-
                             <h3 className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground leading-tight line-clamp-2 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem]">
-                              {speaker.talkTitle}
+                              {speaker.name}
                             </h3>
 
                             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-4 min-h-[4.5rem] sm:min-h-[5.25rem] lg:min-h-[5.5rem]">
                               {speaker.bio ||
-                                "Join this featured session at AWS User Group Jakarta to learn deep architecture insights, production lessons learned, and real-world implementations directly from experienced practitioners."}
+                                "A community practitioner sharing real-world AWS experience — architecture lessons, production stories, and lessons learned from the field."}
                             </p>
                           </div>
 
@@ -297,12 +259,11 @@ export function SpeakerCarousel({
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0">
-                                  <h4 className="text-sm sm:text-base font-bold text-foreground truncate">
-                                    {speaker.name}
-                                  </h4>
+                                  <p className="text-sm sm:text-base font-bold text-foreground truncate">
+                                    {speaker.role}
+                                  </p>
                                   <p className="text-xs text-muted-foreground truncate">
-                                    {speaker.role}{" "}
-                                    {speaker.company ? `· ${speaker.company}` : ""}
+                                    {speaker.company || "AWS Community"}
                                   </p>
                                 </div>
                               </div>

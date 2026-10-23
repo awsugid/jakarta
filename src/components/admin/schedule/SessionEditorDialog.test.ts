@@ -19,7 +19,7 @@ ok("between empty", minutesBetween("", "2026-11-07T11:00") === null);
 ok("fmt", formatDuration(90) === "1 h 30 min" && formatDuration(60) === "1 h" && formatDuration(45) === "45 min");
 
 // Pending inline sub-forms (dirty guard)
-const spkAtOpen = { name: "", role: "Speaker", company: "", talkTitle: "Keynote", photoUrl: "" };
+const spkAtOpen = { name: "", role: "Speaker", company: "", photoUrl: "" };
 ok("spk closed never dirty", !hasPendingSubform(false, { ...spkAtOpen, name: "Ari" }, spkAtOpen));
 ok("spk mere open not dirty", !hasPendingSubform(true, spkAtOpen, spkAtOpen));
 ok("spk query prefill not dirty", !hasPendingSubform(true, { ...spkAtOpen, name: "Ari" }, { ...spkAtOpen, name: "Ari" }));

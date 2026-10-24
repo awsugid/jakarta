@@ -22,8 +22,16 @@ export function roomLabelOf(
   s: Pick<DisplayScheduleSession, "allRooms" | "rooms" | "room">
 ): string {
   if (s.allRooms) return "All rooms";
-  if (s.rooms && s.rooms.length > 0) return s.rooms.join(" · ");
-  return s.room || "";
+  const formatName = (name?: string | null) => {
+    if (!name) return "";
+    const trimmed = name.trim();
+    if (trimmed === "800") return "Room 800";
+    return trimmed;
+  };
+  if (s.rooms && s.rooms.length > 0) {
+    return s.rooms.map(formatName).filter(Boolean).join(" · ");
+  }
+  return formatName(s.room);
 }
 
 /** Formats time range in Asia/Jakarta (WIB), e.g. "09:00 – 09:45 WIB" */

@@ -328,16 +328,10 @@ export function ScheduleBoardView({
         </div>
       </div>
 
-      {/* Board Stage Container with Dynamic Height Clearance */}
+      {/* Board Stage Container */}
       <div
-        className="schedule-board-stage relative pb-16 transition-all duration-200"
+        className="schedule-board-stage relative"
         ref={stageRef}
-        style={{
-          minHeight: `${Math.max(
-            720,
-            activeTip ? (activeTip.top ?? 0) + (activeTip.session.description ? 420 : 340) : 540
-          )}px`,
-        }}
       >
         {/* Scrollable Canvas Viewport */}
         <div

@@ -1,0 +1,95 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { ScheduleStageView } from "../components/schedule/ScheduleStageView";
+import type { EventScheduleItem } from "@/lib/types";
+
+const SCHEDULE_ENDPOINT = "https://api.awscommunity.id/api/events/community-day-2026/schedule";
+let initialSchedule: EventScheduleItem[] = [];
+
+try {
+	const res = await fetch(SCHEDULE_ENDPOINT);
+	if (res.ok) {
+		const data = await res.json();
+		if (Array.isArray(data.schedule)) {
+			initialSchedule = data.schedule;
+		}
+	}
+} catch (e) {
+	// Build-time fetch failed or offline; client-side fetch will load from the endpoint directly
+}
+
+const isKiosk = Astro.url.searchParams.get("kiosk") === "true";
+const initialRoom = Astro.url.searchParams.get("room") || "ALL";
+const initialDemoTime = Astro.url.searchParams.get("demoTime") || undefined;
+---
+
+<Layout
+	title="Live Stage Agenda | AWS Community Day Jakarta 2026"
+	description="Live digital stage display and schedule for AWS Community Day Jakarta 2026"
+	showHeader={!isKiosk}
+	showFooter={!isKiosk}
+>
+	<link rel="preconnect" href="https://api.awscommunity.id" />
+	<link rel="preconnect" href="https://avatars.awscommunity.id" />
+	<link rel="preload" as="fetch" href={SCHEDULE_ENDPOINT} crossorigin="anonymous" />
+
+	<script is:inline>
+		// Client-side pre-hydration check for kiosk parameter
+		(function () {
+			try {
+				var sp = new URLSearchParams(window.location.search);
+				if (sp.get("kiosk") === "true") {
+					document.documentElement.classList.add("kiosk-mode");
+					document.body.classList.add("kiosk-mode");
+				}
+			} catch (e) {}
+		})();
+	</script>
+
+	<div
+		id="schedule-stage-wrapper"
+		class={isKiosk ? "w-screen h-screen overflow-hidden bg-[#161128] m-0 p-0" : "min-h-[calc(100vh-80px)] bg-[#161128]"}
+	>
+		<ScheduleStageView
+			client:load
+			initialSchedule={initialSchedule}
+			initialKiosk={isKiosk}
+			initialRoom={initialRoom}
+			initialDemoTime={initialDemoTime}
+		/>
+	</div>
+</Layout>
+
+<style is:global>
+	/* Client-side kiosk mode styles for static site deployment */
+	html.kiosk-mode #site-header,
+	html.kiosk-mode header,
+	html.kiosk-mode footer,
+	body.kiosk-mode #site-header,
+	body.kiosk-mode header,
+	body.kiosk-mode footer {
+		display: none !important;
+	}
+
+	html.kiosk-mode,
+	html.kiosk-mode body,
+	body.kiosk-mode {
+		overflow: hidden !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		background-color: #161128 !important;
+		width: 100vw !important;
+		height: 100vh !important;
+	}
+
+	html.kiosk-mode #schedule-stage-wrapper,
+	body.kiosk-mode #schedule-stage-wrapper {
+		width: 100vw !important;
+		height: 100vh !important;
+		min-height: 100vh !important;
+		max-height: 100vh !important;
+		overflow: hidden !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+</style>

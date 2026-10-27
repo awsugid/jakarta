@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import type { DisplayScheduleSession } from "@/components/community-day/schedule-calendar-helpers";
 import type { EventScheduleItem } from "@/lib/types";
 import {
@@ -14,8 +14,7 @@ import { StageTalkBanner } from "./StageTalkBanner";
 import { StageServiceBanner } from "./StageServiceBanner";
 import { StageStandbyBanner } from "./StageStandbyBanner";
 import { StageOperatorBar } from "./StageOperatorBar";
-
-const SCHEDULE_API_ENDPOINT = "https://api.awscommunity.id/api/events/community-day-2026/schedule";
+import { fetchPublicSchedule } from "@/lib/api";
 
 interface ScheduleStageViewProps {
   initialSchedule?: EventScheduleItem[];
@@ -39,7 +38,7 @@ export function ScheduleStageView({
     return fallback;
   };
 
-  // 1. Data Layer: loaded directly from the endpoint
+  // 1. Data Layer: loaded directly from the API endpoint
   const [sessions, setSessions] = useState<DisplayScheduleSession[]>(() =>
     initialSchedule && initialSchedule.length > 0
       ? mapEventItemsToDisplaySessions(initialSchedule)
@@ -47,12 +46,12 @@ export function ScheduleStageView({
   );
   const [isLoading, setIsLoading] = useState<boolean>(() => !initialSchedule || initialSchedule.length === 0);
 
-  // 2. Room filter state (reads URL param if present)
+  // 2. Room filter state (reads URL param if present, defaults to initialRoom or ALL)
   const [selectedRoom, setSelectedRoom] = useState<string>(() => {
     return getQueryParam("room", initialRoom) || "ALL";
   });
 
-  // 3. Time state (live clock vs time-travel)
+  // 3. Time state (live clock by default, or demoTime if provided via query param)
   const [simulatedMinutes, setSimulatedMinutes] = useState<number | null>(() => {
     const rawDemo = getQueryParam("demoTime", initialDemoTime);
     if (rawDemo) {
@@ -60,7 +59,7 @@ export function ScheduleStageView({
       const match = rawDemo.match(/^(\d{1,2}):(\d{2})$/);
       if (match) return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
     }
-    return 14 * 60 + 5; // Default to Felicia's 14:05 slot for instant demo fidelity!
+    return null;
   });
 
   const [currentClock, setCurrentClock] = useState<Date>(() => new Date());
@@ -71,21 +70,62 @@ export function ScheduleStageView({
     return rawKiosk === "true";
   });
 
-  // Fetch directly from the endpoint provided by the user
+  // Floating operator bar is only available in DEV mode or explicitly via ?dev=true
+  const isDevMode = useMemo(() => {
+    if (typeof window === "undefined") {
+      return Boolean(import.meta.env.DEV);
+    }
+    return Boolean(import.meta.env.DEV || new URLSearchParams(window.location.search).get("dev") === "true");
+  }, []);
+
+  // Sync fullscreen state and document classes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      if (active) {
+        document.documentElement.classList.add("fullscreen-mode");
+        document.body.classList.add("fullscreen-mode");
+      } else {
+        document.documentElement.classList.remove("fullscreen-mode");
+        document.body.classList.remove("fullscreen-mode");
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  // Fetch schedule directly using centralized API client
   useEffect(() => {
     let cancelled = false;
     async function loadSchedule() {
       try {
-        const res = await fetch(SCHEDULE_API_ENDPOINT);
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled && Array.isArray(data?.schedule) && data.schedule.length > 0) {
-            setSessions(mapEventItemsToDisplaySessions(data.schedule));
-            setIsLoading(false);
-          }
+        const data = await fetchPublicSchedule("community-day-2026");
+        if (!cancelled && Array.isArray(data?.schedule) && data.schedule.length > 0) {
+          setSessions(mapEventItemsToDisplaySessions(data.schedule));
+          setIsLoading(false);
+          return;
         }
       } catch (err) {
-        console.warn("Failed to load schedule from endpoint:", err);
+        // Fallback directly to api.awscommunity.id if needed
+        try {
+          const res = await fetch("https://api.awscommunity.id/api/events/community-day-2026/schedule");
+          if (res.ok) {
+            const data = await res.json();
+            if (!cancelled && Array.isArray(data?.schedule) && data.schedule.length > 0) {
+              setSessions(mapEventItemsToDisplaySessions(data.schedule));
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (fallbackErr) {
+          console.warn("Failed to load schedule from endpoint:", fallbackErr);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -109,22 +149,15 @@ export function ScheduleStageView({
 
   // Compute effective evaluation date
   const effectiveDate = useMemo<Date>(() => {
+    // 1. Manual slider / quick jump override (e.g. via ?demoTime=HH:mm)
     if (simulatedMinutes !== null) {
       const h = Math.floor(simulatedMinutes / 60).toString().padStart(2, "0");
       const m = Math.floor(simulatedMinutes % 60).toString().padStart(2, "0");
       return new Date(`2026-10-31T${h}:${m}:00+07:00`);
     }
 
-    // Normal live mode: format current clock into 2026-10-31 event day
-    const wibStr = currentClock.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Jakarta",
-    });
-    const parts = wibStr.split(":");
-    return new Date(`2026-10-31T${parts[0]}:${parts[1]}:${parts[2]}+07:00`);
+    // 2. Production live mode: uses current real-time clock
+    return currentClock;
   }, [simulatedMinutes, currentClock]);
 
   // Resolve active, upcoming, and phase
@@ -285,26 +318,28 @@ export function ScheduleStageView({
         )}
       </div>
 
-      {/* Floating Operator Bar */}
-      <StageOperatorBar
-        currentClock={effectiveDate}
-        selectedRoom={selectedRoom}
-        onSelectRoom={setSelectedRoom}
-        distinctRooms={distinctRooms}
-        isLive={simulatedMinutes === null}
-        onSnapToLive={() => setSimulatedMinutes(null)}
-        minutesOfDay={currentMinutes}
-        onScrubMinutes={setSimulatedMinutes}
-        isTouring={isTouring}
-        onToggleTour={() => setIsTouring((p) => !p)}
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={toggleFullscreen}
-        onPrevSession={() => stepSession(-1)}
-        onNextSession={() => stepSession(1)}
-        onQuickJump={handleQuickJump}
-        hidden={controlsHidden}
-        onToggleHidden={() => setControlsHidden((p) => !p)}
-      />
+      {/* Floating Operator Bar - Dev only or via ?dev=true */}
+      {isDevMode && (
+        <StageOperatorBar
+          currentClock={effectiveDate}
+          selectedRoom={selectedRoom}
+          onSelectRoom={setSelectedRoom}
+          distinctRooms={distinctRooms}
+          isLive={simulatedMinutes === null}
+          onSnapToLive={() => setSimulatedMinutes(null)}
+          minutesOfDay={currentMinutes}
+          onScrubMinutes={setSimulatedMinutes}
+          isTouring={isTouring}
+          onToggleTour={() => setIsTouring((p) => !p)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          onPrevSession={() => stepSession(-1)}
+          onNextSession={() => stepSession(1)}
+          onQuickJump={handleQuickJump}
+          hidden={controlsHidden}
+          onToggleHidden={() => setControlsHidden((p) => !p)}
+        />
+      )}
     </div>
   );
 }

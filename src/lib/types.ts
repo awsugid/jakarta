@@ -702,6 +702,7 @@ export interface ScheduleSpeaker {
   role?: string;
   company?: string;
   avatar?: string;
+  avatarUrl?: string;
   socialUrl?: string;
 }
 

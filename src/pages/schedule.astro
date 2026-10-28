@@ -1,6 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { ScheduleStageView } from "../components/schedule/ScheduleStageView";
+import { ScheduleScreenView } from "../components/schedule/ScheduleScreenView";
 import { fetchPublicSchedule } from "@/lib/api";
 import type { EventScheduleItem } from "@/lib/types";
 
@@ -21,45 +21,19 @@ const initialDemoTime = Astro.url.searchParams.get("demoTime") || undefined;
 ---
 
 <Layout
-	title="Live Stage Agenda | AWS Community Day Jakarta 2026"
-	description="Live digital stage display and schedule for AWS Community Day Jakarta 2026"
-	showHeader={!isKiosk}
-	showFooter={!isKiosk}
+	title="Live Event Schedule | AWS Community Day Jakarta 2026"
+	description="Live full conference schedule, parallel tracks, and real-time active sessions for AWS Community Day Jakarta 2026"
+	showHeader={false}
+	showFooter={false}
 >
 	<link rel="preconnect" href="https://api.awscommunity.id" />
 	<link rel="preconnect" href="https://avatars.awscommunity.id" />
 
-	<script is:inline>
-		// Client-side pre-hydration check for kiosk parameter and fullscreen change listeners
-		(function () {
-			try {
-				var sp = new URLSearchParams(window.location.search);
-				if (sp.get("kiosk") === "true") {
-					document.documentElement.classList.add("kiosk-mode");
-					document.body.classList.add("kiosk-mode");
-				}
-
-				function syncFullscreenClass() {
-					if (document.fullscreenElement) {
-						document.documentElement.classList.add("fullscreen-mode");
-						document.body.classList.add("fullscreen-mode");
-					} else {
-						document.documentElement.classList.remove("fullscreen-mode");
-						document.body.classList.remove("fullscreen-mode");
-					}
-				}
-
-				document.addEventListener("fullscreenchange", syncFullscreenClass);
-				document.addEventListener("webkitfullscreenchange", syncFullscreenClass);
-			} catch (e) {}
-		})();
-	</script>
-
 	<div
 		id="schedule-stage-wrapper"
-		class={isKiosk ? "w-screen h-screen overflow-hidden bg-[#161128] m-0 p-0" : "min-h-[calc(100vh-80px)] bg-[#161128] flex flex-col justify-center"}
+		class="w-screen h-screen overflow-hidden bg-[#0b0d14] m-0 p-0"
 	>
-		<ScheduleStageView
+		<ScheduleScreenView
 			client:load
 			initialSchedule={initialSchedule}
 			initialKiosk={isKiosk}

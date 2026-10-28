@@ -13,6 +13,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import {
   formatTime,
@@ -599,16 +600,31 @@ export function ScheduleBoardView({
 
             {/* Speakers Spotlight */}
             {activeTip.session.speakers.length > 0 && (
-              <div className="text-xs text-slate-200 mb-3 pt-2 border-t border-slate-700/60">
-                <span className="font-semibold text-white">
-                  {activeTip.session.speakers.map((s) => s.name).join(", ")}
-                </span>
-                {activeTip.session.speakers[0]?.company && (
-                  <span className="text-slate-400">
-                    {" "}
-                    ({activeTip.session.speakers[0].company})
-                  </span>
+              <div className="flex items-center gap-2.5 mb-3 pt-2.5 border-t border-slate-700/60">
+                {activeTip.session.speakers[0]?.avatar && (
+                  <Avatar className="h-9 w-9 rounded-lg border border-slate-600/80 shrink-0 overflow-hidden bg-slate-800">
+                    <AvatarImage
+                      src={activeTip.session.speakers[0].avatar}
+                      alt={activeTip.session.speakers[0].name}
+                      className="object-cover w-full h-full"
+                      referrerPolicy="no-referrer"
+                    />
+                    <AvatarFallback className="text-[10px] font-bold bg-orange-500/20 text-orange-400">
+                      {activeTip.session.speakers[0].name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                 )}
+                <div className="min-w-0 flex-1">
+                  <span className="font-semibold text-white block truncate text-xs">
+                    {activeTip.session.speakers.map((s) => s.name).join(", ")}
+                  </span>
+                  {activeTip.session.speakers[0]?.company && (
+                    <span className="text-slate-400 text-[11px] block truncate">
+                      {activeTip.session.speakers[0].role ? `${activeTip.session.speakers[0].role} at ` : ""}
+                      {activeTip.session.speakers[0].company}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

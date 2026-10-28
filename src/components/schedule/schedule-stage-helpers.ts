@@ -134,6 +134,7 @@ export function resolveActiveSession(
   currentDate: Date,
   selectedRoom: string = "ALL"
 ): {
+  activeSessions: DisplayScheduleSession[];
   currentSession: DisplayScheduleSession | null;
   upcomingSession: DisplayScheduleSession | null;
   nextSessions: DisplayScheduleSession[];
@@ -193,6 +194,7 @@ export function resolveActiveSession(
   const isPostEvent = Boolean(lastEnd && nowMs >= lastEnd && !current);
 
   return {
+    activeSessions,
     currentSession: current,
     upcomingSession: upcoming[0] || null,
     nextSessions: upcoming.slice(0, 3),

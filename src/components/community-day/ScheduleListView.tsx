@@ -230,11 +230,12 @@ export function ScheduleListView({
                             key={sp.id || sp.name}
                             className="flex items-start gap-3 p-3 rounded-xl bg-card border border-border/60 hover:border-orange-500/40 transition-colors"
                           >
-                            <Avatar className="h-12 w-12 rounded-lg border border-border shrink-0">
+                            <Avatar className="h-12 w-12 rounded-lg border border-border shrink-0 overflow-hidden bg-muted/40">
                               <AvatarImage
-                                src={sp.avatarUrl || undefined}
+                                src={sp.avatar || sp.avatarUrl || undefined}
                                 alt={sp.name}
-                                className="object-cover"
+                                className="object-cover w-full h-full"
+                                referrerPolicy="no-referrer"
                               />
                               <AvatarFallback className="rounded-lg text-sm font-bold bg-primary/10 text-primary">
                                 {sp.name

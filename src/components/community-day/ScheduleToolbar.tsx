@@ -57,9 +57,9 @@ export function ScheduleToolbar({
   return (
     <div className="space-y-3">
       {/* Top Controls & Unified Toolbar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 rounded-2xl bg-card/70 backdrop-blur-md border border-border/70 shadow-sm">
-        {/* Left: View Mode Toggle & Track Filter Pills */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+      <div className="flex flex-col gap-3 p-3 rounded-2xl bg-card/70 backdrop-blur-md border border-border/70 shadow-sm overflow-hidden">
+        {/* Row 1: Segmented Mode Switcher (Left) & Search + .ICS (Right) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Segmented Mode Switcher */}
           <div className="schedule-seg-wrapper w-full sm:w-auto inline-flex items-center p-1 rounded-xl bg-muted/40 border border-border/50 shrink-0">
             <button
@@ -92,108 +92,106 @@ export function ScheduleToolbar({
             </button>
           </div>
 
-          <div className="h-6 w-px bg-border/60 hidden sm:block" />
+          {/* Right: Search & Bulk .ICS Export */}
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            <div className="relative flex-1 sm:w-56">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search talks, speakers..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-8 pr-7 h-8.5 text-xs bg-background/60 border-border/60 focus:border-orange-500/50"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
-          {/* Track Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-            <button
+            <Button
               type="button"
-              onClick={() => onRoomChange("ALL")}
+              variant="outline"
+              size="sm"
+              onClick={onDownloadIcs}
+              className="h-8.5 text-xs font-medium cursor-pointer shrink-0"
+              title="Download full conference calendar (.ics)"
+            >
+              <Download className="h-3.5 w-3.5 mr-1 text-orange-400" />
+              <span>.ICS</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Row 2: Track Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-0.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => onRoomChange("ALL")}
+            className={cn(
+              "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border shrink-0",
+              selectedRoom === "ALL" && !onlySaved
+                ? "bg-foreground text-background border-foreground font-bold shadow-xs"
+                : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
+            )}
+          >
+            All Tracks
+          </button>
+
+          {distinctRoomOptions.map((opt) => (
+            <button
+              key={opt.name}
+              type="button"
+              onClick={() => onRoomChange(opt.name)}
               className={cn(
-                "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border",
-                selectedRoom === "ALL" && !onlySaved
+                "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border flex items-center gap-1.5 shrink-0",
+                (selectedRoom.toLowerCase() === opt.name.toLowerCase() ||
+                  (selectedRoom.toLowerCase().includes("800") && opt.name.toLowerCase().includes("800"))) &&
+                  !onlySaved
                   ? "bg-foreground text-background border-foreground font-bold shadow-xs"
                   : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
               )}
             >
-              All Tracks
-            </button>
-
-            {distinctRoomOptions.map((opt) => (
-              <button
-                key={opt.name}
-                type="button"
-                onClick={() => onRoomChange(opt.name)}
+              <span
                 className={cn(
-                  "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border flex items-center gap-1.5",
-                  (selectedRoom.toLowerCase() === opt.name.toLowerCase() ||
-                    (selectedRoom.toLowerCase().includes("800") && opt.name.toLowerCase().includes("800"))) &&
-                    !onlySaved
-                    ? "bg-foreground text-background border-foreground font-bold shadow-xs"
-                    : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
-                )}
-              >
-                <span
-                  className={cn(
-                    "w-2 h-2 rounded-full shrink-0",
-                    opt.name.toLowerCase().includes("atrium") ? "bg-orange-500" : "bg-purple-400"
-                  )}
-                />
-                <span>
-                  {opt.name} <span className="opacity-75">({opt.track})</span>
-                </span>
-              </button>
-            ))}
-
-            {/* Saved talks shortcut */}
-            <button
-              type="button"
-              onClick={onToggleOnlySaved}
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer border",
-                onlySaved
-                  ? "bg-amber-500 text-white border-amber-500 font-bold shadow-xs"
-                  : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
-              )}
-              title="Show only bookmarked talks"
-            >
-              <Star
-                className={cn(
-                  "h-3 w-3",
-                  savedCount > 0 || onlySaved ? "fill-current text-current" : ""
+                  "w-2 h-2 rounded-full shrink-0",
+                  opt.name.toLowerCase().includes("atrium") ? "bg-orange-500" : "bg-purple-400"
                 )}
               />
-              <span>Saved</span>
-              {savedCount > 0 && (
-                <span className="text-[10px] font-bold opacity-90">({savedCount})</span>
-              )}
+              <span>
+                {opt.name} <span className="opacity-75">({opt.track})</span>
+              </span>
             </button>
-          </div>
-        </div>
+          ))}
 
-        {/* Right: Search & Bulk .ICS Export */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="relative w-full sm:w-52">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search talks, speakers..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-8 pr-7 h-8.5 text-xs bg-background/60 border-border/60 focus:border-orange-500/50"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => onSearchChange("")}
-                className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <Button
+          {/* Saved talks shortcut */}
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            onClick={onDownloadIcs}
-            className="h-8.5 text-xs font-medium cursor-pointer shrink-0"
-            title="Download full conference calendar (.ics)"
+            onClick={onToggleOnlySaved}
+            className={cn(
+              "px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer border shrink-0",
+              onlySaved
+                ? "bg-amber-500 text-white border-amber-500 font-bold shadow-xs"
+                : "text-muted-foreground border-border/40 hover:text-foreground hover:bg-muted/50"
+            )}
+            title="Show only bookmarked talks"
           >
-            <Download className="h-3.5 w-3.5 mr-1 text-orange-400" />
-            <span>.ICS</span>
-          </Button>
+            <Star
+              className={cn(
+                "h-3 w-3",
+                savedCount > 0 || onlySaved ? "fill-current text-current" : ""
+              )}
+            />
+            <span>Saved</span>
+            {savedCount > 0 && (
+              <span className="text-[10px] font-bold opacity-90">({savedCount})</span>
+            )}
+          </button>
         </div>
       </div>
 

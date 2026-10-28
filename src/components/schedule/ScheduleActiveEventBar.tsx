@@ -46,7 +46,7 @@ export function ScheduleActiveEventBar({
   if (isPreEvent) {
     return (
       <div className="w-full bg-gradient-to-r from-purple-950/40 via-[#151824] to-purple-950/40 border-b border-purple-500/20 px-4 py-2.5 sm:px-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm">
+        <div className="max-w-7xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm">
           <div className="flex items-center gap-2.5">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold uppercase tracking-wider text-[11px]">
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />
@@ -82,7 +82,9 @@ export function ScheduleActiveEventBar({
   if (isPostEvent) {
     return (
       <div className="w-full bg-[#151824] border-b border-white/10 px-4 py-2.5 text-center text-xs sm:text-sm text-slate-300">
-        <span className="font-bold text-white">Conference Concluded.</span> Thank you for building with the AWS community in Jakarta!
+        <div className="max-w-7xl mx-auto w-full">
+          <span className="font-bold text-white">Conference Concluded.</span> Thank you for building with the AWS community in Jakarta!
+        </div>
       </div>
     );
   }
@@ -100,7 +102,7 @@ export function ScheduleActiveEventBar({
 
     return (
       <div className="w-full bg-gradient-to-r from-orange-950/40 via-[#151824] to-orange-950/40 border-b border-orange-500/30 px-4 py-3 sm:px-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shrink-0">
               <Icon className="w-4 h-4" />
@@ -140,7 +142,7 @@ export function ScheduleActiveEventBar({
                 className="hidden lg:flex items-center gap-2 text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
               >
                 <span className="text-slate-400">Next Session:</span>
-                <span className="font-semibold text-slate-200 max-w-[200px] truncate">
+                <span className="font-semibold text-slate-200 max-w-[260px] truncate">
                   {upcomingSession.title}
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-orange-400" />
@@ -159,7 +161,7 @@ export function ScheduleActiveEventBar({
         {/* Glow backdrop indicator */}
         <div className="absolute top-0 left-0 w-32 h-full bg-orange-500/10 blur-xl pointer-events-none" />
 
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto w-full flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           {/* Left badge */}
           <div className="flex items-center gap-2.5 shrink-0">
             <span className="relative flex h-3 w-3">
@@ -177,7 +179,7 @@ export function ScheduleActiveEventBar({
           </div>
 
           {/* Active Session Cards List */}
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-0.5 flex-1 max-w-4xl">
+          <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-none py-1 flex-1">
             {activeSessions.map((session) => {
               const speaker = session.speakers[0];
               const room = roomLabelOf(session);
@@ -188,10 +190,10 @@ export function ScheduleActiveEventBar({
                 <div
                   key={session.id}
                   onClick={() => onFocusSession(session)}
-                  className="flex items-center gap-3 p-2 pr-3.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-orange-500/30 hover:border-orange-500/60 transition-all cursor-pointer shrink-0 max-w-[340px] group shadow-sm"
-                  title="Click to locate on schedule"
+                  className="flex items-center gap-3 p-2.5 pr-3.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-orange-500/30 hover:border-orange-500/60 transition-all cursor-pointer shrink-0 min-w-[240px] max-w-[360px] group shadow-sm"
+                  title={session.title}
                 >
-                  <Avatar className="w-9 h-9 rounded-lg border border-white/20 shrink-0 bg-slate-800">
+                  <Avatar className="w-10 h-10 rounded-lg border border-white/20 shrink-0 bg-slate-800">
                     {speaker?.avatar && (
                       <AvatarImage
                         src={speaker.avatar}
@@ -205,7 +207,7 @@ export function ScheduleActiveEventBar({
                   </Avatar>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 mb-0.5">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400 bg-orange-500/20 px-1.5 py-0.2 rounded">
                         {room}
                       </span>
@@ -215,10 +217,10 @@ export function ScheduleActiveEventBar({
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-bold text-white truncate group-hover:text-orange-300 transition-colors">
+                    <p className="text-xs font-bold text-white line-clamp-2 leading-tight group-hover:text-orange-300 transition-colors break-words">
                       {session.title}
                     </p>
-                    <p className="text-[11px] text-slate-300 truncate">
+                    <p className="text-[11px] text-slate-300 truncate mt-0.5">
                       {speaker ? speaker.name : "Featured Presentation"}
                     </p>
                   </div>
@@ -235,9 +237,10 @@ export function ScheduleActiveEventBar({
               type="button"
               onClick={() => onFocusSession(upcomingSession)}
               className="hidden xl:flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0 pl-2 border-l border-white/10"
+              title={upcomingSession.title}
             >
               <span>Next:</span>
-              <span className="text-slate-200 font-medium max-w-[180px] truncate">
+              <span className="text-slate-200 font-medium max-w-[220px] truncate">
                 {upcomingSession.title}
               </span>
               <span className="text-slate-400">

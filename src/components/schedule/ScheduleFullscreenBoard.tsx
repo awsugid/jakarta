@@ -23,12 +23,15 @@ import {
 } from "@/components/community-day/schedule-calendar-helpers";
 import {
   RULER_HEIGHT,
-  LANE_HEIGHT,
   LABEL_WIDTH_DESKTOP,
   LABEL_WIDTH_MOBILE,
   type LaneDefinition,
 } from "@/components/community-day/schedule-types";
 import { isPlenarySession } from "./schedule-stage-helpers";
+
+// Generous label widths so tracks like "Classroom 2" or "Classroom 3" never truncate
+const FULLSCREEN_LABEL_WIDTH_DESKTOP = 180;
+const FULLSCREEN_LABEL_WIDTH_MOBILE = 110;
 
 interface ScheduleFullscreenBoardProps {
   sessions: DisplayScheduleSession[];
@@ -51,8 +54,9 @@ export function ScheduleFullscreenBoard({
 }: ScheduleFullscreenBoardProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(3.0); // pixels per minute
-  const [labelWidth, setLabelWidth] = useState(LABEL_WIDTH_DESKTOP);
+  const [scale, setScale] = useState(4.2); // generous pixels per minute for readable titles
+  const [labelWidth, setLabelWidth] = useState(FULLSCREEN_LABEL_WIDTH_DESKTOP);
+  const [containerHeight, setContainerHeight] = useState(760);
 
   // Drag-to-pan states
   const isDraggingRef = useRef(false);
@@ -60,10 +64,13 @@ export function ScheduleFullscreenBoard({
   const scrollLeftRef = useRef(0);
   const hasMovedRef = useRef(false);
 
-  // Responsive label width
+  // Responsive label width & container dimensions
   useEffect(() => {
     const handleResize = () => {
-      setLabelWidth(window.innerWidth < 640 ? LABEL_WIDTH_MOBILE : LABEL_WIDTH_DESKTOP);
+      setLabelWidth(window.innerWidth < 640 ? FULLSCREEN_LABEL_WIDTH_MOBILE : FULLSCREEN_LABEL_WIDTH_DESKTOP);
+      if (scrollContainerRef.current) {
+        setContainerHeight(scrollContainerRef.current.clientHeight || window.innerHeight - 140);
+      }
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -153,11 +160,21 @@ export function ScheduleFullscreenBoard({
     });
   }, [allLanes, selectedRoom]);
 
+  // Dynamic lane height so schedule fills and centers on the screen with generous room for talk titles
+  const laneHeight = useMemo(() => {
+    const numLanes = Math.max(1, visibleLanes.length);
+    const avail = containerHeight - RULER_HEIGHT - 20;
+    if (avail <= 0) return 165;
+    const computed = Math.floor(avail / numLanes);
+    // Keep lane height comfortably between 155px and 220px
+    return Math.max(155, Math.min(220, computed));
+  }, [containerHeight, visibleLanes.length]);
+
   const timelineSpan = T1 - T0;
   const timelineWidth = timelineSpan * scale;
   const totalCanvasWidth = labelWidth + timelineWidth;
-  const totalLanesHeight = visibleLanes.length * LANE_HEIGHT;
-  const canvasHeight = Math.max(500, RULER_HEIGHT + totalLanesHeight);
+  const totalLanesHeight = visibleLanes.length * laneHeight;
+  const canvasHeight = RULER_HEIGHT + totalLanesHeight;
 
   // Current minute in WIB
   const currentMinutes = useMemo(() => {
@@ -326,11 +343,11 @@ export function ScheduleFullscreenBoard({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className="flex-1 overflow-x-auto overflow-y-auto relative select-none schedule-scroll-viewport"
+        className="flex-1 overflow-x-auto overflow-y-auto relative select-none schedule-scroll-viewport flex flex-col"
       >
         <div
           ref={stageRef}
-          className="relative min-w-full"
+          className="relative min-w-full my-auto"
           style={{
             width: `${totalCanvasWidth}px`,
             height: `${canvasHeight}px`,
@@ -350,7 +367,7 @@ export function ScheduleFullscreenBoard({
               style={{ width: `${labelWidth}px`, height: `${RULER_HEIGHT}px` }}
             >
               <span>TRACKS</span>
-              <span className="text-[10px] text-orange-400 font-normal">WIB (UTC+7)</span>
+              <span className="text-[10px] text-orange-400 font-normal">WIB</span>
             </div>
 
             {/* Time Ticks */}
@@ -392,17 +409,21 @@ export function ScheduleFullscreenBoard({
               <div
                 key={`grid-${t.min}`}
                 className={cn(
-                  "absolute top-[48px] bottom-0 pointer-events-none border-l",
+                  "absolute pointer-events-none border-l",
                   t.isHalf ? "border-dashed border-white/5" : "border-solid border-white/10"
                 )}
-                style={{ left: `${gridX}px` }}
+                style={{
+                  left: `${gridX}px`,
+                  top: `${RULER_HEIGHT}px`,
+                  height: `${totalLanesHeight}px`,
+                }}
               />
             );
           })}
 
           {/* 3. Horizontal Room Track Lanes */}
           {visibleLanes.map((lane, laneIdx) => {
-            const laneTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT;
+            const laneTop = RULER_HEIGHT + laneIdx * laneHeight;
             const isMainStage = lane.name.toLowerCase().includes("atrium") || lane.name.toLowerCase().includes("main");
             const isRoom800 = lane.name.toLowerCase().includes("800");
 
@@ -411,7 +432,7 @@ export function ScheduleFullscreenBoard({
                 {/* Lane Background Row & Divider */}
                 <div
                   className="absolute left-0 right-0 border-b border-white/10 pointer-events-none"
-                  style={{ top: `${laneTop}px`, height: `${LANE_HEIGHT}px` }}
+                  style={{ top: `${laneTop}px`, height: `${laneHeight}px` }}
                 />
 
                 {/* Pinned Sticky Lane Label on the Left */}
@@ -420,7 +441,7 @@ export function ScheduleFullscreenBoard({
                   style={{
                     top: `${laneTop}px`,
                     width: `${labelWidth}px`,
-                    height: `${LANE_HEIGHT}px`,
+                    height: `${laneHeight}px`,
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -434,11 +455,11 @@ export function ScheduleFullscreenBoard({
                           : "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
                       )}
                     />
-                    <h5 className="font-extrabold text-sm md:text-base text-white truncate">
+                    <h5 className="font-extrabold text-sm md:text-base text-white whitespace-nowrap">
                       {lane.name}
                     </h5>
                   </div>
-                  <span className="text-xs text-slate-400 font-medium truncate block mt-0.5 pl-4.5">
+                  <span className="text-xs text-slate-400 font-medium whitespace-nowrap block mt-1 pl-4.5">
                     {lane.subtitle}
                   </span>
                 </div>
@@ -455,7 +476,7 @@ export function ScheduleFullscreenBoard({
               const durationMin = Math.max(20, endMin - startMin);
 
               const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-              const blockWidth = Math.max(140, durationMin * scale - 4);
+              const blockWidth = Math.max(160, durationMin * scale - 4);
               const isActive = activeSessionIds.has(session.id);
               const isFocused = focusedSessionId === session.id;
 
@@ -468,20 +489,20 @@ export function ScheduleFullscreenBoard({
                     if (!hasMovedRef.current) onSelectSession(session);
                   }}
                   className={cn(
-                    "schedule-card-btn absolute rounded-2xl p-4 text-left cursor-pointer transition-all duration-200 overflow-hidden z-15 flex flex-col justify-between border",
+                    "schedule-card-btn absolute rounded-2xl p-4 sm:p-5 text-left cursor-pointer transition-all duration-200 overflow-hidden z-15 flex flex-col justify-between border",
                     isActive
-                      ? "ring-2 ring-orange-400 border-orange-400 bg-gradient-to-r from-orange-950/70 via-purple-950/60 to-orange-950/70 shadow-[0_0_30px_rgba(255,153,0,0.5)] z-25 animate-pulse"
+                      ? "ring-2 ring-orange-400 border-orange-400 bg-gradient-to-r from-orange-950/80 via-purple-950/70 to-orange-950/80 shadow-[0_0_35px_rgba(255,153,0,0.6)] z-25 animate-pulse"
                       : isFocused
                       ? "ring-2 ring-cyan-400 border-cyan-400 bg-white/10 z-20"
-                      : "bg-[#181d2c]/85 hover:bg-[#20273a] border-white/20 text-white shadow-lg hover:border-white/40"
+                      : "bg-[#181d2c]/90 hover:bg-[#20273a] border-white/20 text-white shadow-lg hover:border-white/40"
                   )}
                   style={{
                     left: `${blockLeft}px`,
-                    top: `${RULER_HEIGHT + 8}px`,
+                    top: `${RULER_HEIGHT + 6}px`,
                     width: `${blockWidth}px`,
-                    height: `${totalLanesHeight - 16}px`,
+                    height: `${totalLanesHeight - 12}px`,
                   }}
-                  title="Click to view details"
+                  title={session.title}
                 >
                   {/* Top Bar */}
                   <div className="flex items-center justify-between gap-2 w-full">
@@ -495,30 +516,30 @@ export function ScheduleFullscreenBoard({
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 border border-amber-500/30 text-amber-300">
                         {session.sessionType || "PLENARY"}
                       </span>
-                      <span className="text-xs text-orange-400 font-bold">
+                      <span className="text-xs text-orange-400 font-bold whitespace-nowrap">
                         {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)} WIB
                       </span>
                     </div>
 
-                    <span className="text-xs font-semibold text-slate-300">
+                    <span className="text-xs font-semibold text-slate-300 hidden sm:inline">
                       All Rooms (Main Stage)
                     </span>
                   </div>
 
-                  {/* Center Content */}
+                  {/* Center Content — Uncropped full title */}
                   <div className="my-auto py-2">
-                    <h3 className="text-lg sm:text-2xl font-black text-white leading-snug tracking-tight max-w-4xl line-clamp-2">
+                    <h3 className="text-lg sm:text-2xl font-black text-white leading-snug tracking-tight max-w-4xl break-words">
                       {session.title}
                     </h3>
                     {session.speakers.length > 0 && (
-                      <p className="text-sm font-semibold text-slate-300 mt-1">
+                      <p className="text-sm font-semibold text-slate-300 mt-2">
                         By {session.speakers.map((s) => s.name).join(", ")}
                       </p>
                     )}
                   </div>
 
                   {/* Bottom Footer */}
-                  <div className="text-xs text-slate-400 flex items-center justify-between w-full pt-1 border-t border-white/10">
+                  <div className="text-xs text-slate-400 flex items-center justify-between w-full pt-2 border-t border-white/10">
                     <span>AWS Community Day Jakarta 2026</span>
                     <span className="text-orange-400 font-semibold group-hover:underline">
                       Click for details →
@@ -544,9 +565,9 @@ export function ScheduleFullscreenBoard({
               if (laneIdx < 0) laneIdx = 0;
 
               const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-              const blockWidth = Math.max(120, durationMin * scale - 4);
-              const blockTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT + 10;
-              const blockHeight = LANE_HEIGHT - 20;
+              const blockWidth = Math.max(140, durationMin * scale - 4);
+              const blockTop = RULER_HEIGHT + laneIdx * laneHeight + 6;
+              const blockHeight = laneHeight - 12;
 
               const isActive = activeSessionIds.has(session.id);
               const isFocused = focusedSessionId === session.id;
@@ -562,14 +583,14 @@ export function ScheduleFullscreenBoard({
                     if (!hasMovedRef.current) onSelectSession(session);
                   }}
                   className={cn(
-                    "schedule-card-btn absolute rounded-xl p-3 text-left cursor-pointer transition-all duration-200 overflow-hidden z-10 flex flex-col justify-between border",
+                    "schedule-card-btn absolute rounded-xl p-3 sm:p-3.5 text-left cursor-pointer transition-all duration-200 overflow-hidden z-10 flex flex-col justify-between border group",
                     isActive
-                      ? "ring-2 ring-orange-400 border-orange-400 bg-orange-950/80 shadow-[0_0_24px_rgba(255,153,0,0.5)] z-25 text-white animate-pulse"
+                      ? "ring-2 ring-orange-400 border-orange-400 bg-orange-950/85 shadow-[0_0_24px_rgba(255,153,0,0.55)] z-25 text-white animate-pulse"
                       : isFocused
                       ? "ring-2 ring-cyan-400 border-cyan-400 bg-white/15 z-20 text-white"
                       : isWorkshop
-                      ? "bg-purple-950/45 hover:bg-purple-950/70 border-purple-500/40 text-white hover:border-purple-400"
-                      : "bg-[#181d2a]/85 hover:bg-[#20273a] border-white/15 text-white hover:border-white/35"
+                      ? "bg-purple-950/50 hover:bg-purple-950/75 border-purple-500/40 text-white hover:border-purple-400 shadow-md"
+                      : "bg-[#161a28]/90 hover:bg-[#1e2336] border-white/15 text-white hover:border-white/35 shadow-md"
                   )}
                   style={{
                     left: `${blockLeft}px`,
@@ -577,19 +598,19 @@ export function ScheduleFullscreenBoard({
                     width: `${blockWidth}px`,
                     height: `${blockHeight}px`,
                   }}
-                  title="Click to view full details"
+                  title={session.title}
                 >
                   {/* Top Bar inside card */}
-                  <div className="flex items-center justify-between gap-1 w-full">
+                  <div className="flex items-center justify-between gap-1 w-full shrink-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {isActive && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[9px] font-black uppercase bg-orange-500 text-white shadow-sm">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-orange-500 text-white shadow-sm">
                           ● LIVE
                         </span>
                       )}
                       <span
                         className={cn(
-                          "px-2 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                          "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
                           isWorkshop
                             ? "bg-purple-500/25 border border-purple-400/30 text-purple-300"
                             : "bg-white/10 text-slate-300"
@@ -599,18 +620,20 @@ export function ScheduleFullscreenBoard({
                       </span>
                     </div>
 
-                    <span className="font-mono text-[11px] font-bold text-orange-400 shrink-0">
+                    <span className="font-mono text-[10px] sm:text-[11px] font-bold text-orange-400 shrink-0">
                       {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)}
                     </span>
                   </div>
 
-                  {/* Title */}
-                  <h4 className="font-bold text-xs sm:text-sm text-white leading-snug line-clamp-2 my-1">
-                    {session.title}
-                  </h4>
+                  {/* Title — Generous uncropped space */}
+                  <div className="my-auto py-1 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
+                    <h4 className="font-bold text-[11px] sm:text-xs text-white leading-snug line-clamp-6 group-hover:text-orange-300 transition-colors break-words">
+                      {session.title}
+                    </h4>
+                  </div>
 
                   {/* Speaker Footer */}
-                  <div className="flex items-center gap-2 pt-1 border-t border-white/10 mt-auto">
+                  <div className="flex items-center gap-2 pt-1.5 border-t border-white/10 shrink-0 w-full mt-auto">
                     {speaker && (
                       <Avatar className="w-5 h-5 rounded-full border border-white/20 shrink-0 bg-slate-800">
                         {speaker.avatar && (
@@ -636,8 +659,12 @@ export function ScheduleFullscreenBoard({
           {/* 6. Glowing Vertical "CURRENT TIME" (NOW) Indicator Line */}
           {isNowInBounds && (
             <div
-              className="absolute top-0 bottom-0 pointer-events-none z-30 transition-all duration-300"
-              style={{ left: `${nowX}px` }}
+              className="absolute pointer-events-none z-30 transition-all duration-300"
+              style={{
+                left: `${nowX}px`,
+                top: 0,
+                height: `${canvasHeight}px`,
+              }}
             >
               {/* Top floating flag */}
               <div className="sticky top-0 -translate-x-1/2 -mt-1 px-2.5 py-1 rounded-full bg-orange-500 text-white text-[11px] font-black uppercase tracking-wider shadow-[0_0_12px_rgba(255,153,0,0.8)] flex items-center gap-1.5 whitespace-nowrap">

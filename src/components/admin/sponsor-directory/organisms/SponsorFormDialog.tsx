@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, AlertCircle, Loader2, Eye } from "lucide-react";
+import { Sparkles, AlertCircle, Loader2, Eye, Upload, Check } from "lucide-react";
 import type { EventSponsor } from "@/lib/types";
+import { uploadSponsorMockup } from "@/lib/api";
+import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 import { STANDARD_TIERS } from "../atoms/SponsorTierBadge";
 import { SponsorLogoThumbnail } from "../atoms/SponsorLogoThumbnail";
 import { formatRupiah } from "../atoms/SponsorPriceDisplay";
@@ -64,6 +66,9 @@ export function SponsorFormDialog({
 }: SponsorFormDialogProps) {
   const [formData, setFormData] = useState<SponsorFormData>(DEFAULT_FORM_DATA);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -81,8 +86,25 @@ export function SponsorFormDialog({
         setFormData(DEFAULT_FORM_DATA);
       }
       setLocalError(null);
+      setUploadError(null);
     }
   }, [isOpen, sponsor]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    setIsUploading(true);
+    try {
+      const res = await uploadSponsorMockup(COMMUNITY_DAY_EVENT_SLUG, file, "sponsors");
+      setFormData((prev) => ({ ...prev, logoUrl: res.url }));
+    } catch (err: any) {
+      setUploadError(err?.message || "Failed to upload logo image to Cloudflare storage");
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = "";
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,11 +177,43 @@ export function SponsorFormDialog({
             />
           </div>
 
-          {/* Logo URL & Live Preview */}
+          {/* Logo URL, Upload & Live Preview */}
           <div className="space-y-1.5">
-            <Label htmlFor="sponsor-form-logo" className="text-xs font-semibold">
-              Logo Image URL <span className="text-destructive">*</span>
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="sponsor-form-logo" className="text-xs font-semibold">
+                Logo Image URL <span className="text-destructive">*</span>
+              </Label>
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-7 px-2.5 text-xs gap-1.5 border-dashed border-primary/50 text-primary hover:bg-primary/10"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Uploading…
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-3.5 w-3.5" />
+                      Upload to R2
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
             <Input
               id="sponsor-form-logo"
               placeholder="e.g. /assets/comday26/sponsors/binus.png or https://…"
@@ -168,6 +222,14 @@ export function SponsorFormDialog({
               required
               className="text-sm font-mono"
             />
+
+            {uploadError && (
+              <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {uploadError}
+              </p>
+            )}
+
             {formData.logoUrl.trim() && (
               <div className="mt-2 p-3 bg-muted/30 border border-border/70 rounded-lg flex items-center gap-3">
                 <SponsorLogoThumbnail
@@ -177,7 +239,14 @@ export function SponsorFormDialog({
                   className="bg-white"
                 />
                 <div className="text-xs text-muted-foreground min-w-0 flex-1">
-                  <p className="font-semibold text-foreground">Logo Live Preview</p>
+                  <p className="font-semibold text-foreground flex items-center gap-1.5">
+                    Logo Live Preview
+                    {formData.logoUrl.includes("awscommunity.id") && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded font-mono">
+                        <Check className="h-3 w-3" /> R2 Hosted
+                      </span>
+                    )}
+                  </p>
                   <p className="truncate font-mono text-[11px] text-muted-foreground">
                     {formData.logoUrl}
                   </p>

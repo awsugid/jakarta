@@ -4,7 +4,6 @@ import { ComDayHero } from "../components/community-day/ComDayHero";
 import { MetricsBar } from "../components/community-day/MetricsBar";
 
 import { CFPSection } from "../components/community-day/CFPSection";
-import { SponsorSection } from "../components/community-day/SponsorSection";
 import { ComDaySponsors } from "../components/community-day/ComDaySponsors";
 import { MobileStickyBar } from "../components/community-day/MobileStickyBar";
 import { PretixWidget } from "../components/PretixWidget";
@@ -15,10 +14,11 @@ import { Sparkles } from "lucide-react";
 import { VolunteerCallSection } from "../components/community-day/VolunteerCallSection";
 import PeopleList from "../components/people/PeopleList";
 import { getCollection } from "astro:content";
-import { getBaseUrl } from "@/lib/api";
+import { getBaseUrl, fetchPublicSponsors } from "@/lib/api";
 import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
 import { buildPeopleGroups } from "@/lib/event-people";
 import { comday26Faqs } from "@/data/faqs";
+import type { Sponsor, SponsorTierType } from "@/components/sponsors/SponsorGrid";
 
 const comdayEvent = (await getCollection("events")).find(
     (entry) => entry.id === "community-day-2026"
@@ -27,6 +27,22 @@ const peopleGroups = comdayEvent
     ? buildPeopleGroups(comdayEvent.data.organizers, comdayEvent.data.volunteers)
     : [];
 const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
+
+// Pre-fetch active sponsors at build time for fast initial render
+let initialSponsors: Sponsor[] = [];
+try {
+    const sponsorsData = await fetchPublicSponsors(COMMUNITY_DAY_EVENT_SLUG);
+    if (sponsorsData?.sponsors && sponsorsData.sponsors.length > 0) {
+        initialSponsors = sponsorsData.sponsors.map((s) => ({
+            name: s.name,
+            logo: s.logoUrl,
+            url: s.websiteUrl || undefined,
+            tier: s.tier.toLowerCase() as SponsorTierType,
+        }));
+    }
+} catch (e) {
+    // Offline or build-time fallback; client fetch will re-attempt
+}
 
 // Start the carousel/schedule data fetch during HTML parse instead of waiting
 // for island hydration (~5s on cold loads). crossorigin="anonymous" matches
@@ -121,11 +137,13 @@ const sponsorsApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/sponso
             </div>
         </div>
     </section>
-    <!-- Sponsor CTA Section -->
-    <SponsorSection client:visible />
-
-    <!-- Sponsors & Partners Showcase Section -->
-    <ComDaySponsors client:load />
+    <!-- Sponsors & Partners Showcase Section (Wired to Backend Sponsor Directory + Configurator CTA) -->
+    <ComDaySponsors
+        client:load
+        initialSponsors={initialSponsors}
+        sectionId="sponsors"
+        showConfiguratorCta={true}
+    />
 
     <!-- Calling for Volunteer Section -->
     <VolunteerCallSection client:visible />

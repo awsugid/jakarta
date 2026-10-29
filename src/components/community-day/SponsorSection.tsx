@@ -1,7 +1,11 @@
 import { Handshake, Download, FileText, Sparkles, Target, Briefcase, Award, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function SponsorSection() {
+interface SponsorSectionProps {
+  showCta?: boolean;
+}
+
+export function SponsorSection({ showCta = false }: SponsorSectionProps) {
   const valuePillars = [
     {
       icon: Target,
@@ -72,49 +76,51 @@ export function SponsorSection() {
         </div>
 
         {/* Action Callout Box */}
-        <div className="max-w-4xl mx-auto bg-gradient-to-br from-orange-500/[0.04] via-card/80 to-amber-500/[0.03] border border-orange-500/20 rounded-3xl p-8 sm:p-12 flex flex-col items-center text-center gap-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-[64px] pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-[64px] pointer-events-none" />
+        {showCta && (
+          <div className="max-w-4xl mx-auto bg-gradient-to-br from-orange-500/[0.04] via-card/80 to-amber-500/[0.03] border border-orange-500/20 rounded-3xl p-8 sm:p-12 flex flex-col items-center text-center gap-8 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-[64px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-[64px] pointer-events-none" />
 
-          <div className="space-y-3 text-center relative z-10 max-w-2xl">
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-foreground flex items-center justify-center gap-2.5">
-              <FileText className="h-7 w-7 text-orange-400 shrink-0" />
-              Interested in Sponsoring?
-            </h3>
-            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-              Explore our sponsorship tiers, customize modular add-ons with our live package configurator, or download the official sponsorship prospectus.
-            </p>
+            <div className="space-y-3 text-center relative z-10 max-w-2xl">
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-foreground flex items-center justify-center gap-2.5">
+                <FileText className="h-7 w-7 text-orange-400 shrink-0" />
+                Interested in Sponsoring?
+              </h3>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                Explore our sponsorship tiers, customize modular add-ons with our live package configurator, or download the official sponsorship prospectus.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center items-center relative z-10">
+              <Button
+                asChild
+                className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-slate-950 font-bold py-6 px-8 rounded-xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-sm sm:text-base w-full sm:w-auto"
+              >
+                <a href="/sponsor">
+                  <Handshake className="mr-2 h-5 w-5" />
+                  Explore Sponsorship Packages
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="bg-card/50 border-border hover:bg-muted text-foreground py-6 px-6 w-full sm:w-auto justify-center rounded-xl active:scale-95 transition-all text-sm sm:text-base font-medium"
+                onClick={() => {
+                  const deckUrl = import.meta.env.PUBLIC_COMMUNITY_DAY_DECK_URL;
+                  window.open(
+                    deckUrl && deckUrl !== "undefined"
+                      ? deckUrl
+                      : "/AWSUG_Jakarta_Sponsorship_Deck.pdf",
+                    "_blank"
+                  );
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" /> Download Prospectus
+              </Button>
+            </div>
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center items-center relative z-10">
-            <Button
-              asChild
-              className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-slate-950 font-bold py-6 px-8 rounded-xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-sm sm:text-base w-full sm:w-auto"
-            >
-              <a href="/sponsor">
-                <Handshake className="mr-2 h-5 w-5" />
-                Explore Sponsorship Packages
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </a>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="bg-card/50 border-border hover:bg-muted text-foreground py-6 px-6 w-full sm:w-auto justify-center rounded-xl active:scale-95 transition-all text-sm sm:text-base font-medium"
-              onClick={() => {
-                const deckUrl = import.meta.env.PUBLIC_COMMUNITY_DAY_DECK_URL;
-                window.open(
-                  deckUrl && deckUrl !== "undefined"
-                    ? deckUrl
-                    : "/AWSUG_Jakarta_Sponsorship_Deck.pdf",
-                  "_blank"
-                );
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" /> Download Prospectus
-            </Button>
-          </div>
-        </div>
+        )}
       </div>
     </section>
   );

@@ -5,10 +5,14 @@ import { Button } from "@/components/ui/button";
 export type SponsorTierType =
   | "venue"
   | "diamond"
+  | "platinum"
   | "gold"
   | "silver"
+  | "bronze"
   | "community"
-  | "media";
+  | "media"
+  | "supporter"
+  | string;
 
 export interface Sponsor {
   name: string;
@@ -34,7 +38,7 @@ const DEFAULT_SPONSORS: Sponsor[] = [
 ];
 
 const TIER_META: Record<
-  SponsorTierType,
+  string,
   {
     title: string;
     gridClass: string;
@@ -57,6 +61,13 @@ const TIER_META: Record<
     logoHeight: "max-h-14",
     containerHeight: "h-20",
   },
+  platinum: {
+    title: "Platinum Sponsors",
+    gridClass: "grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl mx-auto",
+    cardClass: "p-6",
+    logoHeight: "max-h-13",
+    containerHeight: "h-19",
+  },
   gold: {
     title: "Gold Sponsors",
     gridClass: "grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-4xl mx-auto",
@@ -70,6 +81,13 @@ const TIER_META: Record<
     cardClass: "p-4",
     logoHeight: "max-h-10",
     containerHeight: "h-16",
+  },
+  bronze: {
+    title: "Bronze Sponsors",
+    gridClass: "grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto",
+    cardClass: "p-4",
+    logoHeight: "max-h-9",
+    containerHeight: "h-15",
   },
   community: {
     title: "Community Partners",
@@ -85,27 +103,43 @@ const TIER_META: Record<
     logoHeight: "max-h-8",
     containerHeight: "h-14",
   },
+  supporter: {
+    title: "Community Supporters",
+    gridClass: "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 max-w-4xl mx-auto",
+    cardClass: "p-3",
+    logoHeight: "max-h-8",
+    containerHeight: "h-14",
+  },
 };
 
-const TIER_ORDER: SponsorTierType[] = [
+const TIER_ORDER: string[] = [
   "venue",
   "diamond",
+  "platinum",
   "gold",
   "silver",
+  "bronze",
   "community",
   "media",
+  "supporter",
 ];
 
 export function SponsorGrid({
   sponsors = [],
   title = "Our Sponsors & Partners",
   subtitle = "Supported by organizations empowering the developer community.",
-  showBecomeSponsorCta = true,
+  showBecomeSponsorCta = false,
 }: SponsorGridProps) {
   const groupedSponsors = TIER_ORDER.map((tier) => ({
     tier,
-    meta: TIER_META[tier],
-    items: (sponsors || []).filter((s) => s.tier === tier),
+    meta: TIER_META[tier] || {
+      title: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Partners`,
+      gridClass: "grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto",
+      cardClass: "p-4",
+      logoHeight: "max-h-10",
+      containerHeight: "h-16",
+    },
+    items: (sponsors || []).filter((s) => s.tier.toLowerCase() === tier.toLowerCase()),
   })).filter((group) => group.items.length > 0);
 
   if (groupedSponsors.length === 0) {

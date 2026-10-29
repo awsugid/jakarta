@@ -29,6 +29,7 @@ import {
   createAdminScheduleItem,
   createAdminSpeaker,
   createScheduleFormat,
+  fetchSessionizeData,
   updateAdminScheduleItem,
 } from "@/lib/api";
 import type {
@@ -39,7 +40,12 @@ import type {
 } from "@/lib/types";
 import { localInputToWibRfc3339, shareRoom, wibToLocalInput } from "@/lib/schedule-workspace";
 import { normalizeScheduleSpeakers } from "@/lib/schedule-speakers";
-import { LANGUAGE_SUGGESTIONS, LEVEL_SUGGESTIONS, metadataListError } from "@/lib/schedule-metadata";
+import {
+  LANGUAGE_SUGGESTIONS,
+  LEVEL_SUGGESTIONS,
+  metadataListError,
+  sessionizeCategoryValues,
+} from "@/lib/schedule-metadata";
 import { MetadataField } from "@/components/admin/schedule/MetadataField";
 import { cn } from "@/lib/utils";
 
@@ -300,8 +306,37 @@ export function SessionEditorDialog({
   // loadAll (after session save). Calling onSaved here would remount the parent's
   // Rooms/Formats panels and drop their unsaved edits. Add an onFormatCreated prop if needed.
   const [createdFormats, setCreatedFormats] = useState<ScheduleFormat[]>([]);
+  const [levelOptions, setLevelOptions] = useState<string[]>(LEVEL_SUGGESTIONS);
   const baseline = useRef<FormState>(initialState(item));
   const speakerAtOpen = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetchSessionizeData()
+      .then((data) => {
+        if (cancelled || !data?.sessions) return;
+        const foundLevels = new Set<string>(LEVEL_SUGGESTIONS);
+        data.sessions.forEach((s) => {
+          sessionizeCategoryValues(s.categories, "Level").forEach((lvl) => foundLevels.add(lvl));
+        });
+        setLevelOptions(Array.from(foundLevels));
+
+        if (item?.sessionId) {
+          const sess = data.sessions.find((s) => s.id === item.sessionId);
+          if (sess?.categories) {
+            const catLevels = sessionizeCategoryValues(sess.categories, "Level");
+            if (catLevels.length > 0) {
+              setForm((f) => (f.levels.length === 0 ? { ...f, levels: catLevels } : f));
+            }
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, item?.sessionId]);
 
   useEffect(() => {
     if (open) {
@@ -662,9 +697,13 @@ export function SessionEditorDialog({
                     label="Level"
                     values={form.levels}
                     onChange={(levels) => patch({ levels })}
-                    suggestions={LEVEL_SUGGESTIONS}
-                    placeholder="e.g. 100 - Introductory"
-                    hint="Add level manually if Sessionize does not provide it."
+                    suggestions={levelOptions}
+                    allowCustom={false}
+                    hint={
+                      item?.sessionId
+                        ? "Integrated with Sessionize category."
+                        : "Select difficulty level from Sessionize categories."
+                    }
                   />
                 </div>
 

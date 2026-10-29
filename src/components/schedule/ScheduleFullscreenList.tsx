@@ -118,8 +118,8 @@ export function ScheduleFullscreenList({
                         </span>
                       </div>
 
-                      {/* Title */}
-                      <h4 className="text-sm sm:text-base font-bold text-white leading-snug line-clamp-2">
+                      {/* Title — Full uncropped title with proper line height */}
+                      <h4 className="text-sm sm:text-base font-bold text-white leading-snug break-words">
                         {session.title}
                       </h4>
                     </div>

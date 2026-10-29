@@ -35,6 +35,7 @@ const kioskUrl = import.meta.env.PUBLIC_IMMICH_KIOSK_URL;
 const apiBase = getBaseUrl();
 const speakersApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/speakers`;
 const scheduleApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/schedule`;
+const sponsorsApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/sponsors`;
 ---
 
 <Layout title="AWS Community Day Jakarta 2026">
@@ -43,6 +44,9 @@ const scheduleApiUrl = `${apiBase}/api/events/${COMMUNITY_DAY_EVENT_SLUG}/schedu
     )}
     {apiBase && (
         <link rel="preload" as="fetch" href={scheduleApiUrl} crossorigin="anonymous" />
+    )}
+    {apiBase && (
+        <link rel="preload" as="fetch" href={sponsorsApiUrl} crossorigin="anonymous" />
     )}
     <link rel="preconnect" href="https://cdn.sessionize.com" crossorigin />
     <link rel="preconnect" href="https://avatars.awscommunity.id" />

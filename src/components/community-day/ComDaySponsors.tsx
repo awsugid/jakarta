@@ -9,8 +9,11 @@ export function ComDaySponsors() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchPublicSponsors(COMMUNITY_DAY_EVENT_SLUG)
-      .then((res) => {
+
+    async function loadSponsors() {
+      try {
+        setLoading(true);
+        const res = await fetchPublicSponsors(COMMUNITY_DAY_EVENT_SLUG);
         if (!cancelled) {
           const list = res.sponsors || [];
           const mapped: Sponsor[] = list.map((s) => ({
@@ -21,17 +24,18 @@ export function ComDaySponsors() {
           }));
           setSponsors(mapped);
         }
-      })
-      .catch(() => {
+      } catch (err) {
         if (!cancelled) {
           setSponsors([]);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setLoading(false);
         }
-      });
+      }
+    }
+
+    loadSponsors();
 
     return () => {
       cancelled = true;

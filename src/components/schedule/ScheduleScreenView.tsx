@@ -259,144 +259,146 @@ export function ScheduleScreenView({
   return (
     <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#0b0d14] text-white select-none">
       {/* =========================================================================
-          TOP NAVIGATION & CONTROL HEADER
+          TOP NAVIGATION & CONTROL HEADER (CENTERED & BALANCED)
           ========================================================================= */}
-      <header className="z-40 w-full bg-[#121520]/95 backdrop-blur-md border-b border-white/10 px-4 py-2.5 sm:px-6 flex items-center justify-between gap-3 shrink-0">
-        {/* Left: Brand & Live Clock */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-          <a
-            href="/"
-            className="flex items-center gap-2.5 text-white hover:text-orange-400 transition-colors group"
-            title="Return to Home"
-          >
-            {/* Monas Hexagon Logo */}
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500/20 to-purple-600/20 border border-white/15 flex items-center justify-center shrink-0 group-hover:border-orange-500/50 transition-colors">
-              <svg viewBox="0 0 100 100" className="w-5 h-5 text-orange-400 fill-current">
-                <path d="M50 5 L90 27.5 L90 72.5 L50 95 L10 72.5 L10 27.5 Z" fill="none" stroke="currentColor" strokeWidth="6" />
-                <path d="M46 32 L54 32 L52 70 L48 70 Z" fill="currentColor" />
-                <path d="M40 70 L60 70 L63 76 L37 76 Z" fill="currentColor" />
-              </svg>
-            </div>
-            <div className="hidden sm:block">
-              <span className="font-extrabold text-sm sm:text-base tracking-tight block text-white leading-tight">
-                AWS Community Day
-              </span>
-              <span className="text-[10px] uppercase font-bold tracking-widest text-orange-400 block">
-                Jakarta 2026
-              </span>
-            </div>
-          </a>
+      <header className="z-40 w-full bg-[#121520]/95 backdrop-blur-md border-b border-white/10 px-4 py-2.5 sm:px-6 shrink-0">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3">
+          {/* Left: Brand & Live Clock */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            <a
+              href="/"
+              className="flex items-center gap-2.5 text-white hover:text-orange-400 transition-colors group"
+              title="Return to Home"
+            >
+              {/* Monas Hexagon Logo */}
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500/20 to-purple-600/20 border border-white/15 flex items-center justify-center shrink-0 group-hover:border-orange-500/50 transition-colors">
+                <svg viewBox="0 0 100 100" className="w-5 h-5 text-orange-400 fill-current">
+                  <path d="M50 5 L90 27.5 L90 72.5 L50 95 L10 72.5 L10 27.5 Z" fill="none" stroke="currentColor" strokeWidth="6" />
+                  <path d="M46 32 L54 32 L52 70 L48 70 Z" fill="currentColor" />
+                  <path d="M40 70 L60 70 L63 76 L37 76 Z" fill="currentColor" />
+                </svg>
+              </div>
+              <div className="hidden sm:block">
+                <span className="font-extrabold text-sm sm:text-base tracking-tight block text-white leading-tight">
+                  AWS Community Day
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-orange-400 block">
+                  Jakarta 2026
+                </span>
+              </div>
+            </a>
 
-          {/* Live Clock Badge */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.06] border border-white/10">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span className="font-mono text-xs sm:text-sm font-bold text-white tracking-wider">
-              {formatWibClock(effectiveDate)} <span className="text-[10px] text-slate-400 font-normal">WIB</span>
-            </span>
+            {/* Live Clock Badge */}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.06] border border-white/10">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="font-mono text-xs sm:text-sm font-bold text-white tracking-wider">
+                {formatWibClock(effectiveDate)} <span className="text-[10px] text-slate-400 font-normal">WIB</span>
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* Center: Search Box */}
-        <div className="relative flex-1 max-w-xs md:max-w-md hidden md:block">
-          <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search sessions, speakers, rooms..."
-            className="pl-9 pr-8 h-8.5 text-xs bg-white/[0.06] border-white/15 text-white placeholder:text-slate-400 focus:border-orange-500/60 rounded-xl"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Right: View Mode Toggle & Room Filters & Fullscreen */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Room Filter Dropdown/Pills */}
-          <div className="hidden xl:flex items-center gap-1 bg-white/[0.04] p-1 rounded-xl border border-white/10">
-            <button
-              type="button"
-              onClick={() => setSelectedRoom("ALL")}
-              className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                selectedRoom === "ALL"
-                  ? "bg-white text-black shadow-xs font-bold"
-                  : "text-slate-300 hover:text-white"
-              )}
-            >
-              All Tracks
-            </button>
-            {distinctRooms.map((rm) => (
+          {/* Center: Search Box */}
+          <div className="relative flex-1 max-w-xs md:max-w-md hidden md:block">
+            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sessions, speakers, rooms..."
+              className="pl-9 pr-8 h-8.5 text-xs bg-white/[0.06] border-white/15 text-white placeholder:text-slate-400 focus:border-orange-500/60 rounded-xl"
+            />
+            {searchQuery && (
               <button
-                key={rm}
                 type="button"
-                onClick={() => setSelectedRoom(rm)}
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Right: View Mode Toggle & Room Filters & Fullscreen */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Room Filter Dropdown/Pills */}
+            <div className="hidden xl:flex items-center gap-1 bg-white/[0.04] p-1 rounded-xl border border-white/10">
+              <button
+                type="button"
+                onClick={() => setSelectedRoom("ALL")}
                 className={cn(
                   "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                  selectedRoom === rm
+                  selectedRoom === "ALL"
                     ? "bg-white text-black shadow-xs font-bold"
                     : "text-slate-300 hover:text-white"
                 )}
               >
-                {rm}
+                All Tracks
               </button>
-            ))}
-          </div>
+              {distinctRooms.map((rm) => (
+                <button
+                  key={rm}
+                  type="button"
+                  onClick={() => setSelectedRoom(rm)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                    selectedRoom === rm
+                      ? "bg-white text-black shadow-xs font-bold"
+                      : "text-slate-300 hover:text-white"
+                  )}
+                >
+                  {rm}
+                </button>
+              ))}
+            </div>
 
-          {/* View Mode Switcher */}
-          <div className="inline-flex items-center p-1 rounded-xl bg-white/[0.06] border border-white/15">
-            <button
-              type="button"
-              onClick={() => setViewMode("board")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
-                viewMode === "board"
-                  ? "bg-orange-500 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
-              )}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Board</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
-                viewMode === "list"
-                  ? "bg-orange-500 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
-              )}
-            >
-              <ListFilter className="w-3.5 h-3.5" />
-              <span>List</span>
-            </button>
-          </div>
+            {/* View Mode Switcher */}
+            <div className="inline-flex items-center p-1 rounded-xl bg-white/[0.06] border border-white/15">
+              <button
+                type="button"
+                onClick={() => setViewMode("board")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                  viewMode === "board"
+                    ? "bg-orange-500 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Board</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                  viewMode === "list"
+                    ? "bg-orange-500 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                <ListFilter className="w-3.5 h-3.5" />
+                <span>List</span>
+              </button>
+            </div>
 
-          {/* Fullscreen Button */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={toggleFullscreen}
-            className="h-8.5 px-2.5 text-xs text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl cursor-pointer"
-            title="Toggle Fullscreen (F)"
-          >
-            {isFullscreen ? (
-              <Minimize className="w-4 h-4 text-orange-400" />
-            ) : (
-              <Maximize className="w-4 h-4 text-orange-400" />
-            )}
-          </Button>
+            {/* Fullscreen Button */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={toggleFullscreen}
+              className="h-8.5 px-2.5 text-xs text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl cursor-pointer"
+              title="Toggle Fullscreen (F)"
+            >
+              {isFullscreen ? (
+                <Minimize className="w-4 h-4 text-orange-400" />
+              ) : (
+                <Maximize className="w-4 h-4 text-orange-400" />
+              )}
+            </Button>
+          </div>
         </div>
       </header>
 

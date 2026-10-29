@@ -77,6 +77,7 @@ export function getBaseUrl(): string {
   // If not set the result will be the literal "undefined" string, so guard.
   const raw: string | undefined = import.meta.env.PUBLIC_BACKEND_API_URL;
   if (raw && raw !== "undefined") return raw.replace(/\/+$/, "");
+  if (import.meta.env.PROD) return "https://api.awscommunity.id";
   return "";
 }
 

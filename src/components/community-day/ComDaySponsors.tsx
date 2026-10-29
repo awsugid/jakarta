@@ -51,7 +51,7 @@ export function ComDaySponsors() {
       sponsors={sponsors}
       title="Our Sponsors & Partners"
       subtitle="Supported by organizations driving cloud innovation in Indonesia."
-      showBecomeSponsorCta={true}
+      showBecomeSponsorCta={false}
     />
   );
 }

@@ -88,6 +88,107 @@ export function getMinutesRemaining(targetDate: Date, now: Date): number {
   return Math.max(0, Math.ceil(diffMs / (1000 * 60)));
 }
 
+export interface ShortSessionMeta {
+  icon: string;
+  shortLabel: string;
+  badgeBg: string;
+  badgeBorder: string;
+  textColor: string;
+}
+
+/** Returns presentation metadata (icon, short label, theme colors) for short operational sessions */
+export function getShortSessionMeta(title: string): ShortSessionMeta {
+  const t = (title || "").toLowerCase();
+  if (t.includes("kahoot") || t.includes("ice breaking")) {
+    return {
+      icon: "🎮",
+      shortLabel: "Kahoot",
+      badgeBg: "bg-amber-950/80 hover:bg-amber-900/90",
+      badgeBorder: "border-amber-500/50 hover:border-amber-400",
+      textColor: "text-amber-200",
+    };
+  }
+  if (t.includes("documentation") || t.includes("photo")) {
+    return {
+      icon: "📸",
+      shortLabel: "Photo",
+      badgeBg: "bg-blue-950/80 hover:bg-blue-900/90",
+      badgeBorder: "border-blue-500/50 hover:border-blue-400",
+      textColor: "text-blue-200",
+    };
+  }
+  if (t.includes("split stage")) {
+    return {
+      icon: "🔀",
+      shortLabel: "Split Stage",
+      badgeBg: "bg-cyan-950/80 hover:bg-cyan-900/90",
+      badgeBorder: "border-cyan-500/50 hover:border-cyan-400",
+      textColor: "text-cyan-200",
+    };
+  }
+  if (t.includes("merge stage")) {
+    return {
+      icon: "🔁",
+      shortLabel: "Merge Stage",
+      badgeBg: "bg-indigo-950/80 hover:bg-indigo-900/90",
+      badgeBorder: "border-indigo-500/50 hover:border-indigo-400",
+      textColor: "text-indigo-200",
+    };
+  }
+  if (t.includes("opening")) {
+    return {
+      icon: "🚀",
+      shortLabel: "Opening",
+      badgeBg: "bg-purple-950/80 hover:bg-purple-900/90",
+      badgeBorder: "border-purple-500/50 hover:border-purple-400",
+      textColor: "text-purple-200",
+    };
+  }
+  if (t.includes("closing")) {
+    return {
+      icon: "🏁",
+      shortLabel: "Closing",
+      badgeBg: "bg-rose-950/80 hover:bg-rose-900/90",
+      badgeBorder: "border-rose-500/50 hover:border-rose-400",
+      textColor: "text-rose-200",
+    };
+  }
+  if (t.includes("feedback")) {
+    return {
+      icon: "📝",
+      shortLabel: "Feedback",
+      badgeBg: "bg-emerald-950/80 hover:bg-emerald-900/90",
+      badgeBorder: "border-emerald-500/50 hover:border-emerald-400",
+      textColor: "text-emerald-200",
+    };
+  }
+  if (t.includes("networking")) {
+    return {
+      icon: "🤝",
+      shortLabel: "Networking",
+      badgeBg: "bg-teal-950/80 hover:bg-teal-900/90",
+      badgeBorder: "border-teal-500/50 hover:border-teal-400",
+      textColor: "text-teal-200",
+    };
+  }
+  if (t.includes("speech") || t.includes("welcoming")) {
+    return {
+      icon: "🎤",
+      shortLabel: "Welcome",
+      badgeBg: "bg-amber-950/70 hover:bg-amber-900/80",
+      badgeBorder: "border-amber-500/40 hover:border-amber-300",
+      textColor: "text-amber-200",
+    };
+  }
+  return {
+    icon: "⚡",
+    shortLabel: "Session",
+    badgeBg: "bg-slate-900/90 hover:bg-slate-800",
+    badgeBorder: "border-slate-700/60 hover:border-slate-500",
+    textColor: "text-slate-200",
+  };
+}
+
 /** Check if session is a plenary (all-hands) conference session */
 export function isPlenarySession(s: DisplayScheduleSession): boolean {
   if (s.allRooms) return true;

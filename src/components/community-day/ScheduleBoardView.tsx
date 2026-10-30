@@ -34,6 +34,7 @@ import {
   type LaneDefinition,
   type ActiveTipState,
 } from "./schedule-types";
+import { getShortSessionMeta } from "@/components/schedule/schedule-stage-helpers";
 
 interface ScheduleBoardViewProps {
   sessions: DisplayScheduleSession[];
@@ -157,7 +158,7 @@ export function ScheduleBoardView({
   const totalCanvasWidth = labelWidth + timelineWidth;
   const viewportHeight = RULER_HEIGHT + visibleLanes.length * LANE_HEIGHT;
 
-  // Precompute layout per session by lane so that consecutive sessions NEVER collide or stack
+  // Precompute layout per session by lane with 2-tier sub-rows for short sessions so they never collide
   const sessionLayoutMap = useMemo(() => {
     const laneGroups = new Map<number, DisplayScheduleSession[]>();
     for (const session of filteredSessions) {
@@ -180,6 +181,10 @@ export function ScheduleBoardView({
         blockLeft: number;
         blockWidth: number;
         blockTop: number;
+        blockHeight: number;
+        tier: number;
+        isShort: boolean;
+        durationMin: number;
         isCompact: boolean;
         isUltraCompact: boolean;
       }
@@ -192,34 +197,81 @@ export function ScheduleBoardView({
         return aStart - bStart;
       });
 
-      for (let i = 0; i < laneSessions.length; i++) {
-        const session = laneSessions[i];
+      const laneTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT + 12;
+      const halfHeight = Math.floor((BLOCK_HEIGHT - 6) / 2);
+
+      const tieredSessions = laneSessions.map((session) => {
         const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
         const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 30;
         const durationMin = Math.max(1, endMin - startMin);
+        const isShort = durationMin <= 15;
+        return {
+          session,
+          startMin,
+          endMin,
+          durationMin,
+          isShort,
+          tier: 0,
+        };
+      });
 
-        const nextSession = laneSessions[i + 1];
-        const nextStartMin = nextSession ? (parseMinutesOfDay(nextSession.startsAt) ?? null) : null;
+      let lastShortTier = 2;
+      for (let i = 0; i < tieredSessions.length; i++) {
+        const item = tieredSessions[i];
+        if (item.isShort) {
+          item.tier = lastShortTier === 1 ? 2 : 1;
+          lastShortTier = item.tier;
+        } else {
+          item.tier = 0;
+          lastShortTier = 2; // reset
+        }
+      }
 
+      for (let i = 0; i < tieredSessions.length; i++) {
+        const item = tieredSessions[i];
+        const { session, startMin, durationMin, isShort, tier } = item;
         const blockLeft = labelWidth + (startMin - T0) * scale + 2;
+        const naturalWidth = Math.max(10, durationMin * scale - 4);
 
-        const naturalWidth = durationMin * scale - 4;
+        let nextLimitMin: number | null = null;
+        for (let j = i + 1; j < tieredSessions.length; j++) {
+          const candidate = tieredSessions[j];
+          if (tier === 0 || candidate.tier === 0 || candidate.tier === tier) {
+            nextLimitMin = candidate.startMin;
+            break;
+          }
+        }
+
         const maxAvailableWidth =
-          nextStartMin !== null && nextStartMin > startMin
-            ? (nextStartMin - startMin) * scale - 4
-            : naturalWidth;
+          nextLimitMin !== null && nextLimitMin > startMin
+            ? (nextLimitMin - startMin) * scale - 4
+            : Math.max(naturalWidth, 15 * scale - 4);
 
-        const blockWidth = Math.max(6, Math.min(naturalWidth, maxAvailableWidth));
-        const blockTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT + 12;
+        const blockWidth = isShort
+          ? Math.max(16, Math.min(maxAvailableWidth, Math.max(naturalWidth, (durationMin + 5) * scale - 4)))
+          : Math.max(16, Math.min(naturalWidth, maxAvailableWidth));
+
+        const blockTop =
+          tier === 0
+            ? laneTop
+            : tier === 1
+            ? laneTop
+            : laneTop + halfHeight + 6;
+
+        const blockHeight = tier === 0 ? BLOCK_HEIGHT : halfHeight;
 
         const isCompact = blockWidth < 80;
-        const isUltraCompact = blockWidth < 38;
+        const isUltraCompact = blockWidth < 28;
 
         layout.set(session.id, {
           laneIdx,
           blockLeft,
           blockWidth,
           blockTop,
+          blockHeight,
+          tier,
+          isShort,
+          durationMin,
           isCompact,
           isUltraCompact,
         });
@@ -530,10 +582,64 @@ export function ScheduleBoardView({
             {filteredSessions.map((session) => {
               const layout = sessionLayoutMap.get(session.id);
               if (!layout) return null;
-              const { laneIdx, blockLeft, blockWidth, blockTop, isCompact, isUltraCompact } = layout;
+              const {
+                laneIdx,
+                blockLeft,
+                blockWidth,
+                blockTop,
+                blockHeight,
+                isShort,
+                isCompact,
+                isUltraCompact,
+              } = layout;
 
               const isSaved = savedSessionIds.includes(session.id);
               const isActive = activeTip?.session.id === session.id;
+
+              if (isShort) {
+                const shortMeta = getShortSessionMeta(session.title);
+                return (
+                  <button
+                    key={session.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      showBlockTip(session, e.currentTarget, laneIdx, true);
+                    }}
+                    onMouseEnter={(e) => showBlockTip(session, e.currentTarget, laneIdx, false)}
+                    onMouseLeave={() => hideBlockTip(false)}
+                    className={cn(
+                      "schedule-blk absolute rounded-xl text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-between border p-1.5",
+                      shortMeta.badgeBg,
+                      shortMeta.badgeBorder,
+                      isActive && "ring-2 ring-orange-500 shadow-xl z-20 -translate-y-0.5",
+                      "hover:z-30 hover:scale-[1.02]",
+                      isSaved &&
+                        "after:content-[''] after:absolute after:top-1.5 after:right-1.5 after:w-2 after:h-2 after:rounded-full after:bg-amber-400 after:shadow-[0_0_8px_rgba(251,191,36,0.9)]"
+                    )}
+                    style={{
+                      top: `${blockTop}px`,
+                      left: `${blockLeft}px`,
+                      width: `${blockWidth}px`,
+                      height: `${blockHeight}px`,
+                    }}
+                    title={`${session.title} (${formatTimeShort(session.startsAt)} – ${formatTimeShort(session.endsAt)} WIB)`}
+                    aria-label={`${session.title}, ${formatTimeShort(session.startsAt)} to ${formatTimeShort(session.endsAt)}`}
+                  >
+                    <div className="flex items-center gap-1 w-full shrink-0">
+                      <span className="text-[11px] leading-none shrink-0">{shortMeta.icon}</span>
+                      <span className="font-mono text-[9px] font-bold text-orange-400 truncate">
+                        {formatTimeShort(session.startsAt)}
+                      </span>
+                    </div>
+                    <div className="min-w-0 w-full overflow-hidden my-auto">
+                      <b className="block text-[10px] sm:text-[11px] font-bold leading-tight line-clamp-2 text-white">
+                        {session.title}
+                      </b>
+                    </div>
+                  </button>
+                );
+              }
 
               const formatLower = (session.sessionType || "").toLowerCase();
               const isWorkshop = formatLower.includes("workshop");
@@ -574,7 +680,7 @@ export function ScheduleBoardView({
                     top: `${blockTop}px`,
                     left: `${blockLeft}px`,
                     width: `${blockWidth}px`,
-                    height: `${BLOCK_HEIGHT}px`,
+                    height: `${blockHeight}px`,
                   }}
                   title={`${session.title} (${formatTimeShort(session.startsAt)} – ${formatTimeShort(session.endsAt)} WIB)`}
                   aria-label={`${session.title}, ${formatTimeShort(session.startsAt)} to ${formatTimeShort(session.endsAt)}`}

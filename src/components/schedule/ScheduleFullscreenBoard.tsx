@@ -27,7 +27,15 @@ import {
   LABEL_WIDTH_MOBILE,
   type LaneDefinition,
 } from "@/components/community-day/schedule-types";
-import { isPlenarySession } from "./schedule-stage-helpers";
+import { isPlenarySession, getShortSessionMeta } from "./schedule-stage-helpers";
+
+// Only venue-wide plenary sessions legitimately spanning all track lanes across the entire canvas
+const isCanvasPlenarySession = (s: DisplayScheduleSession): boolean => {
+  if (s.allRooms || s.room === "All Rooms") return true;
+  const title = (s.title || "").toLowerCase();
+  if (title.includes("open gate")) return true;
+  return false;
+};
 
 // Generous label widths so tracks like "Classroom 2" or "Classroom 3" never truncate
 const FULLSCREEN_LABEL_WIDTH_DESKTOP = 180;
@@ -54,7 +62,7 @@ export function ScheduleFullscreenBoard({
 }: ScheduleFullscreenBoardProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(4.2); // generous pixels per minute for readable titles
+  const [scale, setScale] = useState(4.8); // generous pixels per minute for readable titles
   const [labelWidth, setLabelWidth] = useState(FULLSCREEN_LABEL_WIDTH_DESKTOP);
   const [containerHeight, setContainerHeight] = useState(760);
 
@@ -179,7 +187,7 @@ export function ScheduleFullscreenBoard({
   // Precompute layout for non-plenary sessions grouped by lane to prevent collisions
   const nonPlenaryLayoutMap = useMemo(() => {
     const laneGroups = new Map<number, DisplayScheduleSession[]>();
-    const nonPlenary = filteredSessions.filter((s) => !isPlenarySession(s));
+    const nonPlenary = filteredSessions.filter((s) => !isCanvasPlenarySession(s));
 
     for (const session of nonPlenary) {
       const roomRaw = (session.rooms?.[0] || session.room || "").toLowerCase();
@@ -200,6 +208,11 @@ export function ScheduleFullscreenBoard({
         laneIdx: number;
         blockLeft: number;
         blockWidth: number;
+        blockTop: number;
+        blockHeight: number;
+        tier: number;
+        isShort: boolean;
+        durationMin: number;
       }
     >();
 
@@ -210,38 +223,93 @@ export function ScheduleFullscreenBoard({
         return aStart - bStart;
       });
 
-      for (let i = 0; i < laneSessions.length; i++) {
-        const session = laneSessions[i];
+      const laneTop = RULER_HEIGHT + laneIdx * laneHeight;
+      const halfHeight = Math.floor((laneHeight - 16) / 2);
+
+      // 1. Assign tiers (0 = full height, 1 = top sub-row, 2 = bottom sub-row)
+      const tieredSessions = laneSessions.map((session) => {
         const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
         const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 30;
         const durationMin = Math.max(1, endMin - startMin);
+        const isShort = durationMin <= 15;
+        return {
+          session,
+          startMin,
+          endMin,
+          durationMin,
+          isShort,
+          tier: 0,
+        };
+      });
 
-        const nextSession = laneSessions[i + 1];
-        const nextStartMin = nextSession ? (parseMinutesOfDay(nextSession.startsAt) ?? null) : null;
+      let lastShortTier = 2;
+      for (let i = 0; i < tieredSessions.length; i++) {
+        const item = tieredSessions[i];
+        if (item.isShort) {
+          item.tier = lastShortTier === 1 ? 2 : 1;
+          lastShortTier = item.tier;
+        } else {
+          item.tier = 0;
+          lastShortTier = 2; // reset alternating counter for next short cluster
+        }
+      }
 
+      // 2. Compute bounds for each session ensuring 0 collision
+      for (let i = 0; i < tieredSessions.length; i++) {
+        const item = tieredSessions[i];
+        const { session, startMin, durationMin, isShort, tier } = item;
         const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-        const naturalWidth = durationMin * scale - 4;
-        const maxAvailableWidth =
-          nextStartMin !== null && nextStartMin > startMin
-            ? (nextStartMin - startMin) * scale - 4
-            : naturalWidth;
+        const naturalWidth = Math.max(12, durationMin * scale - 4);
 
-        const blockWidth = Math.max(8, Math.min(naturalWidth, maxAvailableWidth));
+        let nextLimitMin: number | null = null;
+        for (let j = i + 1; j < tieredSessions.length; j++) {
+          const candidate = tieredSessions[j];
+          // A tier 1 session is restricted by the next tier 1 or tier 0 session
+          // A tier 2 session is restricted by the next tier 2 or tier 0 session
+          // A tier 0 session is restricted by the next session of any tier
+          if (tier === 0 || candidate.tier === 0 || candidate.tier === tier) {
+            nextLimitMin = candidate.startMin;
+            break;
+          }
+        }
+
+        const maxAvailableWidth =
+          nextLimitMin !== null && nextLimitMin > startMin
+            ? (nextLimitMin - startMin) * scale - 4
+            : Math.max(naturalWidth, 15 * scale - 4);
+
+        const blockWidth = isShort
+          ? Math.max(16, Math.min(maxAvailableWidth, Math.max(naturalWidth, (durationMin + 5) * scale - 4)))
+          : Math.max(16, Math.min(naturalWidth, maxAvailableWidth));
+
+        const blockTop =
+          tier === 0
+            ? laneTop + 6
+            : tier === 1
+            ? laneTop + 6
+            : laneTop + 6 + halfHeight + 4;
+
+        const blockHeight = tier === 0 ? laneHeight - 12 : halfHeight;
 
         layout.set(session.id, {
           laneIdx,
           blockLeft,
           blockWidth,
+          blockTop,
+          blockHeight,
+          tier,
+          isShort,
+          durationMin,
         });
       }
     });
 
     return layout;
-  }, [filteredSessions, visibleLanes, labelWidth, T0, scale]);
+  }, [filteredSessions, visibleLanes, labelWidth, T0, scale, laneHeight]);
 
-  // Precompute layout for plenary sessions spanning across all lanes
+  // Precompute layout for venue-wide canvas plenary sessions spanning across all lanes
   const plenaryLayoutMap = useMemo(() => {
-    const plenary = filteredSessions.filter((s) => isPlenarySession(s));
+    const plenary = filteredSessions.filter((s) => isCanvasPlenarySession(s));
     plenary.sort((a, b) => {
       const aStart = parseMinutesOfDay(a.startsAt) ?? 0;
       const bStart = parseMinutesOfDay(b.startsAt) ?? 0;
@@ -272,7 +340,7 @@ export function ScheduleFullscreenBoard({
           ? (nextStartMin - startMin) * scale - 4
           : naturalWidth;
 
-      const blockWidth = Math.max(8, Math.min(naturalWidth, maxAvailableWidth));
+      const blockWidth = Math.max(12, Math.min(naturalWidth, maxAvailableWidth));
 
       layout.set(session.id, {
         blockLeft,
@@ -310,7 +378,7 @@ export function ScheduleFullscreenBoard({
     if (!scrollContainerRef.current) return;
     const avail = scrollContainerRef.current.clientWidth - labelWidth - 40;
     if (avail > 0 && timelineSpan > 0) {
-      setScale(Math.max(1.6, avail / timelineSpan));
+      setScale(Math.max(3.6, avail / timelineSpan));
       scrollContainerRef.current.scrollLeft = 0;
     }
   }, [labelWidth, timelineSpan]);
@@ -329,10 +397,10 @@ export function ScheduleFullscreenBoard({
   useEffect(() => {
     if (isNowInBounds) {
       scrollToNow();
-    } else {
-      fitSchedule();
+    } else if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = 0;
     }
-  }, []);
+  }, [isNowInBounds, scrollToNow]);
 
   // Handle focused session scroll
   useEffect(() => {
@@ -574,9 +642,9 @@ export function ScheduleFullscreenBoard({
             );
           })}
 
-          {/* 4. Plenary Sessions Spanning All Lanes (Keynote, Open Gate, Opening, Closing) */}
+          {/* 4. Canvas Plenary Sessions Spanning All Lanes (e.g. Open Gate) */}
           {filteredSessions
-            .filter((s) => isPlenarySession(s))
+            .filter((s) => isCanvasPlenarySession(s))
             .map((session) => {
               const layout = plenaryLayoutMap.get(session.id);
               const blockLeft = layout
@@ -657,19 +725,63 @@ export function ScheduleFullscreenBoard({
 
           {/* 5. Parallel Track Session Blocks Positioned on Respective Lanes */}
           {filteredSessions
-            .filter((s) => !isPlenarySession(s))
+            .filter((s) => !isCanvasPlenarySession(s))
             .map((session) => {
               const layout = nonPlenaryLayoutMap.get(session.id);
               if (!layout) return null;
-              const { laneIdx, blockLeft, blockWidth } = layout;
-
-              const blockTop = RULER_HEIGHT + laneIdx * laneHeight + 6;
-              const blockHeight = laneHeight - 12;
+              const { laneIdx, blockLeft, blockWidth, blockTop, blockHeight, isShort, durationMin } = layout;
 
               const isActive = activeSessionIds.has(session.id);
               const isFocused = focusedSessionId === session.id;
               const isWorkshop = (session.sessionType || "").toLowerCase().includes("workshop");
               const speaker = session.speakers[0];
+
+              if (isShort) {
+                const shortMeta = getShortSessionMeta(session.title);
+                return (
+                  <button
+                    key={session.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!hasMovedRef.current) onSelectSession(session);
+                    }}
+                    className={cn(
+                      "schedule-card-btn absolute rounded-xl p-2 text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-between border group",
+                      shortMeta.badgeBg,
+                      shortMeta.badgeBorder,
+                      isActive
+                        ? "ring-2 ring-orange-400 border-orange-400 shadow-[0_0_24px_rgba(255,153,0,0.55)] z-30 text-white animate-pulse"
+                        : isFocused
+                        ? "ring-2 ring-cyan-400 border-cyan-400 z-20 text-white"
+                        : "text-white shadow-md hover:border-orange-400/80 hover:z-50 hover:min-w-[175px] hover:shadow-[0_8px_30px_rgba(0,0,0,0.8)] z-10"
+                    )}
+                    style={{
+                      left: `${blockLeft}px`,
+                      top: `${blockTop}px`,
+                      width: `${blockWidth}px`,
+                      height: `${blockHeight}px`,
+                    }}
+                    title={`${session.title} (${formatTimeShort(session.startsAt)} – ${formatTimeShort(session.endsAt)} WIB)`}
+                  >
+                    {/* Header line: Icon + Time */}
+                    <div className="flex items-center gap-1.5 w-full shrink-0">
+                      <span className="text-xs leading-none shrink-0">{shortMeta.icon}</span>
+                      <span className="font-mono text-[10px] sm:text-[11px] font-bold text-orange-400 shrink-0">
+                        {formatTimeShort(session.startsAt)}
+                      </span>
+                      <span className="text-[9px] text-white/50 hidden group-hover:inline">• {durationMin}m</span>
+                    </div>
+
+                    {/* Title: Crisp, readable, styled */}
+                    <div className="my-auto py-0.5 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
+                      <span className="font-bold text-[10px] sm:text-[11px] leading-tight text-white group-hover:text-orange-200 transition-colors line-clamp-2 break-words">
+                        {session.title}
+                      </span>
+                    </div>
+                  </button>
+                );
+              }
 
               return (
                 <button

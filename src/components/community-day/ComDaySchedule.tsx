@@ -184,7 +184,13 @@ export function ComDaySchedule({
         existing.count += 1;
       }
     });
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values()).sort((a, b) => {
+      const aLow = a.name.toLowerCase();
+      const bLow = b.name.toLowerCase();
+      if (aLow.includes("800") || aLow.includes("main") || aLow.includes("atrium")) return -1;
+      if (bLow.includes("800") || bLow.includes("main") || bLow.includes("atrium")) return 1;
+      return a.name.localeCompare(b.name);
+    });
   }, [sessions]);
 
   // Filtered Sessions according to active track, search query, and saved toggle

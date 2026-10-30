@@ -160,7 +160,11 @@ export function ScheduleToolbar({
               <span
                 className={cn(
                   "w-2 h-2 rounded-full shrink-0",
-                  opt.name.toLowerCase().includes("atrium") ? "bg-orange-500" : "bg-purple-400"
+                  opt.name.toLowerCase().includes("atrium") ||
+                    opt.name.toLowerCase().includes("800") ||
+                    opt.track.toLowerCase().includes("main")
+                    ? "bg-orange-500 shadow-[0_0_6px_rgba(255,153,0,0.6)]"
+                    : "bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]"
                 )}
               />
               <span>

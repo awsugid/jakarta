@@ -53,7 +53,7 @@ export function ScheduleBoardView({
 }: ScheduleBoardViewProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(2.8); // Pixels per minute
+  const [scale, setScale] = useState(3.8); // Pixels per minute
   const [activeTip, setActiveTip] = useState<ActiveTipState | null>(null);
   const hideTipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -290,7 +290,7 @@ export function ScheduleBoardView({
     const containerWidth = scrollContainerRef.current.clientWidth;
     const availableWidth = containerWidth - labelWidth - 36;
     if (availableWidth > 0 && timelineSpan > 0) {
-      const fitScale = Math.max(2.0, availableWidth / timelineSpan);
+      const fitScale = Math.max(2.6, availableWidth / timelineSpan);
       setScale(fitScale);
       scrollContainerRef.current.scrollLeft = 0;
       setActiveTip(null);
@@ -301,7 +301,7 @@ export function ScheduleBoardView({
   useEffect(() => {
     if (sessions.length > 0) {
       if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-        setScale(2.8);
+        setScale(3.8);
       } else {
         fitDay();
       }
@@ -613,7 +613,7 @@ export function ScheduleBoardView({
                       shortMeta.badgeBg,
                       shortMeta.badgeBorder,
                       isActive && "ring-2 ring-orange-500 shadow-xl z-20 -translate-y-0.5",
-                      "hover:z-30 hover:scale-[1.02]",
+                      "hover:z-40 hover:scale-[1.02] hover:min-w-[160px] hover:shadow-2xl",
                       isSaved &&
                         "after:content-[''] after:absolute after:top-1.5 after:right-1.5 after:w-2 after:h-2 after:rounded-full after:bg-amber-400 after:shadow-[0_0_8px_rgba(251,191,36,0.9)]"
                     )}

@@ -26,6 +26,7 @@ import {
   roomLabelOf,
   type DisplayScheduleSession,
 } from "./schedule-calendar-helpers";
+import { getShortSessionMeta } from "@/components/schedule/schedule-stage-helpers";
 
 interface ScheduleListViewProps {
   sessions: DisplayScheduleSession[];
@@ -54,7 +55,12 @@ export function ScheduleListView({
           : formatTimeShort(session.endsAt);
 
         const roomRaw = (session.rooms?.[0] || session.room || "").toLowerCase();
-        const isAtrium = roomRaw.includes("atrium");
+        const isMainStage =
+          roomRaw.includes("800") ||
+          roomRaw.includes("atrium") ||
+          (session.track || "").toLowerCase().includes("main");
+        const shortMeta = getShortSessionMeta(session.title);
+        const isShort = (durationMin !== null && durationMin <= 15) || session.isServiceSession;
 
         return (
           <div
@@ -100,7 +106,7 @@ export function ScheduleListView({
                     <span
                       className={cn(
                         "px-2.5 py-0.5 rounded-full text-xs font-semibold border",
-                        isAtrium
+                        isMainStage
                           ? "bg-orange-500/15 text-orange-400 border-orange-500/30"
                           : "bg-purple-500/15 text-purple-400 border-purple-500/30"
                       )}
@@ -109,7 +115,15 @@ export function ScheduleListView({
                     </span>
 
                     {session.sessionType && (
-                      <span className="text-xs font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                      <span
+                        className={cn(
+                          "text-xs font-medium px-2 py-0.5 rounded-md",
+                          isShort
+                            ? cn(shortMeta.badgeBg, shortMeta.textColor)
+                            : "text-muted-foreground bg-muted/60"
+                        )}
+                      >
+                        {isShort && <span className="mr-1">{shortMeta.icon}</span>}
                         {session.sessionType}
                       </span>
                     )}
@@ -140,8 +154,9 @@ export function ScheduleListView({
                   </div>
 
                   {/* Session Title */}
-                  <h4 className="text-base sm:text-lg md:text-xl font-bold text-foreground hover:text-orange-400 transition-colors leading-snug">
-                    {session.title}
+                  <h4 className="text-base sm:text-lg md:text-xl font-bold text-foreground hover:text-orange-400 transition-colors leading-snug flex items-center gap-2">
+                    {isShort && <span className="text-base leading-none shrink-0">{shortMeta.icon}</span>}
+                    <span>{session.title}</span>
                   </h4>
 
                   {/* Speaker Line and Description Preview (Collapsed preview) */}

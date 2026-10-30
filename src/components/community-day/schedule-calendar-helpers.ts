@@ -306,10 +306,10 @@ export function getRoomBadgeClass(room?: string | null): string {
   if (lower.includes("all")) {
     return "bg-gradient-to-r from-orange-500/20 to-pink-500/20 text-orange-400 border-orange-500/40";
   }
-  if (lower.includes("atrium") || lower.includes("main")) {
+  if (lower.includes("atrium") || lower.includes("main") || lower.includes("800")) {
     return "bg-orange-500/15 text-orange-400 border-orange-500/40";
   }
-  if (lower.includes("800")) {
+  if (lower.includes("810")) {
     return "bg-purple-500/15 text-purple-400 border-purple-500/40";
   }
   return "bg-cyan-500/15 text-cyan-400 border-cyan-500/40";

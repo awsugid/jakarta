@@ -38,6 +38,8 @@ const isCanvasPlenarySession = (s: DisplayScheduleSession): boolean => {
 };
 
 // Generous label widths so tracks like "Classroom 2" or "Classroom 3" never truncate
+// Scaled up for 4K Ultra HD TV displays (3840 x 2160)
+const FULLSCREEN_LABEL_WIDTH_4K = 260;
 const FULLSCREEN_LABEL_WIDTH_DESKTOP = 180;
 const FULLSCREEN_LABEL_WIDTH_MOBILE = 110;
 
@@ -72,10 +74,14 @@ export function ScheduleFullscreenBoard({
   const scrollLeftRef = useRef(0);
   const hasMovedRef = useRef(false);
 
-  // Responsive label width & container dimensions
+  // Responsive label width & container dimensions (adaptive to 4K TV screens)
   useEffect(() => {
     const handleResize = () => {
-      setLabelWidth(window.innerWidth < 640 ? FULLSCREEN_LABEL_WIDTH_MOBILE : FULLSCREEN_LABEL_WIDTH_DESKTOP);
+      const is4K = window.innerWidth >= 2560;
+      const isMobile = window.innerWidth < 640;
+      setLabelWidth(
+        is4K ? FULLSCREEN_LABEL_WIDTH_4K : isMobile ? FULLSCREEN_LABEL_WIDTH_MOBILE : FULLSCREEN_LABEL_WIDTH_DESKTOP
+      );
       if (scrollContainerRef.current) {
         setContainerHeight(scrollContainerRef.current.clientHeight || window.innerHeight - 140);
       }
@@ -174,9 +180,11 @@ export function ScheduleFullscreenBoard({
     const avail = containerHeight - RULER_HEIGHT - 20;
     if (avail <= 0) return 165;
     const computed = Math.floor(avail / numLanes);
-    // Keep lane height comfortably between 155px and 220px
-    return Math.max(155, Math.min(220, computed));
+    // On 4K TV displays (2160px height), lanes scale up to 480px to fill the entire TV screen vertically
+    return Math.max(155, Math.min(480, computed));
   }, [containerHeight, visibleLanes.length]);
+
+  const isLargeDisplay = laneHeight >= 260 || (typeof window !== "undefined" && window.innerWidth >= 2560);
 
   const timelineSpan = T1 - T0;
   const timelineWidth = timelineSpan * scale;
@@ -372,7 +380,7 @@ export function ScheduleFullscreenBoard({
   const nowX = labelWidth + (currentMinutes - T0) * scale;
 
   // Zoom controls
-  const zoomIn = () => setScale((s) => Math.min(6.0, s * 1.25));
+  const zoomIn = () => setScale((s) => Math.min(10.0, s * 1.25));
   const zoomOut = () => setScale((s) => Math.max(1.5, s / 1.25));
   const fitSchedule = useCallback(() => {
     if (!scrollContainerRef.current) return;
@@ -393,14 +401,23 @@ export function ScheduleFullscreenBoard({
     });
   }, [nowX]);
 
-  // Initial fit or scroll to now
+  // Initial fit or scroll to now (adaptive to 4K TV screens)
   useEffect(() => {
     if (isNowInBounds) {
       scrollToNow();
-    } else if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollLeft = 0;
+    } else {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = 0;
+      }
+      // On 4K TV / ultra-wide displays (3840 x 2160), automatically fit the 9h day perfectly to the screen
+      if (typeof window !== "undefined" && window.innerWidth >= 2560 && scrollContainerRef.current) {
+        const avail = scrollContainerRef.current.clientWidth - labelWidth - 40;
+        if (avail > 0 && timelineSpan > 0) {
+          setScale(Math.max(4.8, avail / timelineSpan));
+        }
+      }
     }
-  }, [isNowInBounds, scrollToNow]);
+  }, [isNowInBounds, scrollToNow, timelineSpan, labelWidth]);
 
   // Handle focused session scroll
   useEffect(() => {
@@ -557,7 +574,8 @@ export function ScheduleFullscreenBoard({
                   >
                     <span
                       className={cn(
-                        "font-mono text-xs tracking-tight",
+                        "font-mono tracking-tight",
+                        isLargeDisplay ? "text-xs sm:text-sm font-extrabold" : "text-xs",
                         t.isHalf
                           ? "text-slate-500 font-normal text-[11px]"
                           : "text-slate-200 font-bold"
@@ -622,7 +640,8 @@ export function ScheduleFullscreenBoard({
                   <div className="flex items-center gap-2">
                     <span
                       className={cn(
-                        "w-2.5 h-2.5 rounded-full shrink-0",
+                        "rounded-full shrink-0",
+                        isLargeDisplay ? "w-3.5 h-3.5" : "w-2.5 h-2.5",
                         isMainStage
                           ? "bg-orange-500 shadow-[0_0_8px_rgba(255,153,0,0.8)]"
                           : isRoom800
@@ -630,11 +649,25 @@ export function ScheduleFullscreenBoard({
                           : "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
                       )}
                     />
-                    <h5 className="font-extrabold text-sm md:text-base text-white whitespace-nowrap">
+                    <h5
+                      className={cn(
+                        "text-white whitespace-nowrap",
+                        isLargeDisplay
+                          ? "font-black text-lg sm:text-xl md:text-2xl"
+                          : "font-extrabold text-sm md:text-base"
+                      )}
+                    >
                       {lane.name}
                     </h5>
                   </div>
-                  <span className="text-xs text-slate-400 font-medium whitespace-nowrap block mt-1 pl-4.5">
+                  <span
+                    className={cn(
+                      "font-medium whitespace-nowrap block mt-1",
+                      isLargeDisplay
+                        ? "text-sm sm:text-base pl-5.5 text-slate-300 font-semibold"
+                        : "text-xs text-slate-400 pl-4.5"
+                    )}
+                  >
                     {lane.subtitle}
                   </span>
                 </div>
@@ -663,7 +696,8 @@ export function ScheduleFullscreenBoard({
                     if (!hasMovedRef.current) onSelectSession(session);
                   }}
                   className={cn(
-                    "schedule-card-btn absolute rounded-2xl p-4 sm:p-5 text-left cursor-pointer transition-all duration-200 overflow-hidden z-15 flex flex-col justify-between border",
+                    "schedule-card-btn absolute rounded-2xl text-left cursor-pointer transition-all duration-200 overflow-hidden z-15 flex flex-col justify-between border",
+                    isLargeDisplay ? "p-6 sm:p-8" : "p-4 sm:p-5",
                     isActive
                       ? "ring-2 ring-orange-400 border-orange-400 bg-gradient-to-r from-orange-950/80 via-purple-950/70 to-orange-950/80 shadow-[0_0_35px_rgba(255,153,0,0.6)] z-25 animate-pulse"
                       : isFocused
@@ -682,38 +716,43 @@ export function ScheduleFullscreenBoard({
                   <div className="flex items-center justify-between gap-2 w-full">
                     <div className="flex items-center gap-2 flex-wrap">
                       {isActive && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-500 text-white shadow-sm">
-                          <Radio className="w-3 h-3" />
+                        <span className={cn("inline-flex items-center gap-1.5 rounded-full font-black uppercase tracking-wider bg-orange-500 text-white shadow-sm", isLargeDisplay ? "px-3.5 py-1 text-xs" : "px-2.5 py-0.5 text-[10px]")}>
+                          <Radio className={isLargeDisplay ? "w-4 h-4" : "w-3 h-3"} />
                           LIVE NOW
                         </span>
                       )}
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 border border-amber-500/30 text-amber-300">
+                      <span className={cn("rounded-full font-bold uppercase tracking-wider bg-amber-500/20 border border-amber-500/30 text-amber-300", isLargeDisplay ? "px-3.5 py-1 text-xs" : "px-2.5 py-0.5 text-[10px]")}>
                         {session.sessionType || "PLENARY"}
                       </span>
-                      <span className="text-xs text-orange-400 font-bold whitespace-nowrap">
+                      <span className={cn("text-orange-400 font-bold whitespace-nowrap", isLargeDisplay ? "text-sm sm:text-base font-extrabold" : "text-xs")}>
                         {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)} WIB
                       </span>
                     </div>
 
-                    <span className="text-xs font-semibold text-slate-300 hidden sm:inline">
+                    <span className={cn("font-semibold text-slate-300 hidden sm:inline", isLargeDisplay ? "text-sm sm:text-base" : "text-xs")}>
                       All Rooms (Main Stage)
                     </span>
                   </div>
 
                   {/* Center Content — Uncropped full title */}
                   <div className="my-auto py-2">
-                    <h3 className="text-lg sm:text-2xl font-black text-white leading-snug tracking-tight max-w-4xl break-words">
+                    <h3
+                      className={cn(
+                        "font-black text-white leading-snug tracking-tight max-w-5xl break-words",
+                        isLargeDisplay ? "text-3xl sm:text-5xl lg:text-6xl" : "text-lg sm:text-2xl"
+                      )}
+                    >
                       {session.title}
                     </h3>
                     {session.speakers.length > 0 && (
-                      <p className="text-sm font-semibold text-slate-300 mt-2">
+                      <p className={cn("font-semibold text-slate-300 mt-2", isLargeDisplay ? "text-base sm:text-xl" : "text-sm")}>
                         By {session.speakers.map((s) => s.name).join(", ")}
                       </p>
                     )}
                   </div>
 
                   {/* Bottom Footer */}
-                  <div className="text-xs text-slate-400 flex items-center justify-between w-full pt-2 border-t border-white/10">
+                  <div className={cn("text-slate-400 flex items-center justify-between w-full pt-2 border-t border-white/10", isLargeDisplay ? "text-sm" : "text-xs")}>
                     <span>AWS Community Day Jakarta 2026</span>
                     <span className="text-orange-400 font-semibold group-hover:underline">
                       Click for details →
@@ -747,14 +786,15 @@ export function ScheduleFullscreenBoard({
                       if (!hasMovedRef.current) onSelectSession(session);
                     }}
                     className={cn(
-                      "schedule-card-btn absolute rounded-xl p-2 text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-between border group",
+                      "schedule-card-btn absolute rounded-xl text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-between border group",
+                      isLargeDisplay ? "p-3 sm:p-3.5" : "p-2",
                       shortMeta.badgeBg,
                       shortMeta.badgeBorder,
                       isActive
                         ? "ring-2 ring-orange-400 border-orange-400 shadow-[0_0_24px_rgba(255,153,0,0.55)] z-30 text-white animate-pulse"
                         : isFocused
                         ? "ring-2 ring-cyan-400 border-cyan-400 z-20 text-white"
-                        : "text-white shadow-md hover:border-orange-400/80 hover:z-50 hover:min-w-[175px] hover:shadow-[0_8px_30px_rgba(0,0,0,0.8)] z-10"
+                        : "text-white shadow-md hover:border-orange-400/80 hover:z-50 hover:min-w-[190px] hover:shadow-[0_8px_30px_rgba(0,0,0,0.8)] z-10"
                     )}
                     style={{
                       left: `${blockLeft}px`,
@@ -766,16 +806,28 @@ export function ScheduleFullscreenBoard({
                   >
                     {/* Header line: Icon + Time */}
                     <div className="flex items-center gap-1.5 w-full shrink-0">
-                      <span className="text-xs leading-none shrink-0">{shortMeta.icon}</span>
-                      <span className="font-mono text-[10px] sm:text-[11px] font-bold text-orange-400 shrink-0">
+                      <span className={cn("leading-none shrink-0", isLargeDisplay ? "text-base" : "text-xs")}>{shortMeta.icon}</span>
+                      <span
+                        className={cn(
+                          "font-mono font-bold text-orange-400 shrink-0",
+                          isLargeDisplay ? "text-xs sm:text-sm font-extrabold" : "text-[10px] sm:text-[11px]"
+                        )}
+                      >
                         {formatTimeShort(session.startsAt)}
                       </span>
-                      <span className="text-[9px] text-white/50 hidden group-hover:inline">• {durationMin}m</span>
+                      <span className={cn("text-white/50 hidden group-hover:inline", isLargeDisplay ? "text-xs" : "text-[9px]")}>• {durationMin}m</span>
                     </div>
 
                     {/* Title: Crisp, readable, styled */}
                     <div className="my-auto py-0.5 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
-                      <span className="font-bold text-[10px] sm:text-[11px] leading-tight text-white group-hover:text-orange-200 transition-colors line-clamp-2 break-words">
+                      <span
+                        className={cn(
+                          "font-bold leading-tight text-white group-hover:text-orange-200 transition-colors break-words",
+                          isLargeDisplay
+                            ? "text-xs sm:text-sm lg:text-base leading-snug line-clamp-3"
+                            : "text-[10px] sm:text-[11px] line-clamp-2"
+                        )}
+                      >
                         {session.title}
                       </span>
                     </div>
@@ -792,7 +844,8 @@ export function ScheduleFullscreenBoard({
                     if (!hasMovedRef.current) onSelectSession(session);
                   }}
                   className={cn(
-                    "schedule-card-btn absolute rounded-xl p-3 sm:p-3.5 text-left cursor-pointer transition-all duration-200 overflow-hidden z-10 flex flex-col justify-between border group",
+                    "schedule-card-btn absolute rounded-xl text-left cursor-pointer transition-all duration-200 overflow-hidden z-10 flex flex-col justify-between border group",
+                    isLargeDisplay ? "p-4 sm:p-5" : "p-3 sm:p-3.5",
                     isActive
                       ? "ring-2 ring-orange-400 border-orange-400 bg-orange-950/85 shadow-[0_0_24px_rgba(255,153,0,0.55)] z-25 text-white animate-pulse"
                       : isFocused
@@ -813,13 +866,14 @@ export function ScheduleFullscreenBoard({
                   <div className="flex items-center justify-between gap-1 w-full shrink-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {isActive && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-orange-500 text-white shadow-sm">
+                        <span className={cn("inline-flex items-center gap-1 rounded-full font-black uppercase bg-orange-500 text-white shadow-sm", isLargeDisplay ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[9px]")}>
                           ● LIVE
                         </span>
                       )}
                       <span
                         className={cn(
-                          "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                          "rounded-full font-bold uppercase tracking-wider",
+                          isLargeDisplay ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[9px]",
                           isWorkshop
                             ? "bg-purple-500/25 border border-purple-400/30 text-purple-300"
                             : "bg-white/10 text-slate-300"
@@ -829,22 +883,34 @@ export function ScheduleFullscreenBoard({
                       </span>
                     </div>
 
-                    <span className="font-mono text-[10px] sm:text-[11px] font-bold text-orange-400 shrink-0">
+                    <span className={cn("font-mono font-bold text-orange-400 shrink-0", isLargeDisplay ? "text-xs sm:text-sm lg:text-base font-extrabold" : "text-[10px] sm:text-[11px]")}>
                       {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)}
                     </span>
                   </div>
 
                   {/* Title — Generous uncropped space */}
                   <div className="my-auto py-1 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
-                    <h4 className="font-bold text-[11px] sm:text-xs text-white leading-snug line-clamp-6 group-hover:text-orange-300 transition-colors break-words">
+                    <h4
+                      className={cn(
+                        "font-bold text-white leading-snug group-hover:text-orange-300 transition-colors break-words",
+                        isLargeDisplay
+                          ? "text-base sm:text-lg lg:text-xl font-black line-clamp-4"
+                          : "text-[11px] sm:text-xs line-clamp-6"
+                      )}
+                    >
                       {session.title}
                     </h4>
+                    {isLargeDisplay && session.description && (
+                      <p className="text-xs sm:text-sm text-slate-300/85 line-clamp-3 mt-1.5 leading-relaxed font-normal">
+                        {session.description}
+                      </p>
+                    )}
                   </div>
 
                   {/* Speaker Footer */}
                   <div className="flex items-center gap-2 pt-1.5 border-t border-white/10 shrink-0 w-full mt-auto">
                     {speaker && (
-                      <Avatar className="w-5 h-5 rounded-full border border-white/20 shrink-0 bg-slate-800">
+                      <Avatar className={cn("rounded-full border border-white/20 shrink-0 bg-slate-800", isLargeDisplay ? "w-8 h-8" : "w-5 h-5")}>
                         {speaker.avatar && (
                           <AvatarImage
                             src={speaker.avatar}
@@ -857,7 +923,7 @@ export function ScheduleFullscreenBoard({
                         </AvatarFallback>
                       </Avatar>
                     )}
-                    <span className="text-[11px] font-medium text-slate-300 truncate">
+                    <span className={cn("text-slate-300 truncate", isLargeDisplay ? "text-xs sm:text-sm font-bold" : "text-[11px] font-medium")}>
                       {speaker ? speaker.name : "Featured Presentation"}
                     </span>
                   </div>

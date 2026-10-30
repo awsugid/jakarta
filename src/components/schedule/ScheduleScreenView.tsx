@@ -261,8 +261,8 @@ export function ScheduleScreenView({
       {/* =========================================================================
           TOP NAVIGATION & CONTROL HEADER (CENTERED & BALANCED)
           ========================================================================= */}
-      <header className="z-40 w-full bg-[#121520]/95 backdrop-blur-md border-b border-white/10 px-4 py-2.5 sm:px-6 shrink-0">
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3">
+      <header className="z-40 w-full bg-[#121520]/95 backdrop-blur-md border-b border-white/10 px-4 py-2.5 sm:px-8 shrink-0">
+        <div className="w-full max-w-[120rem] 2xl:max-w-full mx-auto flex items-center justify-between gap-3">
           {/* Left: Brand & Live Clock */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <a

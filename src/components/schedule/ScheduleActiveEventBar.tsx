@@ -46,7 +46,7 @@ export function ScheduleActiveEventBar({
   if (isPreEvent) {
     return (
       <div className="w-full bg-gradient-to-r from-purple-950/40 via-[#151824] to-purple-950/40 border-b border-purple-500/20 px-4 py-2.5 sm:px-6">
-        <div className="max-w-7xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm">
+        <div className="w-full max-w-[120rem] 2xl:max-w-full mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm">
           <div className="flex items-center gap-2.5">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold uppercase tracking-wider text-[11px]">
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />
@@ -82,7 +82,7 @@ export function ScheduleActiveEventBar({
   if (isPostEvent) {
     return (
       <div className="w-full bg-[#151824] border-b border-white/10 px-4 py-2.5 text-center text-xs sm:text-sm text-slate-300">
-        <div className="max-w-7xl mx-auto w-full">
+        <div className="w-full max-w-[120rem] 2xl:max-w-full mx-auto">
           <span className="font-bold text-white">Conference Concluded.</span> Thank you for building with the AWS community in Jakarta!
         </div>
       </div>
@@ -102,7 +102,7 @@ export function ScheduleActiveEventBar({
 
     return (
       <div className="w-full bg-gradient-to-r from-orange-950/40 via-[#151824] to-orange-950/40 border-b border-orange-500/30 px-4 py-3 sm:px-6">
-        <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="w-full max-w-[120rem] 2xl:max-w-full mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shrink-0">
               <Icon className="w-4 h-4" />
@@ -161,7 +161,7 @@ export function ScheduleActiveEventBar({
         {/* Glow backdrop indicator */}
         <div className="absolute top-0 left-0 w-32 h-full bg-orange-500/10 blur-xl pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto w-full flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+        <div className="w-full max-w-[120rem] 2xl:max-w-full mx-auto flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           {/* Left badge */}
           <div className="flex items-center gap-2.5 shrink-0">
             <span className="relative flex h-3 w-3">

@@ -22,6 +22,7 @@ export interface Sponsor {
 }
 
 export interface SponsorGridProps {
+  id?: string;
   sponsors?: Sponsor[];
   title?: string;
   subtitle?: string;
@@ -125,12 +126,19 @@ const TIER_ORDER: string[] = [
 ];
 
 export function SponsorGrid({
+  id = "sponsors",
   sponsors = [],
   title = "Our Sponsors & Partners",
   subtitle = "Supported by organizations empowering the developer community.",
   showBecomeSponsorCta = false,
 }: SponsorGridProps) {
-  const groupedSponsors = TIER_ORDER.map((tier) => ({
+  const knownTiers = new Set(TIER_ORDER);
+  const extraTiers = Array.from(
+    new Set((sponsors || []).map((s) => s.tier.toLowerCase()).filter((t) => !knownTiers.has(t)))
+  );
+  const allTiers = [...TIER_ORDER, ...extraTiers];
+
+  const groupedSponsors = allTiers.map((tier) => ({
     tier,
     meta: TIER_META[tier] || {
       title: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Partners`,
@@ -148,9 +156,11 @@ export function SponsorGrid({
 
   return (
     <section
-      id="partners"
-      className="scroll-mt-20 py-20 px-4 bg-background border-b border-border relative overflow-hidden"
+      id={id}
+      className="scroll-mt-24 py-20 px-4 bg-background border-b border-border relative overflow-hidden"
     >
+      {/* Anchor for backward compatibility with #partners links */}
+      <span id="partners" className="sr-only" />
       {/* Background Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[250px] bg-orange-500/5 rounded-full blur-[120px] pointer-events-none" />
 
@@ -210,6 +220,7 @@ export function SponsorGrid({
                           alt={sponsor.name}
                           className={`w-auto max-w-full ${meta.logoHeight} object-contain transition-transform duration-200 group-hover:scale-105`}
                           loading="lazy"
+                          referrerPolicy="no-referrer"
                         />
                       </div>
 

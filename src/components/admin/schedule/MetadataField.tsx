@@ -16,14 +16,23 @@ interface MetadataFieldProps {
   onChange: (values: string[]) => void;
   suggestions: string[];
   hint: string;
-  placeholder: string;
+  placeholder?: string;
+  allowCustom?: boolean;
 }
 
 const chipBase =
   "inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-left text-xs font-medium leading-tight whitespace-normal break-words transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Multi-value chips: suggestion toggles + verbatim custom values. Empty stays [] (unset). */
-export function MetadataField({ label, values, onChange, suggestions, hint, placeholder }: MetadataFieldProps) {
+export function MetadataField({
+  label,
+  values,
+  onChange,
+  suggestions,
+  hint,
+  placeholder = "",
+  allowCustom = true,
+}: MetadataFieldProps) {
   const id = useId();
   const [draft, setDraft] = useState("");
   const custom = values.filter((v) => !hasMetadataValue(suggestions, v));
@@ -88,28 +97,30 @@ export function MetadataField({ label, values, onChange, suggestions, hint, plac
         ))}
       </div>
 
-      <div className="flex min-w-0 gap-2">
-        <Input
-          id={`${id}-custom`}
-          aria-label={`Add custom ${label.toLowerCase()}`}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter adds the tag instead of submitting the session form.
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              commit();
-            }
-          }}
-          onBlur={commit} // typed-but-not-added text is never silently dropped
-          placeholder={placeholder}
-          autoComplete="off"
-          className="h-9 min-w-0 flex-1 text-sm"
-        />
-        <Button type="button" variant="outline" size="sm" onClick={commit} disabled={!draft.trim()} className="h-9 shrink-0">
-          Add
-        </Button>
-      </div>
+      {allowCustom && (
+        <div className="flex min-w-0 gap-2">
+          <Input
+            id={`${id}-custom`}
+            aria-label={`Add custom ${label.toLowerCase()}`}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter adds the tag instead of submitting the session form.
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                commit();
+              }
+            }}
+            onBlur={commit} // typed-but-not-added text is never silently dropped
+            placeholder={placeholder}
+            autoComplete="off"
+            className="h-9 min-w-0 flex-1 text-sm"
+          />
+          <Button type="button" variant="outline" size="sm" onClick={commit} disabled={!draft.trim()} className="h-9 shrink-0">
+            Add
+          </Button>
+        </div>
+      )}
       <p id={`${id}-hint`} className="text-xs leading-snug text-muted-foreground">
         {hint}
       </p>

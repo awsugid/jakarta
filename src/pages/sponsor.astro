@@ -3,6 +3,25 @@ import Layout from "../layouts/Layout.astro";
 import { SponsorHero } from "../components/sponsor/SponsorHero";
 import { SponsorshipTabs } from "../components/sponsor/SponsorshipTabs";
 import { SponsorCTA } from "../components/sponsor/SponsorCTA";
+import { ComDaySponsors } from "../components/community-day/ComDaySponsors";
+import { fetchPublicSponsors } from "@/lib/api";
+import { COMMUNITY_DAY_EVENT_SLUG } from "@/components/sponsor/communityDayConfig";
+import type { Sponsor, SponsorTierType } from "@/components/sponsors/SponsorGrid";
+
+let initialSponsors: Sponsor[] = [];
+try {
+    const data = await fetchPublicSponsors(COMMUNITY_DAY_EVENT_SLUG);
+    if (data?.sponsors && data.sponsors.length > 0) {
+        initialSponsors = data.sponsors.map((s) => ({
+            name: s.name,
+            logo: s.logoUrl,
+            url: s.websiteUrl || undefined,
+            tier: s.tier.toLowerCase() as SponsorTierType,
+        }));
+    }
+} catch (e) {
+    // build-time fallback
+}
 ---
 
 <Layout title="Sponsorship & Collaboration — AWS User Group Jakarta">
@@ -10,6 +29,13 @@ import { SponsorCTA } from "../components/sponsor/SponsorCTA";
     <SponsorshipTabs
         client:load
         deckUrl={import.meta.env.PUBLIC_COMMUNITY_DAY_DECK_URL}
+    />
+    <!-- Confirmed Sponsors & Partners Gallery from Admin / Backend -->
+    <ComDaySponsors
+        client:visible
+        initialSponsors={initialSponsors}
+        title="Our Confirmed Sponsors & Partners"
+        subtitle="Organizations and partners already supporting AWS Community Day Jakarta 2026."
     />
     <SponsorCTA client:visible />
 </Layout>

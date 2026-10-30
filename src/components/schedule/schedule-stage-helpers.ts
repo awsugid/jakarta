@@ -91,12 +91,27 @@ export function getMinutesRemaining(targetDate: Date, now: Date): number {
 /** Check if session is a plenary (all-hands) conference session */
 export function isPlenarySession(s: DisplayScheduleSession): boolean {
   if (s.allRooms) return true;
+  if (s.room === "All Rooms") return true;
+
+  const room = (s.room || s.rooms?.[0] || "").toLowerCase();
+  const track = (s.track || "").toLowerCase();
+
+  // Breakout classrooms are NEVER plenary sessions
+  if (
+    room.includes("804") ||
+    room.includes("806") ||
+    room.includes("810") ||
+    track.includes("classroom")
+  ) {
+    return false;
+  }
+
   const title = (s.title || "").toLowerCase();
   if (
     title.includes("open gate") ||
-    title.includes("opening") ||
+    title.includes("closing") ||
     title.includes("keynote") ||
-    title.includes("closing")
+    (title.includes("opening") && (room.includes("800") || room.includes("atrium") || track.includes("main")))
   ) {
     return true;
   }

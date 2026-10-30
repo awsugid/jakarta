@@ -157,6 +157,78 @@ export function ScheduleBoardView({
   const totalCanvasWidth = labelWidth + timelineWidth;
   const viewportHeight = RULER_HEIGHT + visibleLanes.length * LANE_HEIGHT;
 
+  // Precompute layout per session by lane so that consecutive sessions NEVER collide or stack
+  const sessionLayoutMap = useMemo(() => {
+    const laneGroups = new Map<number, DisplayScheduleSession[]>();
+    for (const session of filteredSessions) {
+      const roomRaw = (session.rooms?.[0] || session.room || "").toLowerCase();
+      let laneIdx = visibleLanes.findIndex((l) => {
+        const lName = l.name.toLowerCase();
+        return lName === roomRaw || (roomRaw.includes("800") && lName.includes("800"));
+      });
+      if (laneIdx < 0) laneIdx = 0;
+      if (!laneGroups.has(laneIdx)) {
+        laneGroups.set(laneIdx, []);
+      }
+      laneGroups.get(laneIdx)!.push(session);
+    }
+
+    const layout = new Map<
+      string,
+      {
+        laneIdx: number;
+        blockLeft: number;
+        blockWidth: number;
+        blockTop: number;
+        isCompact: boolean;
+        isUltraCompact: boolean;
+      }
+    >();
+
+    laneGroups.forEach((laneSessions, laneIdx) => {
+      laneSessions.sort((a, b) => {
+        const aStart = parseMinutesOfDay(a.startsAt) ?? 0;
+        const bStart = parseMinutesOfDay(b.startsAt) ?? 0;
+        return aStart - bStart;
+      });
+
+      for (let i = 0; i < laneSessions.length; i++) {
+        const session = laneSessions[i];
+        const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
+        const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 30;
+        const durationMin = Math.max(1, endMin - startMin);
+
+        const nextSession = laneSessions[i + 1];
+        const nextStartMin = nextSession ? (parseMinutesOfDay(nextSession.startsAt) ?? null) : null;
+
+        const blockLeft = labelWidth + (startMin - T0) * scale + 2;
+
+        const naturalWidth = durationMin * scale - 4;
+        const maxAvailableWidth =
+          nextStartMin !== null && nextStartMin > startMin
+            ? (nextStartMin - startMin) * scale - 4
+            : naturalWidth;
+
+        const blockWidth = Math.max(6, Math.min(naturalWidth, maxAvailableWidth));
+        const blockTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT + 12;
+
+        const isCompact = blockWidth < 80;
+        const isUltraCompact = blockWidth < 38;
+
+        layout.set(session.id, {
+          laneIdx,
+          blockLeft,
+          blockWidth,
+          blockTop,
+          isCompact,
+          isUltraCompact,
+        });
+      }
+    });
+
+    return layout;
+  }, [filteredSessions, visibleLanes, labelWidth, T0, scale]);
+
   // Zoom controls
   const zoomIn = () => setScale((s) => Math.min(6.5, s * 1.3));
   const zoomOut = () => setScale((s) => Math.max(1.6, s / 1.3));
@@ -456,22 +528,9 @@ export function ScheduleBoardView({
 
             {/* Session Blocks Positioned on the Board */}
             {filteredSessions.map((session) => {
-              const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
-              const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 45;
-              const durationMin = Math.max(20, endMin - startMin);
-
-              const roomRaw = (session.rooms?.[0] || session.room || "").toLowerCase();
-              let laneIdx = visibleLanes.findIndex((l) => {
-                const lName = l.name.toLowerCase();
-                return lName === roomRaw || (roomRaw.includes("800") && lName.includes("800"));
-              });
-              if (laneIdx < 0) {
-                laneIdx = 0;
-              }
-
-              const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-              const blockWidth = Math.max(session.description ? 120 : 85, durationMin * scale - 4);
-              const blockTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT + 12;
+              const layout = sessionLayoutMap.get(session.id);
+              if (!layout) return null;
+              const { laneIdx, blockLeft, blockWidth, blockTop, isCompact, isUltraCompact } = layout;
 
               const isSaved = savedSessionIds.includes(session.id);
               const isActive = activeTip?.session.id === session.id;
@@ -493,7 +552,12 @@ export function ScheduleBoardView({
                   onMouseEnter={(e) => showBlockTip(session, e.currentTarget, laneIdx, false)}
                   onMouseLeave={() => hideBlockTip(false)}
                   className={cn(
-                    "schedule-blk absolute rounded-xl p-2.5 text-left cursor-pointer transition-all duration-150 overflow-hidden z-10 flex flex-col justify-between border",
+                    "schedule-blk absolute rounded-xl text-left cursor-pointer transition-all duration-150 overflow-hidden z-10 flex flex-col justify-between border",
+                    isUltraCompact
+                      ? "p-1 items-center justify-center text-center"
+                      : isCompact
+                      ? "p-1.5"
+                      : "p-2.5",
                     isWorkshop
                       ? "bg-purple-950/40 hover:bg-purple-950/65 border-purple-500/50 text-foreground"
                       : isKeynote
@@ -502,6 +566,7 @@ export function ScheduleBoardView({
                       ? "bg-[#181A22] hover:bg-[#20232E] border-dashed border-border/70 text-muted-foreground"
                       : "bg-[#1D212E] hover:bg-[#262C3D] border-border/90 text-foreground",
                     isActive && "ring-2 ring-orange-500 shadow-xl z-20 -translate-y-0.5",
+                    "hover:z-30 hover:scale-[1.02]",
                     isSaved &&
                       "after:content-[''] after:absolute after:top-2 after:right-2 after:w-2 after:h-2 after:rounded-full after:bg-amber-400 after:shadow-[0_0_8px_rgba(251,191,36,0.9)]"
                   )}
@@ -511,33 +576,57 @@ export function ScheduleBoardView({
                     width: `${blockWidth}px`,
                     height: `${BLOCK_HEIGHT}px`,
                   }}
+                  title={`${session.title} (${formatTimeShort(session.startsAt)} – ${formatTimeShort(session.endsAt)} WIB)`}
                   aria-label={`${session.title}, ${formatTimeShort(session.startsAt)} to ${formatTimeShort(session.endsAt)}`}
                 >
-                  <div className="min-w-0 w-full">
-                    <b className="block text-xs font-bold leading-tight truncate text-foreground">
-                      {session.title}
-                    </b>
-                    <i className="block not-italic text-[11px] font-mono text-muted-foreground truncate mt-0.5">
-                      {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)} WIB
-                    </i>
-                    {/* Talk Description preview inside the board item */}
-                    {session.description && (
-                      <p className="text-[11px] text-slate-300/85 line-clamp-2 leading-tight mt-1 overflow-hidden font-normal whitespace-normal">
-                        {session.description}
-                      </p>
-                    )}
-                  </div>
+                  {isUltraCompact ? (
+                    <div className="flex flex-col items-center justify-center w-full h-full text-[10px] text-muted-foreground font-mono leading-none select-none">
+                      <span className="font-semibold">{formatTimeShort(session.startsAt).slice(0, 2)}</span>
+                      <span className="text-[8px] opacity-75">{formatTimeShort(session.startsAt).slice(3)}</span>
+                    </div>
+                  ) : isCompact ? (
+                    <div className="min-w-0 w-full overflow-hidden">
+                      <b className="block text-[11px] font-bold leading-tight truncate text-foreground">
+                        {session.title}
+                      </b>
+                      <i className="block not-italic text-[10px] font-mono text-muted-foreground truncate mt-0.5">
+                        {formatTimeShort(session.startsAt)}
+                      </i>
+                      {session.speakers.length > 0 && (
+                        <span className="block text-[9px] text-muted-foreground/80 truncate mt-0.5">
+                          {session.speakers[0].name}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="min-w-0 w-full">
+                        <b className="block text-xs font-bold leading-tight truncate text-foreground">
+                          {session.title}
+                        </b>
+                        <i className="block not-italic text-[11px] font-mono text-muted-foreground truncate mt-0.5">
+                          {formatTimeShort(session.startsAt)} – {formatTimeShort(session.endsAt)} WIB
+                        </i>
+                        {/* Talk Description preview inside the board item */}
+                        {session.description && (
+                          <p className="text-[11px] text-slate-300/85 line-clamp-2 leading-tight mt-1 overflow-hidden font-normal whitespace-normal">
+                            {session.description}
+                          </p>
+                        )}
+                      </div>
 
-                  {/* Speaker or track metadata */}
-                  {session.speakers.length > 0 ? (
-                    <div className="text-[10px] text-muted-foreground/90 font-medium truncate mt-1">
-                      {session.speakers.map((s) => s.name).join(", ")}
-                    </div>
-                  ) : !session.description && session.track ? (
-                    <div className="text-[10px] text-muted-foreground/75 font-medium truncate mt-1">
-                      {session.track}
-                    </div>
-                  ) : null}
+                      {/* Speaker or track metadata */}
+                      {session.speakers.length > 0 ? (
+                        <div className="text-[10px] text-muted-foreground/90 font-medium truncate mt-1">
+                          {session.speakers.map((s) => s.name).join(", ")}
+                        </div>
+                      ) : !session.description && session.track ? (
+                        <div className="text-[10px] text-muted-foreground/75 font-medium truncate mt-1">
+                          {session.track}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
                 </button>
               );
             })}

@@ -176,6 +176,113 @@ export function ScheduleFullscreenBoard({
   const totalLanesHeight = visibleLanes.length * laneHeight;
   const canvasHeight = RULER_HEIGHT + totalLanesHeight;
 
+  // Precompute layout for non-plenary sessions grouped by lane to prevent collisions
+  const nonPlenaryLayoutMap = useMemo(() => {
+    const laneGroups = new Map<number, DisplayScheduleSession[]>();
+    const nonPlenary = filteredSessions.filter((s) => !isPlenarySession(s));
+
+    for (const session of nonPlenary) {
+      const roomRaw = (session.rooms?.[0] || session.room || "").toLowerCase();
+      let laneIdx = visibleLanes.findIndex((l) => {
+        const lName = l.name.toLowerCase();
+        return lName === roomRaw || (roomRaw.includes("800") && lName.includes("800"));
+      });
+      if (laneIdx < 0) laneIdx = 0;
+      if (!laneGroups.has(laneIdx)) {
+        laneGroups.set(laneIdx, []);
+      }
+      laneGroups.get(laneIdx)!.push(session);
+    }
+
+    const layout = new Map<
+      string,
+      {
+        laneIdx: number;
+        blockLeft: number;
+        blockWidth: number;
+      }
+    >();
+
+    laneGroups.forEach((laneSessions, laneIdx) => {
+      laneSessions.sort((a, b) => {
+        const aStart = parseMinutesOfDay(a.startsAt) ?? 0;
+        const bStart = parseMinutesOfDay(b.startsAt) ?? 0;
+        return aStart - bStart;
+      });
+
+      for (let i = 0; i < laneSessions.length; i++) {
+        const session = laneSessions[i];
+        const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
+        const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 30;
+        const durationMin = Math.max(1, endMin - startMin);
+
+        const nextSession = laneSessions[i + 1];
+        const nextStartMin = nextSession ? (parseMinutesOfDay(nextSession.startsAt) ?? null) : null;
+
+        const blockLeft = labelWidth + (startMin - T0) * scale + 2;
+        const naturalWidth = durationMin * scale - 4;
+        const maxAvailableWidth =
+          nextStartMin !== null && nextStartMin > startMin
+            ? (nextStartMin - startMin) * scale - 4
+            : naturalWidth;
+
+        const blockWidth = Math.max(8, Math.min(naturalWidth, maxAvailableWidth));
+
+        layout.set(session.id, {
+          laneIdx,
+          blockLeft,
+          blockWidth,
+        });
+      }
+    });
+
+    return layout;
+  }, [filteredSessions, visibleLanes, labelWidth, T0, scale]);
+
+  // Precompute layout for plenary sessions spanning across all lanes
+  const plenaryLayoutMap = useMemo(() => {
+    const plenary = filteredSessions.filter((s) => isPlenarySession(s));
+    plenary.sort((a, b) => {
+      const aStart = parseMinutesOfDay(a.startsAt) ?? 0;
+      const bStart = parseMinutesOfDay(b.startsAt) ?? 0;
+      return aStart - bStart;
+    });
+
+    const layout = new Map<
+      string,
+      {
+        blockLeft: number;
+        blockWidth: number;
+      }
+    >();
+
+    for (let i = 0; i < plenary.length; i++) {
+      const session = plenary[i];
+      const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
+      const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 30;
+      const durationMin = Math.max(1, endMin - startMin);
+
+      const nextSession = plenary[i + 1];
+      const nextStartMin = nextSession ? (parseMinutesOfDay(nextSession.startsAt) ?? null) : null;
+
+      const blockLeft = labelWidth + (startMin - T0) * scale + 2;
+      const naturalWidth = durationMin * scale - 4;
+      const maxAvailableWidth =
+        nextStartMin !== null && nextStartMin > startMin
+          ? (nextStartMin - startMin) * scale - 4
+          : naturalWidth;
+
+      const blockWidth = Math.max(8, Math.min(naturalWidth, maxAvailableWidth));
+
+      layout.set(session.id, {
+        blockLeft,
+        blockWidth,
+      });
+    }
+
+    return layout;
+  }, [filteredSessions, labelWidth, T0, scale]);
+
   // Current minute in WIB
   const currentMinutes = useMemo(() => {
     try {
@@ -471,12 +578,11 @@ export function ScheduleFullscreenBoard({
           {filteredSessions
             .filter((s) => isPlenarySession(s))
             .map((session) => {
-              const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
-              const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 45;
-              const durationMin = Math.max(20, endMin - startMin);
-
-              const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-              const blockWidth = Math.max(160, durationMin * scale - 4);
+              const layout = plenaryLayoutMap.get(session.id);
+              const blockLeft = layout
+                ? layout.blockLeft
+                : labelWidth + ((parseMinutesOfDay(session.startsAt) ?? T0) - T0) * scale + 2;
+              const blockWidth = layout ? layout.blockWidth : 160;
               const isActive = activeSessionIds.has(session.id);
               const isFocused = focusedSessionId === session.id;
 
@@ -553,19 +659,10 @@ export function ScheduleFullscreenBoard({
           {filteredSessions
             .filter((s) => !isPlenarySession(s))
             .map((session) => {
-              const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
-              const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 45;
-              const durationMin = Math.max(20, endMin - startMin);
+              const layout = nonPlenaryLayoutMap.get(session.id);
+              if (!layout) return null;
+              const { laneIdx, blockLeft, blockWidth } = layout;
 
-              const roomRaw = (session.rooms?.[0] || session.room || "").toLowerCase();
-              let laneIdx = visibleLanes.findIndex((l) => {
-                const lName = l.name.toLowerCase();
-                return lName === roomRaw || (roomRaw.includes("800") && lName.includes("800"));
-              });
-              if (laneIdx < 0) laneIdx = 0;
-
-              const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-              const blockWidth = Math.max(140, durationMin * scale - 4);
               const blockTop = RULER_HEIGHT + laneIdx * laneHeight + 6;
               const blockHeight = laneHeight - 12;
 

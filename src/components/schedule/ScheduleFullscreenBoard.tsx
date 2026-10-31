@@ -27,7 +27,13 @@ import {
   LABEL_WIDTH_MOBILE,
   type LaneDefinition,
 } from "@/components/community-day/schedule-types";
-import { isPlenarySession, getShortSessionMeta } from "./schedule-stage-helpers";
+import {
+  isPlenarySession,
+  getShortSessionMeta,
+  getShortSessionDisplayInfo,
+  computeLaneSessionLayouts,
+  type LaneItemLayout,
+} from "./schedule-stage-helpers";
 
 // Only venue-wide plenary sessions legitimately spanning all track lanes across the entire canvas
 const isCanvasPlenarySession = (s: DisplayScheduleSession): boolean => {
@@ -210,106 +216,20 @@ export function ScheduleFullscreenBoard({
       laneGroups.get(laneIdx)!.push(session);
     }
 
-    const layout = new Map<
-      string,
-      {
-        laneIdx: number;
-        blockLeft: number;
-        blockWidth: number;
-        blockTop: number;
-        blockHeight: number;
-        tier: number;
-        isShort: boolean;
-        durationMin: number;
-      }
-    >();
+    const layout = new Map<string, LaneItemLayout>();
 
     laneGroups.forEach((laneSessions, laneIdx) => {
-      laneSessions.sort((a, b) => {
-        const aStart = parseMinutesOfDay(a.startsAt) ?? 0;
-        const bStart = parseMinutesOfDay(b.startsAt) ?? 0;
-        return aStart - bStart;
-      });
-
       const laneTop = RULER_HEIGHT + laneIdx * laneHeight;
-      const halfHeight = Math.floor((laneHeight - 16) / 2);
-
-      // 1. Assign tiers (0 = full height, 1 = top sub-row, 2 = bottom sub-row)
-      const tieredSessions = laneSessions.map((session) => {
-        const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
-        const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 30;
-        const durationMin = Math.max(1, endMin - startMin);
-        const isShort = durationMin <= 15;
-        return {
-          session,
-          startMin,
-          endMin,
-          durationMin,
-          isShort,
-          tier: 0,
-        };
-      });
-
-      let lastShortTier = 2;
-      for (let i = 0; i < tieredSessions.length; i++) {
-        const item = tieredSessions[i];
-        if (item.isShort) {
-          item.tier = lastShortTier === 1 ? 2 : 1;
-          lastShortTier = item.tier;
-        } else {
-          item.tier = 0;
-          lastShortTier = 2; // reset alternating counter for next short cluster
-        }
-      }
-
-      // 2. Compute bounds for each session ensuring 0 collision
-      for (let i = 0; i < tieredSessions.length; i++) {
-        const item = tieredSessions[i];
-        const { session, startMin, durationMin, isShort, tier } = item;
-        const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-        const naturalWidth = Math.max(12, durationMin * scale - 4);
-
-        let nextLimitMin: number | null = null;
-        for (let j = i + 1; j < tieredSessions.length; j++) {
-          const candidate = tieredSessions[j];
-          // A tier 1 session is restricted by the next tier 1 or tier 0 session
-          // A tier 2 session is restricted by the next tier 2 or tier 0 session
-          // A tier 0 session is restricted by the next session of any tier
-          if (tier === 0 || candidate.tier === 0 || candidate.tier === tier) {
-            nextLimitMin = candidate.startMin;
-            break;
-          }
-        }
-
-        const maxAvailableWidth =
-          nextLimitMin !== null && nextLimitMin > startMin
-            ? (nextLimitMin - startMin) * scale - 4
-            : Math.max(naturalWidth, 15 * scale - 4);
-
-        const blockWidth = isShort
-          ? Math.max(16, Math.min(maxAvailableWidth, Math.max(naturalWidth, (durationMin + 5) * scale - 4)))
-          : Math.max(16, Math.min(naturalWidth, maxAvailableWidth));
-
-        const blockTop =
-          tier === 0
-            ? laneTop + 6
-            : tier === 1
-            ? laneTop + 6
-            : laneTop + 6 + halfHeight + 4;
-
-        const blockHeight = tier === 0 ? laneHeight - 12 : halfHeight;
-
-        layout.set(session.id, {
-          laneIdx,
-          blockLeft,
-          blockWidth,
-          blockTop,
-          blockHeight,
-          tier,
-          isShort,
-          durationMin,
-        });
-      }
+      const laneLayout = computeLaneSessionLayouts(
+        laneSessions,
+        laneIdx,
+        laneTop,
+        laneHeight,
+        labelWidth,
+        T0,
+        scale
+      );
+      laneLayout.forEach((val, key) => layout.set(key, val));
     });
 
     return layout;
@@ -768,7 +688,7 @@ export function ScheduleFullscreenBoard({
             .map((session) => {
               const layout = nonPlenaryLayoutMap.get(session.id);
               if (!layout) return null;
-              const { laneIdx, blockLeft, blockWidth, blockTop, blockHeight, isShort, durationMin } = layout;
+              const { laneIdx, blockLeft, blockWidth, blockTop, blockHeight, isShort, durationMin, displayInfo } = layout;
 
               const isActive = activeSessionIds.has(session.id);
               const isFocused = focusedSessionId === session.id;
@@ -776,7 +696,6 @@ export function ScheduleFullscreenBoard({
               const speaker = session.speakers[0];
 
               if (isShort) {
-                const shortMeta = getShortSessionMeta(session.title);
                 return (
                   <button
                     key={session.id}
@@ -786,15 +705,15 @@ export function ScheduleFullscreenBoard({
                       if (!hasMovedRef.current) onSelectSession(session);
                     }}
                     className={cn(
-                      "schedule-card-btn absolute rounded-xl text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-between border group",
-                      isLargeDisplay ? "p-3 sm:p-3.5" : "p-2",
-                      shortMeta.badgeBg,
-                      shortMeta.badgeBorder,
+                      "schedule-card-btn absolute rounded-xl text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-center border group shadow-md",
+                      isLargeDisplay ? "px-3.5 py-2" : "px-2.5 py-1.5",
+                      displayInfo.badgeBg,
+                      displayInfo.badgeBorder,
                       isActive
                         ? "ring-2 ring-orange-400 border-orange-400 shadow-[0_0_24px_rgba(255,153,0,0.55)] z-30 text-white animate-pulse"
                         : isFocused
                         ? "ring-2 ring-cyan-400 border-cyan-400 z-20 text-white"
-                        : "text-white shadow-md hover:border-orange-400/80 hover:z-50 hover:min-w-[190px] hover:shadow-[0_8px_30px_rgba(0,0,0,0.8)] z-10"
+                        : "text-white hover:border-orange-400/80 hover:z-20 z-10"
                     )}
                     style={{
                       left: `${blockLeft}px`,
@@ -804,33 +723,77 @@ export function ScheduleFullscreenBoard({
                     }}
                     title={`${session.title} (${formatTimeShort(session.startsAt)} – ${formatTimeShort(session.endsAt)} WIB)`}
                   >
-                    {/* Header line: Icon + Time */}
-                    <div className="flex items-center gap-1.5 w-full shrink-0">
-                      <span className={cn("leading-none shrink-0", isLargeDisplay ? "text-base" : "text-xs")}>{shortMeta.icon}</span>
-                      <span
-                        className={cn(
-                          "font-mono font-bold text-orange-400 shrink-0",
-                          isLargeDisplay ? "text-xs sm:text-sm font-extrabold" : "text-[10px] sm:text-[11px]"
-                        )}
-                      >
-                        {formatTimeShort(session.startsAt)}
-                      </span>
-                      <span className={cn("text-white/50 hidden group-hover:inline", isLargeDisplay ? "text-xs" : "text-[9px]")}>• {durationMin}m</span>
-                    </div>
+                    {blockHeight >= 42 ? (
+                      <>
+                        {/* Header line: Icon + Time on left, Speaker / Subtitle on right */}
+                        <div className="flex items-center justify-between gap-1 w-full min-w-0 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={cn("leading-none", isLargeDisplay ? "text-base" : "text-xs")}>{displayInfo.icon}</span>
+                            <span
+                              className={cn(
+                                "font-mono font-bold text-orange-400 shrink-0",
+                                isLargeDisplay ? "text-xs sm:text-sm font-extrabold" : "text-[10px] sm:text-[11px]"
+                              )}
+                            >
+                              {formatTimeShort(session.startsAt)}
+                            </span>
+                          </div>
+                          {displayInfo.speakerName && (
+                            <span
+                              className={cn(
+                                "text-slate-300 font-medium truncate text-right max-w-[55%]",
+                                isLargeDisplay ? "text-xs" : "text-[9px] sm:text-[10px]"
+                              )}
+                            >
+                              {displayInfo.speakerName}
+                            </span>
+                          )}
+                        </div>
 
-                    {/* Title: Crisp, readable, styled */}
-                    <div className="my-auto py-0.5 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
-                      <span
-                        className={cn(
-                          "font-bold leading-tight text-white group-hover:text-orange-200 transition-colors break-words",
-                          isLargeDisplay
-                            ? "text-xs sm:text-sm lg:text-base leading-snug line-clamp-3"
-                            : "text-[10px] sm:text-[11px] line-clamp-2"
+                        {/* Prominent Title on Line 2: completely readable and uncropped */}
+                        <div className="mt-0.5 min-w-0 w-full overflow-hidden">
+                          <span
+                            className={cn(
+                              "font-bold text-white group-hover:text-orange-200 transition-colors truncate block leading-tight",
+                              isLargeDisplay ? "text-xs sm:text-sm" : "text-[10px] sm:text-[11px]"
+                            )}
+                          >
+                            {displayInfo.primaryLabel}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      /* 1-line compact view */
+                      <div className="flex items-center gap-1.5 w-full min-w-0">
+                        <span className={cn("leading-none shrink-0", isLargeDisplay ? "text-base" : "text-xs")}>{displayInfo.icon}</span>
+                        <span
+                          className={cn(
+                            "font-mono font-bold text-orange-400 shrink-0",
+                            isLargeDisplay ? "text-xs sm:text-sm font-extrabold" : "text-[10px] sm:text-[11px]"
+                          )}
+                        >
+                          {formatTimeShort(session.startsAt)}
+                        </span>
+                        <span
+                          className={cn(
+                            "font-bold text-white group-hover:text-orange-200 transition-colors truncate min-w-0 flex-1",
+                            isLargeDisplay ? "text-xs sm:text-sm" : "text-[10px] sm:text-[11px]"
+                          )}
+                        >
+                          {displayInfo.primaryLabel}
+                        </span>
+                        {displayInfo.speakerName && (
+                          <span
+                            className={cn(
+                              "text-slate-300 font-medium truncate shrink-0 max-w-[45%] hidden sm:inline",
+                              isLargeDisplay ? "text-xs" : "text-[9px] sm:text-[10px]"
+                            )}
+                          >
+                            ({displayInfo.speakerName})
+                          </span>
                         )}
-                      >
-                        {session.title}
-                      </span>
-                    </div>
+                      </div>
+                    )}
                   </button>
                 );
               }

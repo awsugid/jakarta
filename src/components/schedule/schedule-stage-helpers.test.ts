@@ -223,4 +223,131 @@ describe("schedule-stage-helpers", () => {
     expect(postResult.isPreEvent).toBe(false);
     expect(postResult.isPostEvent).toBe(true);
   });
+
+  it("getShortSessionDisplayInfo produces readable labels and speaker subtitles for welcoming speeches and service sessions", () => {
+    const { getShortSessionDisplayInfo } = require("./schedule-stage-helpers");
+
+    const ugSpeech = {
+      id: "ug-speech",
+      title: "Welcoming Speech - AWS User Group Jakarta",
+      speakerName: "Suhri",
+      speakers: [{ name: "Suhri", role: "Organizer" }],
+    };
+    const info1 = getShortSessionDisplayInfo(ugSpeech);
+    expect(info1.primaryLabel).toBe("AWS UG Jakarta");
+    expect(info1.speakerName).toBe("Suhri");
+    expect(info1.icon).toBe("🎤");
+
+    const awsSpeech = {
+      id: "aws-speech",
+      title: "Welcoming Speech - AWS Representative",
+      speakerName: "Eryan Ariowibowo",
+      speakers: [{ name: "Eryan Ariowibowo", role: "AWS" }],
+    };
+    const info2 = getShortSessionDisplayInfo(awsSpeech);
+    expect(info2.primaryLabel).toBe("AWS Representative");
+    expect(info2.speakerName).toBe("Eryan Ariowibowo");
+
+    const binusSpeech = {
+      id: "binus-speech",
+      title: "Welcoming Speech - Binus Representative",
+      speakerName: "Fabian Surya Pramudya, S.T., M.T., Ph.D.",
+      speakers: [{ name: "Fabian Surya Pramudya, S.T., M.T., Ph.D.", role: "Binus" }],
+    };
+    const info3 = getShortSessionDisplayInfo(binusSpeech);
+    expect(info3.primaryLabel).toBe("Binus University");
+    expect(info3.speakerName).toBe("Fabian Surya Pramudya");
+
+    const docSession = {
+      id: "doc-session",
+      title: "Documentation",
+      speakers: [],
+    };
+    const infoDoc = getShortSessionDisplayInfo(docSession);
+    expect(infoDoc.primaryLabel).toBe("Documentation");
+    expect(infoDoc.icon).toBe("📸");
+
+    const kahootSession = {
+      id: "kahoot-session",
+      title: "Ice Breaking: Kahoot",
+      speakers: [],
+    };
+    const infoKahoot = getShortSessionDisplayInfo(kahootSession);
+    expect(infoKahoot.primaryLabel).toBe("Ice Breaking: Kahoot");
+    expect(infoKahoot.icon).toBe("🎮");
+  });
+
+  it("computeLaneSessionLayouts clusters consecutive short sessions into subrows spanning the full available window", () => {
+    const { computeLaneSessionLayouts } = require("./schedule-stage-helpers");
+
+    const testSessions = [
+      {
+        id: "s1",
+        title: "Welcoming Speech - AWS User Group Jakarta",
+        startsAt: "2026-10-31T09:05:00+07:00",
+        endsAt: "2026-10-31T09:10:00+07:00",
+        speakers: [{ name: "Suhri" }],
+      },
+      {
+        id: "s2",
+        title: "Welcoming Speech - AWS Representative",
+        startsAt: "2026-10-31T09:10:00+07:00",
+        endsAt: "2026-10-31T09:15:00+07:00",
+        speakers: [{ name: "Eryan Ariowibowo" }],
+      },
+      {
+        id: "s3",
+        title: "Welcoming Speech - Binus Representative",
+        startsAt: "2026-10-31T09:15:00+07:00",
+        endsAt: "2026-10-31T09:25:00+07:00",
+        speakers: [{ name: "Fabian Surya" }],
+      },
+      {
+        id: "s4",
+        title: "Context Intelligence for your AI Agent at Scale",
+        startsAt: "2026-10-31T09:25:00+07:00",
+        endsAt: "2026-10-31T10:05:00+07:00",
+        speakers: [{ name: "Juan Hasang" }],
+      },
+    ];
+
+    const scale = 4.0;
+    const labelWidth = 180;
+    const T0 = 540; // 09:00 WIB
+    const laneHeight = 160;
+    const laneTop = 40;
+
+    const layout = computeLaneSessionLayouts(testSessions as any, 0, laneTop, laneHeight, labelWidth, T0, scale);
+
+    const s1Layout = layout.get("s1")!;
+    const s2Layout = layout.get("s2")!;
+    const s3Layout = layout.get("s3")!;
+    const s4Layout = layout.get("s4")!;
+
+    expect(s1Layout).toBeDefined();
+    expect(s2Layout).toBeDefined();
+    expect(s3Layout).toBeDefined();
+    expect(s4Layout).toBeDefined();
+
+    // All 3 welcoming speeches are assigned distinct tiers (subrows 1, 2, 3)
+    expect(s1Layout.tier).toBe(1);
+    expect(s2Layout.tier).toBe(2);
+    expect(s3Layout.tier).toBe(3);
+
+    // Each subrow card spans the entire 25 minutes (09:00 to 09:25) = 25 * 4 - 4 = 96px
+    expect(s1Layout.blockWidth).toBe(96);
+    expect(s2Layout.blockWidth).toBe(96);
+    expect(s3Layout.blockWidth).toBe(96);
+
+    // Subrows are stacked vertically with zero vertical overlap
+    expect(s1Layout.blockTop).toBeLessThan(s2Layout.blockTop);
+    expect(s2Layout.blockTop).toBeLessThan(s3Layout.blockTop);
+    expect(s1Layout.blockTop + s1Layout.blockHeight).toBeLessThanOrEqual(s2Layout.blockTop);
+
+    // Zero collision with s4 (which starts at 09:25)
+    // 09:00 is at x = 180 + (540 - 540) * 4 + 2 = 182px
+    // s1 extends to 182 + 96 = 278px
+    // s4 is at x = 180 + (565 - 540) * 4 + 2 = 180 + 100 + 2 = 282px
+    expect(s1Layout.blockLeft + s1Layout.blockWidth).toBeLessThanOrEqual(s4Layout.blockLeft);
+  });
 });

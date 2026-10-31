@@ -34,7 +34,12 @@ import {
   type LaneDefinition,
   type ActiveTipState,
 } from "./schedule-types";
-import { getShortSessionMeta } from "@/components/schedule/schedule-stage-helpers";
+import {
+  getShortSessionMeta,
+  getShortSessionDisplayInfo,
+  computeLaneSessionLayouts,
+  type LaneItemLayout,
+} from "@/components/schedule/schedule-stage-helpers";
 
 interface ScheduleBoardViewProps {
   sessions: DisplayScheduleSession[];
@@ -158,7 +163,7 @@ export function ScheduleBoardView({
   const totalCanvasWidth = labelWidth + timelineWidth;
   const viewportHeight = RULER_HEIGHT + visibleLanes.length * LANE_HEIGHT;
 
-  // Precompute layout per session by lane with 2-tier sub-rows for short sessions so they never collide
+  // Precompute layout per session by lane with multi-tier sub-rows for short sessions so they never collide
   const sessionLayoutMap = useMemo(() => {
     const laneGroups = new Map<number, DisplayScheduleSession[]>();
     for (const session of filteredSessions) {
@@ -174,108 +179,20 @@ export function ScheduleBoardView({
       laneGroups.get(laneIdx)!.push(session);
     }
 
-    const layout = new Map<
-      string,
-      {
-        laneIdx: number;
-        blockLeft: number;
-        blockWidth: number;
-        blockTop: number;
-        blockHeight: number;
-        tier: number;
-        isShort: boolean;
-        durationMin: number;
-        isCompact: boolean;
-        isUltraCompact: boolean;
-      }
-    >();
+    const layout = new Map<string, LaneItemLayout>();
 
     laneGroups.forEach((laneSessions, laneIdx) => {
-      laneSessions.sort((a, b) => {
-        const aStart = parseMinutesOfDay(a.startsAt) ?? 0;
-        const bStart = parseMinutesOfDay(b.startsAt) ?? 0;
-        return aStart - bStart;
-      });
-
       const laneTop = RULER_HEIGHT + laneIdx * LANE_HEIGHT + 12;
-      const halfHeight = Math.floor((BLOCK_HEIGHT - 6) / 2);
-
-      const tieredSessions = laneSessions.map((session) => {
-        const startMin = parseMinutesOfDay(session.startsAt) ?? T0;
-        const endMin = parseMinutesOfDay(session.endsAt) ?? startMin + 30;
-        const durationMin = Math.max(1, endMin - startMin);
-        const isShort = durationMin <= 15;
-        return {
-          session,
-          startMin,
-          endMin,
-          durationMin,
-          isShort,
-          tier: 0,
-        };
-      });
-
-      let lastShortTier = 2;
-      for (let i = 0; i < tieredSessions.length; i++) {
-        const item = tieredSessions[i];
-        if (item.isShort) {
-          item.tier = lastShortTier === 1 ? 2 : 1;
-          lastShortTier = item.tier;
-        } else {
-          item.tier = 0;
-          lastShortTier = 2; // reset
-        }
-      }
-
-      for (let i = 0; i < tieredSessions.length; i++) {
-        const item = tieredSessions[i];
-        const { session, startMin, durationMin, isShort, tier } = item;
-        const blockLeft = labelWidth + (startMin - T0) * scale + 2;
-        const naturalWidth = Math.max(10, durationMin * scale - 4);
-
-        let nextLimitMin: number | null = null;
-        for (let j = i + 1; j < tieredSessions.length; j++) {
-          const candidate = tieredSessions[j];
-          if (tier === 0 || candidate.tier === 0 || candidate.tier === tier) {
-            nextLimitMin = candidate.startMin;
-            break;
-          }
-        }
-
-        const maxAvailableWidth =
-          nextLimitMin !== null && nextLimitMin > startMin
-            ? (nextLimitMin - startMin) * scale - 4
-            : Math.max(naturalWidth, 15 * scale - 4);
-
-        const blockWidth = isShort
-          ? Math.max(16, Math.min(maxAvailableWidth, Math.max(naturalWidth, (durationMin + 5) * scale - 4)))
-          : Math.max(16, Math.min(naturalWidth, maxAvailableWidth));
-
-        const blockTop =
-          tier === 0
-            ? laneTop
-            : tier === 1
-            ? laneTop
-            : laneTop + halfHeight + 6;
-
-        const blockHeight = tier === 0 ? BLOCK_HEIGHT : halfHeight;
-
-        const isCompact = blockWidth < 80;
-        const isUltraCompact = blockWidth < 28;
-
-        layout.set(session.id, {
-          laneIdx,
-          blockLeft,
-          blockWidth,
-          blockTop,
-          blockHeight,
-          tier,
-          isShort,
-          durationMin,
-          isCompact,
-          isUltraCompact,
-        });
-      }
+      const laneLayout = computeLaneSessionLayouts(
+        laneSessions,
+        laneIdx,
+        laneTop,
+        BLOCK_HEIGHT,
+        labelWidth,
+        T0,
+        scale
+      );
+      laneLayout.forEach((val, key) => layout.set(key, val));
     });
 
     return layout;
@@ -597,7 +514,7 @@ export function ScheduleBoardView({
               const isActive = activeTip?.session.id === session.id;
 
               if (isShort) {
-                const shortMeta = getShortSessionMeta(session.title);
+                const { displayInfo } = layout;
                 return (
                   <button
                     key={session.id}
@@ -609,11 +526,11 @@ export function ScheduleBoardView({
                     onMouseEnter={(e) => showBlockTip(session, e.currentTarget, laneIdx, false)}
                     onMouseLeave={() => hideBlockTip(false)}
                     className={cn(
-                      "schedule-blk absolute rounded-xl text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-between border p-1.5",
-                      shortMeta.badgeBg,
-                      shortMeta.badgeBorder,
+                      "schedule-blk absolute rounded-xl text-left cursor-pointer transition-all duration-150 overflow-hidden flex flex-col justify-center border px-2.5 py-1.5 shadow-md group",
+                      displayInfo.badgeBg,
+                      displayInfo.badgeBorder,
                       isActive && "ring-2 ring-orange-500 shadow-xl z-20 -translate-y-0.5",
-                      "hover:z-40 hover:scale-[1.02] hover:min-w-[160px] hover:shadow-2xl",
+                      "hover:z-40 hover:border-orange-400/80 hover:shadow-2xl",
                       isSaved &&
                         "after:content-[''] after:absolute after:top-1.5 after:right-1.5 after:w-2 after:h-2 after:rounded-full after:bg-amber-400 after:shadow-[0_0_8px_rgba(251,191,36,0.9)]"
                     )}
@@ -626,17 +543,39 @@ export function ScheduleBoardView({
                     title={`${session.title} (${formatTimeShort(session.startsAt)} – ${formatTimeShort(session.endsAt)} WIB)`}
                     aria-label={`${session.title}, ${formatTimeShort(session.startsAt)} to ${formatTimeShort(session.endsAt)}`}
                   >
-                    <div className="flex items-center gap-1 w-full shrink-0">
-                      <span className="text-[11px] leading-none shrink-0">{shortMeta.icon}</span>
-                      <span className="font-mono text-[9px] font-bold text-orange-400 truncate">
-                        {formatTimeShort(session.startsAt)}
-                      </span>
-                    </div>
-                    <div className="min-w-0 w-full overflow-hidden my-auto">
-                      <b className="block text-[10px] sm:text-[11px] font-bold leading-tight line-clamp-2 text-white">
-                        {session.title}
-                      </b>
-                    </div>
+                    {blockHeight >= 36 ? (
+                      <>
+                        <div className="flex items-center justify-between gap-1 w-full min-w-0 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-xs leading-none">{displayInfo.icon}</span>
+                            <span className="font-mono text-[10px] sm:text-[11px] font-bold text-orange-400 shrink-0">
+                              {formatTimeShort(session.startsAt)}
+                            </span>
+                          </div>
+                          {displayInfo.speakerName && (
+                            <span className="text-slate-300 font-medium text-[9px] sm:text-[10px] truncate text-right max-w-[50%]">
+                              {displayInfo.speakerName}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-0.5 min-w-0 w-full overflow-hidden">
+                          <span className="font-bold text-[10px] sm:text-[11px] text-white group-hover:text-orange-200 transition-colors truncate block leading-tight">
+                            {displayInfo.primaryLabel}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1.5 w-full min-w-0">
+                        <span className="text-xs leading-none shrink-0">{displayInfo.icon}</span>
+                        <span className="font-mono text-[9px] font-bold text-orange-400 shrink-0">
+                          {formatTimeShort(session.startsAt)}
+                        </span>
+                        <span className="font-bold text-[10px] sm:text-[11px] text-white group-hover:text-orange-200 transition-colors truncate min-w-0 flex-1">
+                          {displayInfo.primaryLabel}
+                        </span>
+                      </div>
+                    )}
                   </button>
                 );
               }

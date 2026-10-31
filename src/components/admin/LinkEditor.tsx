@@ -337,7 +337,7 @@ function LinkForm({ initial, onSave, onCancel, saving, serverError }: LinkProps)
           <SelectTrigger id="link-item-icon" className="bg-background">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="z-201">
+          <SelectContent className="z-[250]">
             {ICON_ALLOWLIST.map((name) => (
               <SelectItem key={name} value={name} className="capitalize">
                 {name}

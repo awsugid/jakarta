@@ -73,11 +73,15 @@ export function SponsorFormDialog({
   useEffect(() => {
     if (isOpen) {
       if (sponsor) {
+        const normalizedTier = sponsor.tier
+          ? STANDARD_TIERS.find((t) => t.value.toLowerCase() === sponsor.tier.toLowerCase())?.value ?? sponsor.tier
+          : "gold";
+
         setFormData({
           name: sponsor.name,
           logoUrl: sponsor.logoUrl,
           websiteUrl: sponsor.websiteUrl ?? "",
-          tier: sponsor.tier,
+          tier: normalizedTier,
           priceIdr: String(sponsor.priceIdr || 0),
           description: sponsor.description ?? "",
           isActive: sponsor.isActive,
@@ -140,6 +144,9 @@ export function SponsorFormDialog({
 
   const parsedPrice = Number(formData.priceIdr);
   const displayError = localError || error;
+  const isCustomTier =
+    Boolean(formData.tier) &&
+    !STANDARD_TIERS.some((t) => t.value.toLowerCase() === formData.tier.toLowerCase());
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -282,12 +289,17 @@ export function SponsorFormDialog({
                 <SelectTrigger id="sponsor-form-tier" className="text-xs">
                   <SelectValue placeholder="Select tier" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[250]">
                   {STANDARD_TIERS.map((t) => (
                     <SelectItem key={t.value} value={t.value}>
                       {t.label}
                     </SelectItem>
                   ))}
+                  {isCustomTier && (
+                    <SelectItem value={formData.tier}>
+                      {formData.tier.charAt(0).toUpperCase() + formData.tier.slice(1)}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -113,10 +113,10 @@ const TIER_META: Record<
   },
 };
 
-const TIER_ORDER: string[] = [
-  "venue",
-  "diamond",
+export const DEFAULT_TIER_ORDER: string[] = [
   "platinum",
+  "diamond",
+  "venue",
   "gold",
   "silver",
   "bronze",
@@ -125,6 +125,33 @@ const TIER_ORDER: string[] = [
   "supporter",
 ];
 
+export function getSingleGridClass(tier: string): string {
+  switch (tier.toLowerCase()) {
+    case "platinum":
+    case "diamond":
+      return "grid grid-cols-1 max-w-md mx-auto w-full";
+    case "venue":
+    case "gold":
+    case "silver":
+    case "bronze":
+      return "grid grid-cols-1 max-w-sm mx-auto w-full";
+    default:
+      return "grid grid-cols-1 max-w-xs mx-auto w-full";
+  }
+}
+
+export function getTierTitle(tier: string, count: number): string {
+  const meta = TIER_META[tier];
+  if (!meta) {
+    const formatted = tier.charAt(0).toUpperCase() + tier.slice(1);
+    return count === 1 ? `${formatted} Partner` : `${formatted} Partners`;
+  }
+  if (count === 1 && meta.title.endsWith("s")) {
+    return meta.title.slice(0, -1);
+  }
+  return meta.title;
+}
+
 export function SponsorGrid({
   id = "sponsors",
   sponsors = [],
@@ -132,11 +159,11 @@ export function SponsorGrid({
   subtitle = "Supported by organizations empowering the developer community.",
   showBecomeSponsorCta = false,
 }: SponsorGridProps) {
-  const knownTiers = new Set(TIER_ORDER);
+  const knownTiers = new Set(DEFAULT_TIER_ORDER);
   const extraTiers = Array.from(
     new Set((sponsors || []).map((s) => s.tier.toLowerCase()).filter((t) => !knownTiers.has(t)))
   );
-  const allTiers = [...TIER_ORDER, ...extraTiers];
+  const allTiers = [...DEFAULT_TIER_ORDER, ...extraTiers];
 
   const groupedSponsors = allTiers.map((tier) => ({
     tier,
@@ -189,12 +216,12 @@ export function SponsorGrid({
               {/* Clean Tier Title */}
               <div className="text-center">
                 <span className="text-xs font-bold uppercase tracking-wider text-orange-400 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
-                  {meta.title}
+                  {getTierTitle(tier, items.length)}
                 </span>
               </div>
 
               {/* Logos Grid */}
-              <div className={meta.gridClass}>
+              <div className={items.length === 1 ? getSingleGridClass(tier) : meta.gridClass}>
                 {items.map((sponsor, idx) => {
                   const isLink = Boolean(sponsor.url);
                   const CardElement = isLink ? "a" : "div";

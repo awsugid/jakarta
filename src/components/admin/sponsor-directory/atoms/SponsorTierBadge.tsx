@@ -2,9 +2,9 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export const STANDARD_TIERS = [
-  { value: "venue", label: "Venue Partner", badgeClass: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  { value: "diamond", label: "Diamond Sponsor", badgeClass: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
   { value: "platinum", label: "Platinum Sponsor", badgeClass: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+  { value: "diamond", label: "Diamond Sponsor", badgeClass: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" },
+  { value: "venue", label: "Venue Partner", badgeClass: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
   { value: "gold", label: "Gold Sponsor", badgeClass: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
   { value: "silver", label: "Silver Sponsor", badgeClass: "bg-slate-400/10 text-slate-300 border-slate-400/20" },
   { value: "bronze", label: "Bronze Sponsor", badgeClass: "bg-orange-700/10 text-orange-400 border-orange-700/20" },

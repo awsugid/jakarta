@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import type { EventSponsor } from "@/lib/types";
 import type { Sponsor, SponsorTierType } from "@/components/sponsors/SponsorGrid";
+import { DEFAULT_TIER_ORDER, getSingleGridClass, getTierTitle } from "@/components/sponsors/SponsorGrid";
 
 describe("Sponsor Directory & Gallery Wiring", () => {
   it("maps backend EventSponsor to frontend Sponsor model correctly", () => {
@@ -60,34 +61,24 @@ describe("Sponsor Directory & Gallery Wiring", () => {
     expect(mapped.tier).toBe("diamond");
   });
 
-  it("preserves custom and standard tiers without dropping non-standard tiers", () => {
-    const TIER_ORDER = [
-      "venue",
-      "diamond",
-      "platinum",
-      "gold",
-      "silver",
-      "bronze",
-      "community",
-      "media",
-      "supporter",
-    ];
-
+  it("preserves custom and standard tiers, placing platinum above venue", () => {
     const sponsors: Sponsor[] = [
       { name: "Venue Co", logo: "/venue.png", tier: "venue" },
       { name: "Custom Partner", logo: "/custom.png", tier: "education" },
       { name: "Gold Co", logo: "/gold.png", tier: "gold" },
+      { name: "Platinum Co", logo: "/plat.png", tier: "platinum" },
     ];
 
-    const knownTiers = new Set(TIER_ORDER);
+    const knownTiers = new Set(DEFAULT_TIER_ORDER);
     const extraTiers = Array.from(
       new Set(sponsors.map((s) => s.tier.toLowerCase()).filter((t) => !knownTiers.has(t)))
     );
-    const allTiers = [...TIER_ORDER, ...extraTiers];
+    const allTiers = [...DEFAULT_TIER_ORDER, ...extraTiers];
 
     expect(allTiers).toContain("education");
-    expect(allTiers.indexOf("venue")).toBe(0);
-    expect(allTiers.indexOf("education")).toBe(TIER_ORDER.length);
+    // Platinum must be arranged above venue sponsor
+    expect(allTiers.indexOf("platinum")).toBeLessThan(allTiers.indexOf("venue"));
+    expect(allTiers.indexOf("education")).toBe(DEFAULT_TIER_ORDER.length);
 
     const grouped = allTiers
       .map((tier) => ({
@@ -96,7 +87,24 @@ describe("Sponsor Directory & Gallery Wiring", () => {
       }))
       .filter((g) => g.items.length > 0);
 
-    expect(grouped.length).toBe(3);
+    expect(grouped.length).toBe(4);
     expect(grouped.some((g) => g.tier === "education")).toBe(true);
+
+    const platinumGroupIdx = grouped.findIndex((g) => g.tier === "platinum");
+    const venueGroupIdx = grouped.findIndex((g) => g.tier === "venue");
+    expect(platinumGroupIdx).toBeLessThan(venueGroupIdx);
+  });
+
+  it("centers single sponsor grid and formats singular title when tier has 1 sponsor", () => {
+    // Single sponsor centering classes
+    expect(getSingleGridClass("platinum")).toContain("mx-auto");
+    expect(getSingleGridClass("platinum")).toContain("grid-cols-1");
+    expect(getSingleGridClass("venue")).toContain("mx-auto");
+    expect(getSingleGridClass("gold")).toContain("mx-auto");
+
+    // Single sponsor titles
+    expect(getTierTitle("platinum", 1)).toBe("Platinum Sponsor");
+    expect(getTierTitle("platinum", 2)).toBe("Platinum Sponsors");
+    expect(getTierTitle("venue", 1)).toBe("Venue Partner");
   });
 });

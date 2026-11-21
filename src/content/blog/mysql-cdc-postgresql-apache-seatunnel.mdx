@@ -1,0 +1,420 @@
+---
+title: "MySQL CDC → PostgreSQL dengan Apache SeaTunnel 3.1.0: panduan praktik yang bisa diulang"
+pubDate: 2026-11-21
+description: "Panduan praktis untuk memeriksa hasil snapshot, perubahan baris, perubahan skema, dan pemulihan CDC MySQL ke PostgreSQL."
+author: "Daniel Nadia"
+tags: ["data-engineering", "postgresql", "cdc", "open-source"]
+slug: "mysql-cdc-postgresql-apache-seatunnel"
+---
+
+**Konteks AWS:** Semua hasil dalam panduan ini berasal dari lab Docker lokal, bukan dari Amazon RDS atau Amazon Aurora. Untuk evaluasi di AWS, gunakan tes snapshot, perubahan baris, perubahan skema, dan pemulihan di bawah ini sebagai kriteria penerimaan. Verifikasi konfigurasi binlog, hak akses replikasi, dan penyimpanan checkpoint di lingkungan Anda sebelum menarik kesimpulan.
+
+**Transparansi:** Saya anggota PMC Apache SeaTunnel. Panduan lab ini juga tersedia dalam [versi asli](https://builder.aws.com/content/3MNKVnJOTp5LiB2Lbotbe76UNt5/mysql-cdc-postgresql-with-apache-seatunnel-310-a-reproducible-walkthrough) di AWS Builder Center dalam bahasa Inggris, serta [video demo dengan teks bahasa Inggris](https://danielnadia.substack.com/p/mysql-cdc-to-postgresql-with-apache).
+
+Job replikasi bisa berstatus `RUNNING` meski baris yang Anda cari belum ada di tujuan. Saat mengoperasikan pipeline CDC, periksa hasil yang konkret: apakah data awal sudah masuk? Apakah UPDATE mengubah baris yang sama? Apakah baris yang dihapus ikut hilang di tujuan? Bisakah job memproses perubahan baru setelah dipulihkan dari savepoint?
+
+Panduan ini menjawab pertanyaan tersebut lewat pipeline kecil **MySQL CDC → PostgreSQL** yang mudah diperiksa. Langkah-langkahnya berasal dari pengujian distribusi resmi Apache SeaTunnel **3.1.0**, dengan perintah di sumber dan hasil kueri di tujuan yang dicatat pada setiap tahap. Pengujian mencakup snapshot awal, INSERT, UPDATE, DELETE, penambahan satu kolom, serta penghentian dan pemulihan job secara terkontrol dengan savepoint.
+
+Apache SeaTunnel adalah **alat integrasi data sumber terbuka**. Di sini, konektor MySQL CDC membaca sumber, engine SeaTunnel menjalankan pipeline, dan JDBC sink menulis ke PostgreSQL. Contoh ini tidak menggunakan transformasi perantara, klaster Kafka, atau aplikasi pemindahan data khusus.
+
+Perintahnya menggunakan skrip shell bawaan SeaTunnel, klien MySQL, dan `psql`. Seluruh penyiapan ditulis di sini sehingga Anda tidak perlu menonton video atau mengunduh alat bantu tambahan.
+
+## Lingkungan dan cakupan pengujian
+
+```text
+MySQL 8.0.46                 SeaTunnel 3.1.0                   PostgreSQL 16.6
+integration.customers  →  MySQL-CDC → Zeta → JDBC  →  integration.public.customers
+                          one engine node
+                          parallelism = 1
+```
+
+| Komponen | Versi atau konfigurasi yang diuji |
+| --- | --- |
+| Biner SeaTunnel dan artefak konektor CDC/JDBC | 3.1.0 |
+| Runtime Java | Java 11.0.33 |
+| Image MySQL | `mysql:8.0.46` |
+| Image PostgreSQL | `postgres:16.6-alpine` |
+| Driver JDBC MySQL | 8.4.0 |
+| Driver JDBC PostgreSQL | 42.7.8 |
+| Mode job | `STREAMING`, pengajuan job ke klaster secara asinkron |
+| Tabel sumber | Database MySQL `integration`, tabel `customers` |
+| Tabel tujuan | Database PostgreSQL `integration`, skema `public`, tabel `customers` |
+
+Arsip rilis dicocokkan dengan SHA512 yang diterbitkan Apache, dan JAR starter melaporkan `version=3.1.0`. Pengujian terakhir menyelesaikan 16 langkah verifikasi. Hasilnya menunjukkan ketepatan fungsi untuk skenario ini, bukan tolok ukur throughput, uji ketersediaan tinggi, atau bukti pengiriman exactly-once dari ujung ke ujung. Konfigurasi secara eksplisit menetapkan `exactly_once = false`.
+
+Tag image Java bisa berubah. Periksa versi runtime saat menjalankan panduan ini; gunakan digest image bila infrastruktur harus tetap identik.
+
+## 1. Siapkan lingkungan uji terpisah
+
+Prasyarat resmi untuk menjalankan SeaTunnel 3.1.0 adalah **Java 11 atau 17 dengan `JAVA_HOME` yang sudah disetel**. Docker hanya digunakan untuk isolasi dalam panduan ini, bukan persyaratan SeaTunnel. Tidak diperlukan runtime Python. Lihat [panduan deployment untuk versi ini](https://seatunnel.apache.org/docs/3.1.0/getting-started/locally/deployment/).
+
+Untuk mengikuti jalur Docker, gunakan Bash di macOS atau Linux, Docker engine yang aktif, serta `curl`, `tar`, `unzip`, `shasum`, `sed`, dan `openssl`. Sediakan beberapa gigabita ruang kosong. Java berjalan di dalam container engine, jadi JDK di host tidak diperlukan.
+
+**Gunakan direktori baru dan instans database khusus pengujian.** Perintah akan membuat dan mengubah data uji, termasuk menghapus satu baris dan menjalankan ALTER TABLE. Jangan arahkan konfigurasi ke database produksi. Tidak ada port database yang dibuka ke host.
+
+```bash
+mkdir seatunnel-cdc-lab
+cd seatunnel-cdc-lab
+```
+
+Lab memakai akun root/postgres untuk menyederhanakan penyiapan. Jangan gunakan pola akses ini di produksi.
+
+## 2. Tulis konfigurasi job lengkap
+
+Buat templat berikut. Tanda petik pada heredoc mempertahankan `${table_name}` apa adanya: itu pemetaan nama tabel SeaTunnel, bukan variabel yang harus diekspansi shell.
+
+```bash
+cat > customers.conf.template <<'CONF'
+env {
+  job.mode = "STREAMING"
+  job.name = "customers-cdc"
+  parallelism = 1
+  checkpoint.interval = 10000
+  checkpoint.timeout = 60000
+}
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://st310-tutorial-mysql:3306/integration"
+    username = "root"
+    password = "<MYSQL_PASSWORD>"
+    table-names = ["integration.customers"]
+    server-id = "6530-6533"
+    startup.mode = "initial"
+    schema-changes.enabled = true
+    exactly_once = false
+  }
+}
+sink {
+  jdbc {
+    url = "jdbc:postgresql://st310-tutorial-pg:5432/integration"
+    driver = "org.postgresql.Driver"
+    user = "postgres"
+    password = "<POSTGRES_PASSWORD>"
+    generate_sink_sql = true
+    database = "integration"
+    table = "public.${table_name}"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode = "APPEND_DATA"
+  }
+}
+CONF
+```
+
+Perhatikan beberapa pengaturan berikut:
+
+- `startup.mode = "initial"` membaca isi tabel yang sudah ada, lalu melanjutkan dengan perubahan dari binlog.
+- `integration.customers` dipilih secara eksplisit. Primary key memberi setiap baris identitas yang stabil untuk menguji UPDATE dan DELETE.
+- `server-id = "6530-6533"` adalah rentang ID pembaca CDC untuk lab ini. Rentangnya tidak boleh bertabrakan dengan klien replikasi lain.
+- `schema-changes.enabled = true` mengaktifkan pengujian perubahan skema. Pengujian ini hanya mencakup ADD COLUMN.
+- Nilai checkpoint menggunakan **milidetik**: interval 10.000 dan batas waktu 60.000. Ini pengaturan lab, bukan SLA latensi atau rekomendasi tuning produksi.
+
+Lihat [referensi MySQL CDC 3.1.0](https://seatunnel.apache.org/docs/3.1.0/connectors/source/MySQL-CDC/) untuk prasyarat sumber dan daftar opsi.
+
+Pada sink, `generate_sink_sql = true` membuat perintah tulis berdasarkan skema dari hulu dan jenis operasi baris. `APPEND_DATA` adalah pengaturan mode penyimpanan; pengaturan ini tidak mengubah setiap UPDATE CDC menjadi INSERT tambahan. Kueri di bawah memeriksa perbedaan tersebut. Pemetaan tabel yang digunakan menghasilkan `public.customers`.
+
+Templat mempertahankan kolom konfigurasi `user` pada JDBC sink seperti saat diuji. Field itu bisa memunculkan peringatan bahwa `username` lebih dianjurkan. Baca [referensi JDBC sink 3.1.0](https://seatunnel.apache.org/docs/3.1.0/connectors/sink/Jdbc/) sebelum mengubah konfigurasi yang berfungsi. Pada Zeta, JAR driver harus berada di `lib/` engine di setiap node dan tersedia sebelum proses dinyalakan.
+
+## 3. Jangan taruh kata sandi di baris perintah klien database
+
+Skrip berikut mengunduh rilis dan konektor yang sesuai, memeriksa arsip, membuat kredensial acak, dan menyalakan tiga container terisolasi. Ini skrip bantu lab, bukan installer resmi Apache. Engine tetap dijalankan dengan skrip bawaan `bin/seatunnel-cluster.sh`.
+
+Klien MySQL membaca kata sandi dari berkas opsi privat sehingga kata sandi tidak ditulis di baris perintah SQL. Berkas itu dan konfigurasi SeaTunnel yang siap dijalankan berisi rahasia: jangan tampilkan, commit, atau bagikan. Penyiapan lokal ini bukan sistem manajemen rahasia. Pengguna dengan hak istimewa di Docker atau host dapat memeriksa variabel lingkungan container; skrip juga mengekspansi kredensial saat membuat konfigurasi. Untuk produksi, gunakan mekanisme distribusi rahasia yang terkelola.
+
+Skrip menolak memakai ulang nama container atau jaringan lab yang sudah ada. Bila sumber daya tersebut ditemukan, periksa dulu alih-alih menghapusnya otomatis. Jika lab ini pernah dijalankan di mesin yang sama, pakai lingkungan terpisah atau ubah nama, jaringan, dan hostname pada konfigurasi secara konsisten.
+
+```bash
+cat > setup.sh <<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+for command in docker curl tar shasum openssl unzip sed; do command -v "$command" >/dev/null || { echo "Missing prerequisite: $command" >&2; exit 1; }; done
+for name in st310-tutorial-engine st310-tutorial-mysql st310-tutorial-pg; do
+ if docker container inspect "$name" >/dev/null 2>&1; then echo "Refusing to reuse existing container: $name" >&2; exit 1; fi
+done
+if docker network inspect st310-tutorial-net >/dev/null 2>&1; then echo 'Refusing to reuse existing tutorial network' >&2; exit 1; fi
+if [ -e .env ] || [ -e runtime ]; then echo 'Use a fresh directory; .env/runtime already exists' >&2; exit 1; fi
+if [ -n "${LAB_SUBNET:-}" ]; then
+ docker network create --subnet "$LAB_SUBNET" st310-tutorial-net
+else
+ docker network create st310-tutorial-net
+fi
+umask 077
+mkdir runtime
+BASE=https://downloads.apache.org/seatunnel/3.1.0
+curl -fL --retry 3 "$BASE/apache-seatunnel-3.1.0-bin.tar.gz" -o runtime/apache-seatunnel-3.1.0-bin.tar.gz
+curl -fL --retry 3 "$BASE/apache-seatunnel-3.1.0-bin.tar.gz.sha512" -o runtime/apache-seatunnel-3.1.0-bin.tar.gz.sha512
+(
+ cd runtime
+ shasum -a 512 -c apache-seatunnel-3.1.0-bin.tar.gz.sha512
+ printf '%s  %s\n' \
+  'ca855b7934c375146cdaec9ff0f86e030350210b1391c4fbebea10d472008046b4ca7d05bc4decd5fd2e5f8e57bcde22de79f26ad21bf2d00efbc018c5b613d8' \
+  'apache-seatunnel-3.1.0-bin.tar.gz' | shasum -a 512 -c -
+)
+tar -xzf runtime/apache-seatunnel-3.1.0-bin.tar.gz -C runtime
+ST="$PWD/runtime/apache-seatunnel-3.1.0"
+MAVEN=https://repo.maven.apache.org/maven2
+for artifact in connector-cdc-mysql connector-jdbc; do
+ curl -fL --retry 3 "$MAVEN/org/apache/seatunnel/$artifact/3.1.0/$artifact-3.1.0.jar" -o "$ST/connectors/$artifact-3.1.0.jar"
+done
+curl -fL --retry 3 "$MAVEN/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar" -o "$ST/lib/mysql-connector-j-8.4.0.jar"
+curl -fL --retry 3 "$MAVEN/org/postgresql/postgresql/42.7.8/postgresql-42.7.8.jar" -o "$ST/lib/postgresql-42.7.8.jar"
+export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 24)"
+export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+printf 'MYSQL_ROOT_PASSWORD=%s\nPOSTGRES_PASSWORD=%s\n' "$MYSQL_ROOT_PASSWORD" "$POSTGRES_PASSWORD" > .env
+# Passwords are random hexadecimal strings, so they contain no sed/HOCON metacharacters.
+sed -e "s/<MYSQL_PASSWORD>/$MYSQL_ROOT_PASSWORD/g" \
+    -e "s/<POSTGRES_PASSWORD>/$POSTGRES_PASSWORD/g" \
+    customers.conf.template > runtime/customers.conf
+chmod 600 runtime/customers.conf
+# Private native MySQL client option file. Never print or distribute it.
+printf '[client]\nuser=root\npassword=%s\n' "$MYSQL_ROOT_PASSWORD" > runtime/mysql-client.cnf
+chmod 600 runtime/mysql-client.cnf
+docker run -d --name st310-tutorial-mysql --network st310-tutorial-net \
+ -v "$PWD/runtime/mysql-client.cnf:/tmp/tutorial-client.cnf:ro" \
+ -e MYSQL_ROOT_PASSWORD -e MYSQL_DATABASE=integration mysql:8.0.46 \
+ --server-id=3101 --log-bin=mysql-bin --binlog-format=ROW --binlog-row-image=FULL \
+ --gtid-mode=ON --enforce-gtid-consistency=ON
+docker run -d --name st310-tutorial-pg --network st310-tutorial-net \
+ -e POSTGRES_PASSWORD -e POSTGRES_DB=integration postgres:16.6-alpine
+docker run -d --name st310-tutorial-engine --network st310-tutorial-net \
+ -v "$ST:/opt/seatunnel" -v "$PWD/runtime/customers.conf:/opt/seatunnel/config/customers.conf:ro" \
+ -w /opt/seatunnel eclipse-temurin:11-jdk bash bin/seatunnel-cluster.sh
+printf '\nContainers started. Continue with section 4 of this walkthrough after the databases are ready.\n'
+BASH
+bash setup.sh
+```
+
+
+Pertahankan pemeriksaan checksum. Jika rilis tidak lagi ada di mirror unduhan, gunakan lokasi yang sesuai di `https://archive.apache.org/dist/seatunnel/3.1.0/` dan tetap verifikasi arsipnya. Bila unduhan gagal atau checksum berbeda, hentikan proses.
+
+Jika pool alamat bawaan Docker habis, periksa jaringan yang ada dan rute host. Pilih CIDR privat yang belum dipakai, lalu gunakan `LAB_SUBNET=YOUR_UNUSED_CIDR bash setup.sh` pada penyiapan baru. Jangan menjalankan prune global untuk mengosongkan ruang alamat. Jika penyiapan baru selesai sebagian, periksa sumber daya yang sudah dibuat dan lanjutkan dari perintah yang tepat, jangan langsung mengulang seluruh skrip.
+
+Tunggu inisialisasi database selesai sebelum melanjutkan:
+
+```bash
+docker logs --tail 30 st310-tutorial-mysql
+docker exec st310-tutorial-pg pg_isready -U postgres -d integration
+docker logs --tail 30 st310-tutorial-engine
+```
+
+MySQL harus melaporkan siap menerima koneksi; PostgreSQL harus dapat menerima koneksi. Engine yang sudah aktif belum berarti job sudah diajukan.
+
+## 4. Periksa versi dan konfigurasi binlog MySQL
+
+```bash
+docker exec st310-tutorial-engine printenv JAVA_HOME
+docker exec st310-tutorial-engine java -version
+unzip -p runtime/apache-seatunnel-3.1.0/starter/seatunnel-starter.jar   META-INF/maven/org.apache.seatunnel/seatunnel-starter/pom.properties
+
+docker exec st310-tutorial-mysql mysql   --defaults-extra-file=/tmp/tutorial-client.cnf --table integration   -e "SELECT VERSION(); SHOW VARIABLES WHERE Variable_name IN ('log_bin','binlog_format','binlog_row_image','gtid_mode');"
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c 'SHOW server_version;'
+```
+
+Periksa `version=3.1.0` pada metadata JAR. Nilai MySQL yang teramati saat pengujian:
+
+| Variabel | Nilai |
+| ------------------ | ------ |
+| `log_bin`          | `ON`   |
+| `binlog_format`    | `ROW`  |
+| `binlog_row_image` | `FULL` |
+| `gtid_mode`        | `ON`   |
+
+Lab ini sengaja mengaktifkan GTID. GTID tidak otomatis menjadi syarat untuk setiap deployment MySQL 8. Untuk database yang sudah ada, baca [panduan penyiapan sesuai versi konektor](https://seatunnel.apache.org/docs/3.1.0/connectors/source/MySQL-CDC/) dan koordinasikan perubahan global dengan administrator. Akun CDC juga memerlukan hak snapshot dan replikasi yang sesuai; penggunaan root di sini hanya untuk menyederhanakan lab.
+
+Perhatikan bahwa `--defaults-extra-file` adalah opsi pertama setelah `mysql`. Tidak ada `sh -c` bersarang atau kata sandi di baris perintah.
+
+## 5. Buat tabel sumber dengan kunci yang stabil
+
+Jalankan sekali pada database `integration` yang baru. Jika muncul pesan bahwa tabel sudah ada, periksa lingkungannya dan jangan langsung menghapus tabel.
+
+```bash
+docker exec -i st310-tutorial-mysql mysql   --defaults-extra-file=/tmp/tutorial-client.cnf --table integration <<'SQL'
+CREATE TABLE customers (
+  id BIGINT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  city VARCHAR(100)
+);
+INSERT INTO customers VALUES
+  (101, 'Alice', 'Seattle'),
+  (102, 'Bob', 'Toronto');
+SELECT * FROM customers ORDER BY id;
+SQL
+```
+
+Baris sumber yang diharapkan:
+
+| id  | name  | city    |
+| --- | ----- | ------- |
+| 101 | Alice | Seattle |
+| 102 | Bob   | Toronto |
+
+Kunci-kunci ini dipakai untuk membedakan pembaruan baris dari INSERT duplikat, sekaligus memeriksa penghapusan. Tabel tujuan tidak dibuat secara manual; sink membuatnya sesuai konfigurasi.
+
+## 6. Ajukan job, lalu periksa snapshot awal
+
+```bash
+docker exec st310-tutorial-engine bash bin/seatunnel.sh   -c config/customers.conf -m cluster --async -n customers-cdc
+```
+
+Salin ID numerik dari respons `Submit job finished` yang benar-benar diterima. Nama job hanyalah label yang mudah dibaca; perintah pengelolaan job menggunakan ID.
+
+```bash
+JOB_ID=REPLACE_WITH_YOUR_NUMERIC_JOB_ID
+
+docker exec st310-tutorial-engine bash bin/seatunnel.sh   -j "$JOB_ID" -m cluster
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c 'SELECT * FROM public.customers ORDER BY id;'
+```
+
+Tunggu sampai PostgreSQL berisi dua baris yang sama dengan MySQL. Jika tabel tujuan belum terlihat, inisialisasi mungkin masih berlangsung. Periksa job dan log engine, lalu ulangi kuerinya. Bila galat terus muncul, lakukan diagnosis, jangan hanya terus melakukan polling.
+
+Ukuran keberhasilannya adalah data di tujuan, bukan sekadar pengajuan job asinkron yang diterima. Biarkan job streaming tetap aktif selama empat pemeriksaan berikutnya.
+
+## 7. Uji INSERT, UPDATE, dan DELETE secara terpisah
+
+Jalankan setiap perubahan sekali dan cek kedua database sebelum pindah langkah. Menjalankan ulang INSERT dengan primary key yang sama akan gagal di sumber; itu bukan uji pemulihan CDC.
+
+### INSERT: tambah satu baris setelah snapshot
+
+```bash
+docker exec st310-tutorial-mysql mysql   --defaults-extra-file=/tmp/tutorial-client.cnf --table integration   -e "INSERT INTO customers VALUES (103, 'Carol', 'Austin'); SELECT * FROM customers ORDER BY id;"
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c 'SELECT * FROM public.customers ORDER BY id;'
+```
+
+Tujuan sekarang harus memuat Alice, Bob, dan Carol. Job yang sama tetap aktif, sehingga langkah ini memverifikasi perubahan yang terjadi setelah snapshot awal.
+
+### UPDATE: ubah nilai tanpa mengganti kunci
+
+```bash
+docker exec st310-tutorial-mysql mysql   --defaults-extra-file=/tmp/tutorial-client.cnf --table integration   -e "UPDATE customers SET city='Vancouver' WHERE id=102; SELECT * FROM customers ORDER BY id;"
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c 'SELECT * FROM public.customers ORDER BY id;'
+```
+
+Harus ada tepat satu baris ID 102, dengan kota Vancouver. Kunci Bob yang sudah ada harus membawa nilai baru, bukan menghasilkan baris pelanggan kedua.
+
+### DELETE: hapus satu baris uji
+
+```bash
+docker exec st310-tutorial-mysql mysql   --defaults-extra-file=/tmp/tutorial-client.cnf --table integration   -e 'DELETE FROM customers WHERE id=101; SELECT * FROM customers ORDER BY id;'
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c 'SELECT * FROM public.customers ORDER BY id;'
+```
+
+Alice harus hilang dari kedua hasil kueri. Bob dan Carol tetap ada. Pada mesin yang lebih lambat, tunggu sebentar lalu kueri ulang tujuan. Jangan menyimpulkan latensinya nol dari video yang sudah disunting.
+
+## 8. Uji satu perubahan skema secara eksplisit
+
+Tambahkan `email`, lalu perbarui nilai milik Carol:
+
+```bash
+docker exec -i st310-tutorial-mysql mysql   --defaults-extra-file=/tmp/tutorial-client.cnf --table integration <<'SQL'
+ALTER TABLE customers ADD email VARCHAR(255);
+UPDATE customers SET email='carol@example.test' WHERE id=103;
+SELECT * FROM customers ORDER BY id;
+SQL
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c 'SELECT * FROM public.customers ORDER BY id;'
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='customers' ORDER BY ordinal_position;"
+```
+
+Verifikasi struktur sekaligus data di tujuan: kolom `email` ada, Carol memiliki `carol@example.test`, dan nilai Bob adalah NULL. Secara bawaan, `psql` menampilkan NULL sebagai sel kosong; tampilan kosong tidak membuktikan bahwa string kosong ditulis.
+
+Hasil ini hanya membuktikan ADD COLUMN yang diuji. Penggantian nama atau penghapusan kolom, konversi tipe, nilai default yang tidak kompatibel, atau kombinasi source/sink yang berbeda perlu divalidasi sendiri. Satu pengujian DDL yang berhasil bukan jaminan untuk semua evolusi skema.
+
+## 9. Hentikan dengan savepoint dan pulihkan menggunakan ID job
+
+Pastikan data tujuan sudah sesuai dengan sumber, lalu minta savepoint:
+
+```bash
+docker exec st310-tutorial-engine bash bin/seatunnel.sh   -s "$JOB_ID" -m cluster
+
+docker exec st310-tutorial-engine bash bin/seatunnel.sh   -j "$JOB_ID" -m cluster
+```
+
+Pada pengujian ini, permintaan savepoint selesai dan job berhenti. Periksa hasil perintah dan status job sebelum memulihkan. Jangan ubah container engine maupun berkas checkpoint-nya.
+
+Lab memakai lokasi penyimpanan checkpoint berbasis berkas di dalam container engine, `/tmp/seatunnel/checkpoint_snapshot`. Menghapus container akan membuang state lokal tersebut. Skenario ini menguji penghentian dan kelanjutan job secara terkontrol, bukan pemulihan setelah kehilangan host engine atau media penyimpanannya.
+
+Pulihkan dengan konfigurasi yang sama:
+
+```bash
+docker exec st310-tutorial-engine bash bin/seatunnel.sh   -c config/customers.conf -r "$JOB_ID" -m cluster --async   -n customers-cdc-restored
+```
+
+Di sini, `-r` menerima **ID numerik job sebelumnya**, bukan path berkas checkpoint. Pengujian mempertahankan ID yang sama. Baca respons pengajuan dan kueri ID yang dikembalikan; jangan berasumsi ID baru pasti dibuat.
+
+Respons pemulihan baru pemeriksaan antara. Setelah job yang dipulihkan berstatus aktif, tulis satu baris baru:
+
+```bash
+docker exec st310-tutorial-engine bash bin/seatunnel.sh   -j "$JOB_ID" -m cluster
+
+docker exec st310-tutorial-mysql mysql   --defaults-extra-file=/tmp/tutorial-client.cnf --table integration   -e "INSERT INTO customers VALUES (104, 'Dana', 'Boston', 'dana@example.test'); SELECT * FROM customers ORDER BY id;"
+
+docker exec st310-tutorial-pg psql -U postgres -d integration   -c 'SELECT * FROM public.customers ORDER BY id;'
+```
+
+Hasil akhir PostgreSQL pada pengujian:
+
+| id  | name  | city      | email                |
+| --- | ----- | --------- | -------------------- |
+| 102 | Bob   | Vancouver | NULL                 |
+| 103 | Carol | Austin    | `carol@example.test` |
+| 104 | Dana  | Boston    | `dana@example.test`  |
+
+Status job adalah `RUNNING` dan `errorMessage` bernilai null. Status tersebut, bersama masuknya baris baru Dana ke tujuan, menunjukkan bahwa pipeline kembali memproses data. Alice tetap terhapus dan hasil UPDATE serta perubahan skema sebelumnya tetap terlihat.
+
+## Diagnosis berdasarkan langkah yang gagal
+
+| Gejala | Pemeriksaan pertama |
+| --- | --- |
+| Engine tidak bisa menyala | Periksa Java/JAVA_HOME, mount direktori rilis, dan `docker logs st310-tutorial-engine`. Skrip startup yang hilang menandakan masalah penyiapan atau sistem berkas, bukan galat konektor. |
+| Koneksi MySQL ditolak | Tunggu inisialisasi; periksa container database dan jaringan yang dipakai bersama. Nama host internal Docker tidak dapat diresolusikan dari proses di luar jaringan tersebut. |
+| Akses MySQL ditolak | Periksa pemasangan berkas opsi privat, lalu kredensial sumber pada konfigurasi job. Di lab ini, MySQL CLI dan konfigurasi sumber sama-sama menggunakan kata sandi yang dibuat melalui `MYSQL_ROOT_PASSWORD`; periksa masing-masing konfigurasi. Jangan memublikasikan kata sandi saat diagnosis. |
+| Kelas driver tidak ditemukan | Pastikan JAR driver JDBC yang sesuai ada di `lib/` runtime Zeta sebelum startup. Setelah memperbaiki classpath, nyalakan ulang hanya engine yang terdampak. |
+| Pengajuan diterima tetapi baris tidak tiba | Periksa status job, galat engine, tabel sumber yang dipilih, pengaturan binlog, hak akses sumber, dan hak akses tujuan. |
+| UPDATE atau DELETE tidak menghasilkan keadaan yang diharapkan | Periksa identitas baris yang stabil, skema sumber dan tujuan, mode tulis JDBC, dan baris aktual pada kedua sisi. |
+| ADD COLUMN belum terlihat di tujuan | Periksa pengaturan perubahan skema di sumber, izin ALTER di tujuan, dan galat DDL itu sendiri. Pahami kegagalannya sebelum mencoba mutasi lain. |
+| Pemulihan tidak menemukan state yang dapat dipakai | Verifikasi ID job sebelumnya dan pastikan penyimpanan checkpoint masih ada dan dapat dijangkau. Jangan hapus container engine saat menguji pemulihan berbasis state lokal. |
+| Nama, jaringan, atau direktori sudah ada | Periksa lab sebelumnya. Skrip sengaja menolak menimpa sumber daya. Jangan hapus sumber daya Docker yang tidak terkait. |
+
+
+Interval checkpoint 10 detik bukan berarti latensi replikasi 10 detik. Ukur waktu commit di sumber, kemajuan posisi baca sumber, waktu pemrosesan pipeline, dan waktu baris terlihat di tujuan secara terpisah.
+
+## Sebelum menggunakan pola ini di produksi
+
+Jadikan panduan ini sebagai daftar pemeriksaan fungsi, lalu perluas sesuai lingkungan yang benar-benar Anda jalankan:
+
+1. **Izin akses dan rahasia.** Ganti root/postgres dengan akun terpisah yang berhak akses minimum. Verifikasi hak akses snapshot dan binlog, DML di tujuan, serta DDL yang diperlukan. Gunakan TLS dan prosedur rotasi kredensial.
+2. **Ketahanan state dan retensi.** Pilih penyimpanan checkpoint yang bertahan terhadap kegagalan yang ingin Anda tangani. Sesuaikan masa retensi binlog MySQL dengan perkiraan jendela gangguan dan pemulihan terpanjang.
+3. **Semantik pengiriman.** Tetapkan cara menangani retry, peristiwa duplikat, posisi sumber, dan commit pada sink. Konfigurasi ini tidak membuktikan exactly-once dari ujung ke ujung; checkpoint saja tidak cukup.
+4. **Cakupan skema dan tipe.** Uji DDL dan tipe data yang benar-benar dipakai, termasuk presisi, timestamp dan zona waktu, NULL, dan perubahan kunci. Skema dalam panduan ini sengaja kecil.
+5. **Cakupan kegagalan.** Uji proses yang terhenti mendadak, gangguan jaringan, restart database, kegagalan checkpoint, dan pemulihan dari state yang persisten. Satu node dengan pemulihan savepoint terkontrol tidak membuktikan ketersediaan tinggi.
+6. **Kapasitas dan observabilitas.** Ukur beban snapshot, lag inkremental, throughput sumber dan tujuan, durasi dan kegagalan checkpoint, penggunaan sumber daya, dan kebenaran data tujuan pada lalu lintas yang realistis. Tingkatkan paralelisme berdasarkan hasil pengukuran, bukan berdasarkan nilai satu di lab ini.
+
+Untuk deployment tanpa Docker, pasang Java 11 atau 17, gunakan paket resmi dan susunan konektor/driver yang sama, lalu ganti nama DNS Docker dengan alamat yang bisa dijangkau engine. Jalankan `bash bin/seatunnel-cluster.sh`, kemudian gunakan perintah job `bin/seatunnel.sh` yang sama dari terminal kedua. Rancangan integrasinya tidak bergantung pada container.
+
+## Hentikan lab tanpa menghapus hasil
+
+Setelah pemeriksaan terakhir, hentikan hanya tiga container yang dibuat untuk lab ini:
+
+```bash
+docker stop st310-tutorial-engine st310-tutorial-mysql st310-tutorial-pg
+```
+
+Langkah ini menghentikan proses tanpa menghapus container. Simpan direktori kerja, volume database, dan state checkpoint jika hendak memeriksa atau melanjutkan eksperimen. Menghapus container, volume, atau direktori kerja adalah tindakan terpisah yang destruktif; tidak perlu menjalankan pembersihan global.
+
+## Kesimpulan
+
+Nilai praktis lab ini ada pada pola verifikasi yang bisa diulang: ubah satu hal di MySQL, periksa PostgreSQL, dan nyatakan hasil yang diharapkan. Gunakan pola itu untuk snapshot awal, setiap jenis mutasi, perubahan skema yang Anda andalkan, dan satu perubahan baru setelah pemulihan.
+
+Dengan konfigurasi SeaTunnel 3.1.0 ini, hasil akhirnya konkret: data Bob diperbarui, Alice terhapus, kolom baru Carol terisi, dan Dana tiba setelah pemulihan savepoint. Itulah dasar untuk menyusun pengujian produksi yang lebih ketat.
+
+### Referensi versi 3.1.0
+
+- [Deployment Apache SeaTunnel 3.1.0](https://seatunnel.apache.org/docs/3.1.0/getting-started/locally/deployment/)
+- [MySQL CDC source pada Apache SeaTunnel 3.1.0](https://seatunnel.apache.org/docs/3.1.0/connectors/source/MySQL-CDC/)
+- [JDBC sink pada Apache SeaTunnel 3.1.0](https://seatunnel.apache.org/docs/3.1.0/connectors/sink/Jdbc/)
